@@ -1,0 +1,76 @@
+import React from "react";
+import { Text as RNText, TextProps as RNTextProps, StyleSheet } from "react-native";
+import { colors, fonts } from "./tokens";
+
+/**
+ * Variant-based text so screens never hardcode fontFamily/fontSize inline.
+ * Mirrors styles.css's type scale (h1..h6, body) plus two prototype-specific
+ * roles: `kicker` (the small uppercase accent labels above section headers,
+ * e.g. "Takings today") and `tabular` (money/figures that must line up like
+ * a ledger — sets fontVariant tabular-nums per the design system's rule that
+ * every number is tabular).
+ */
+export type TextVariant = "h1" | "h2" | "h3" | "body" | "caption" | "kicker" | "tabular";
+
+export interface ThemedTextProps extends RNTextProps {
+  variant?: TextVariant;
+  color?: string;
+}
+
+const variantStyles = StyleSheet.create({
+  h1: {
+    fontFamily: fonts.heading,
+    fontWeight: "400",
+    fontSize: 42,
+    lineHeight: 46,
+    letterSpacing: -0.4,
+    color: colors.text,
+  },
+  h2: {
+    fontFamily: fonts.heading,
+    fontWeight: "500",
+    fontSize: 27,
+    lineHeight: 31,
+    color: colors.text,
+  },
+  h3: {
+    fontFamily: fonts.heading,
+    fontWeight: "600",
+    fontSize: 20,
+    lineHeight: 24,
+    color: colors.text,
+  },
+  body: {
+    fontFamily: fonts.body,
+    fontWeight: "400",
+    fontSize: 15,
+    lineHeight: 23,
+    color: colors.text,
+  },
+  caption: {
+    fontFamily: fonts.body,
+    fontWeight: "400",
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.neutral700,
+  },
+  kicker: {
+    fontFamily: fonts.heading,
+    fontWeight: "600",
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    color: colors.accent700,
+  },
+  tabular: {
+    fontFamily: fonts.heading,
+    fontWeight: "400",
+    fontSize: 17,
+    color: colors.text,
+    fontVariant: ["tabular-nums"],
+  },
+});
+
+export function Text({ variant = "body", color, style, ...rest }: ThemedTextProps) {
+  return <RNText style={[variantStyles[variant], color ? { color } : null, style]} {...rest} />;
+}

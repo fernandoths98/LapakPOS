@@ -1,0 +1,19 @@
+{
+  "name": "lapak",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "backend",
+    "shared"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "backend:dev": "npm run dev --workspace backend",
+    "backend:build": "npm run build --workspace backend",
+    "shared:build": "npm run build --workspace shared",
+    "mobile:android": "npm run android --workspace mobile",
+    "mobile:start": "npm run start --workspace mobile"
+  }
+}

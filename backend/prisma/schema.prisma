@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  owner
+  cashier
+}
+
+enum ShiftStatus {
+  open
+  closed
+}
+
+enum TenderType {
+  cash
+  qris
+  debit
+  split
+}
+
+enum SaleStatus {
+  completed
+  voided
+}
+
+enum ExpenseSource {
+  manual
+  ai_photo
+}
+
+enum PpobCategory {
+  electricity
+  mobile
+  water
+  health_insurance
+  ewallet
+  internet_tv
+}
+
+enum PpobTransactionStatus {
+  pending
+  success
+  failed
+}
+
+enum RecapKind {
+  daily_story
+  ask_context
+}
+
+enum ChatRole {
+  user
+  assistant
+}
+
+model Merchant {
+  id                 String   @id @default(uuid())
+  name               String
+  address            String?
+  phone              String?
+  defaultPrinterName String?
+  createdAt          DateTime @default(now())
+
+  users             User[]
+  categories        Category[]
+  products          Product[]
+  shifts            Shift[]
+  sales             Sale[]
+  expenses          Expense[]
+  ppobBillers       PpobBiller[]
+  ppobTransactions  PpobTransaction[]
+  commissionLedger  PpobCommissionLedgerEntry[]
+  aiRecapCache      AiRecapCache[]
+  aiChatMessages    AiChatMessage[]
+
+  @@map("merchants")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  merchantId   String   @map("merchant_id")
+  merchant     Merchant @relation(fields: [merchantId], references: [id])
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole
+  createdAt    DateTime @default(now())
+
+  shifts         Shift[]
+  aiChatMessages AiChatMessage[]
+
+  @@map("users")
+}
+
+model Category {
+  id         String   @id @default(uuid())
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  name       String
+  sortOrder  Int      @default(0) @map("sort_order")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                String   @id @default(uuid())
+  merchantId        String   @map("merchant_id")
+  merchant          Merchant @relation(fields: [merchantId], references: [id])
+  categoryId        String?  @map("category_id")
+  category          Category? @relation(fields: [categoryId], references: [id])
+  name              String
+  barcode           String?
+  sellPrice         Int      @map("sell_price")
+  costPrice         Int      @map("cost_price")
+  stockQty          Int      @map("stock_qty")
+  lowStockThreshold Int      @default(8) @map("low_stock_threshold")
+  imageUrl          String?  @map("image_url")
+  deletedAt         DateTime? @map("deleted_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  costHistory   ProductCostHistory[]
+  saleLineItems SaleLineItem[]
+
+  @@unique([merchantId, barcode])
+  @@index([merchantId, name])
+  @@map("products")
+}
+
+model ProductCostHistory {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id])
+  oldCost   Int      @map("old_cost")
+  newCost   Int      @map("new_cost")
+  changedAt DateTime @default(now()) @map("changed_at")
+
+  @@map("product_cost_history")
+}
+
+model Shift {
+  id            String      @id @default(uuid())
+  merchantId    String      @map("merchant_id")
+  merchant      Merchant    @relation(fields: [merchantId], references: [id])
+  userId        String      @map("user_id")
+  user          User        @relation(fields: [userId], references: [id])
+  openedAt      DateTime    @default(now()) @map("opened_at")
+  closedAt      DateTime?   @map("closed_at")
+  openingFloat  Int         @map("opening_float")
+  countedCash   Int?        @map("counted_cash")
+  expectedCash  Int?        @map("expected_cash")
+  status        ShiftStatus @default(open)
+
+  sales            Sale[]
+  expenses         Expense[]
+  ppobTransactions PpobTransaction[]
+
+  @@index([merchantId, status])
+  @@map("shifts")
+}
+
+model Sale {
+  id             String     @id @default(uuid())
+  merchantId     String     @map("merchant_id")
+  merchant       Merchant   @relation(fields: [merchantId], references: [id])
+  shiftId        String     @map("shift_id")
+  shift          Shift      @relation(fields: [shiftId], references: [id])
+  orderNo        String     @map("order_no")
+  clientId       String     @unique @map("client_id")
+  tenderType     TenderType @map("tender_type")
+  cashAmount     Int        @map("cash_amount")
+  qrisAmount     Int        @map("qris_amount")
+  subtotal       Int
+  discount       Int        @default(0)
+  total          Int
+  status         SaleStatus @default(completed)
+  createdOffline Boolean    @default(false) @map("created_offline")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  syncedAt       DateTime?  @map("synced_at")
+
+  lineItems SaleLineItem[]
+
+  @@index([merchantId, createdAt])
+  @@map("sales")
+}
+
+model SaleLineItem {
+  id                  String  @id @default(uuid())
+  saleId              String  @map("sale_id")
+  sale                Sale    @relation(fields: [saleId], references: [id])
+  productId           String  @map("product_id")
+  product             Product @relation(fields: [productId], references: [id])
+  productNameSnapshot String  @map("product_name_snapshot")
+  unitPriceSnapshot   Int     @map("unit_price_snapshot")
+  qty                 Int
+  lineTotal           Int     @map("line_total")
+
+  @@index([saleId])
+  @@map("sale_line_items")
+}
+
+model Expense {
+  id         String        @id @default(uuid())
+  merchantId String        @map("merchant_id")
+  merchant   Merchant      @relation(fields: [merchantId], references: [id])
+  shiftId    String?       @map("shift_id")
+  shift      Shift?        @relation(fields: [shiftId], references: [id])
+  amount     Int
+  note       String?
+  photoUrl   String?       @map("photo_url")
+  source     ExpenseSource @default(manual)
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@map("expenses")
+}
+
+model PpobBiller {
+  id           String       @id @default(uuid())
+  merchantId   String       @map("merchant_id")
+  merchant     Merchant     @relation(fields: [merchantId], references: [id])
+  code         String
+  name         String
+  sub          String
+  category     PpobCategory
+  marginAmount Int          @map("margin_amount")
+  isActive     Boolean      @default(true) @map("is_active")
+
+  transactions PpobTransaction[]
+
+  @@unique([merchantId, code])
+  @@map("ppob_billers")
+}
+
+model PpobTransaction {
+  id              String                 @id @default(uuid())
+  merchantId      String                 @map("merchant_id")
+  merchant        Merchant               @relation(fields: [merchantId], references: [id])
+  billerId        String                 @map("biller_id")
+  biller          PpobBiller             @relation(fields: [billerId], references: [id])
+  shiftId         String                 @map("shift_id")
+  shift           Shift                  @relation(fields: [shiftId], references: [id])
+  customerNumber  String                 @map("customer_number")
+  customerName    String                 @map("customer_name")
+  billAmount      Int                    @map("bill_amount")
+  adminFee        Int                    @map("admin_fee")
+  marginAmount    Int                    @map("margin_amount")
+  totalCharged    Int                    @map("total_charged")
+  providerRef     String                 @map("provider_ref")
+  status          PpobTransactionStatus  @default(pending)
+  createdAt       DateTime               @default(now()) @map("created_at")
+
+  commissionEntry PpobCommissionLedgerEntry?
+
+  @@index([merchantId, createdAt])
+  @@map("ppob_transactions")
+}
+
+model PpobCommissionLedgerEntry {
+  id                String          @id @default(uuid())
+  merchantId        String          @map("merchant_id")
+  merchant          Merchant        @relation(fields: [merchantId], references: [id])
+  ppobTransactionId String          @unique @map("ppob_transaction_id")
+  ppobTransaction   PpobTransaction @relation(fields: [ppobTransactionId], references: [id])
+  commissionAmount  Int             @map("commission_amount")
+  depositDelta      Int             @map("deposit_delta")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@map("ppob_commission_ledger")
+}
+
+model AiRecapCache {
+  id              String    @id @default(uuid())
+  merchantId      String    @map("merchant_id")
+  merchant        Merchant  @relation(fields: [merchantId], references: [id])
+  recapDate       DateTime  @db.Date @map("recap_date")
+  kind            RecapKind
+  promptInputJson Json      @map("prompt_input_json")
+  responseJson    Json      @map("response_json")
+  model           String
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@unique([merchantId, recapDate, kind])
+  @@map("ai_recap_cache")
+}
+
+model AiChatMessage {
+  id         String   @id @default(uuid())
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  role       ChatRole
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId, userId, createdAt])
+  @@map("ai_chat_messages")
+}
