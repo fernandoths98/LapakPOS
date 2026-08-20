@@ -60,7 +60,7 @@ export function LoginScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text variant="kicker">Lapak</Text>
+        <Text variant="kicker">KOTDEE POS</Text>
         <Text variant="h1" style={styles.title}>
           Welcome back
         </Text>

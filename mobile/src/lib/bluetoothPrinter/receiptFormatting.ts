@@ -82,7 +82,7 @@ export function buildSaleReceiptLines(sale: Sale, tenderLabel: string, merchant:
   lines.push({ text: formatRow("Tender", tenderLabel) });
   lines.push({ text: dashedRule() });
   lines.push({ text: formatRow("TOTAL", formatRupiah(sale.total)), bold: true });
-  lines.push({ text: truncate("Terima kasih . powered by Lapak", RECEIPT_WIDTH), align: "center" });
+  lines.push({ text: truncate("Terima kasih - Kotdee POS", RECEIPT_WIDTH), align: "center" });
   return lines;
 }
 
@@ -119,7 +119,7 @@ export function buildZReportLines(report: ZReportResponse, merchantName: string)
     lines.push({ text: formatRow(label, formatRupiah(Math.abs(discrepancy))) });
   }
   lines.push({ text: dashedRule() });
-  lines.push({ text: truncate("Terima kasih . powered by Lapak", RECEIPT_WIDTH), align: "center" });
+  lines.push({ text: truncate("Terima kasih - Kotdee POS", RECEIPT_WIDTH), align: "center" });
   return lines;
 }
 

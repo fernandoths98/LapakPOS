@@ -142,7 +142,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
           {loadState === "unsupported" ? (
             <View style={styles.emptyState}>
               <Text variant="body" color={colors.neutral700}>
-                {IOS_UNAVAILABLE_MESSAGE} Bluetooth thermal-printer support in Lapak is Android-only for now.
+                {IOS_UNAVAILABLE_MESSAGE} Printer thermal Bluetooth Kotdee POS saat ini tersedia di Android.
               </Text>
               <Button title="Close" variant="secondary" onPress={handleClose} style={styles.emptyStateButton} />
             </View>
@@ -153,7 +153,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
           ) : loadState === "denied" ? (
             <View style={styles.emptyState}>
               <Text variant="body" color={colors.neutral700} style={styles.emptyStateText}>
-                Lapak needs Bluetooth permission to find your printer. Grant it in your phone's Settings, then try again.
+                Kotdee POS memerlukan izin Bluetooth untuk menemukan printer. Aktifkan izinnya di Pengaturan, lalu coba lagi.
               </Text>
               <Button title="Try again" variant="secondary" onPress={loadDevices} style={styles.emptyStateButton} />
             </View>

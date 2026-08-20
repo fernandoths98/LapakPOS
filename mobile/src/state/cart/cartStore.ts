@@ -15,13 +15,15 @@ export interface CartLine {
   productId: string;
   name: string;
   unitPrice: number;
+  /** Snapshot used to prevent a cashier increasing qty past available stock. */
+  stockQty?: number;
   qty: number;
 }
 
 interface CartState {
   lines: Record<string, CartLine>;
   /** Adds one unit, matching the prototype's `add()` (increments if already present). */
-  addItem: (product: Pick<Product, "id" | "name" | "sellPrice">) => void;
+  addItem: (product: Pick<Product, "id" | "name" | "sellPrice"> & { stockQty?: number }) => void;
   /** Adjusts qty by `delta`; the line is removed once qty reaches 0, matching `bump()`. */
   bump: (productId: string, delta: number) => void;
   clear: () => void;
@@ -38,7 +40,13 @@ export const useCartStore = create<CartState>((set) => ({
           ...state.lines,
           [product.id]: existing
             ? { ...existing, qty: existing.qty + 1 }
-            : { productId: product.id, name: product.name, unitPrice: product.sellPrice, qty: 1 },
+            : {
+                productId: product.id,
+                name: product.name,
+                unitPrice: product.sellPrice,
+                ...(product.stockQty !== undefined ? { stockQty: product.stockQty } : {}),
+                qty: 1,
+              },
         },
       };
     }),
@@ -48,6 +56,9 @@ export const useCartStore = create<CartState>((set) => ({
       const existing = state.lines[productId];
       if (!existing) return state;
       const nextQty = existing.qty + delta;
+      if (delta > 0 && existing.stockQty !== undefined && nextQty > existing.stockQty) {
+        return state;
+      }
       if (nextQty <= 0) {
         const rest = { ...state.lines };
         delete rest[productId];

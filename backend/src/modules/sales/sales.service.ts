@@ -118,8 +118,8 @@ export async function createSale(merchantId: string, userId: string, body: Creat
 
     let subtotal = 0;
     const linePlans = body.lineItems.map((li) => {
-      if (li.qty <= 0) {
-        throw badRequest("Line item qty must be positive");
+      if (!Number.isInteger(li.qty) || li.qty <= 0) {
+        throw badRequest("Line item qty must be a positive whole number");
       }
       const product = productMap.get(li.productId);
       if (!product) {
@@ -134,6 +134,9 @@ export async function createSale(merchantId: string, userId: string, body: Creat
     });
 
     const discount = body.discount ?? 0;
+    if (!Number.isInteger(discount) || discount < 0 || discount > subtotal) {
+      throw badRequest("Discount must be a whole amount between 0 and the subtotal");
+    }
     const total = subtotal - discount;
     assertTenderAmountsConsistent(body.tenderType, body.cashAmount, body.qrisAmount, total);
 

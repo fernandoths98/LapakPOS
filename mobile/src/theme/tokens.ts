@@ -1,62 +1,48 @@
-/**
- * Design tokens ported verbatim from
- * project/_ds/classical-e4e4887f-88d8-4081-b074-6e4c8de65617/styles.css
- *
- * Keep every value in lockstep with that file — if the design system's tokens
- * change, update them here too rather than letting screens hardcode overrides.
- */
-
+/** Kotdee POS design tokens: high-contrast, fast to scan, and touch friendly. */
 export const colors = {
-  bg: "#f3f2f2",
-  surface: "#eae9e9",
-  text: "#201f1d",
-  accent: "#b68235",
-  accent2: "#ac803e",
-  // CSS source: color-mix(in srgb, #201f1d 16%, transparent)
-  divider: "rgba(32, 31, 29, 0.16)",
+  bg: "#F4F7FB",
+  surface: "#FFFFFF",
+  text: "#172033",
+  accent: "#E53935",
+  accent2: "#1559C5",
+  success: "#168A52",
+  warning: "#F3A712",
+  divider: "#DDE3EC",
 
-  neutral100: "#f8f4f4",
-  neutral200: "#eae7e7",
-  neutral300: "#d7d3d3",
-  neutral400: "#bab6b6",
-  neutral500: "#9b9797",
-  neutral600: "#7d7979",
-  neutral700: "#605d5d",
-  neutral800: "#444141",
-  neutral900: "#2d2b2b",
+  neutral100: "#F8FAFC",
+  neutral200: "#EEF2F7",
+  neutral300: "#DDE3EC",
+  neutral400: "#B7C0CE",
+  neutral500: "#8792A2",
+  neutral600: "#667085",
+  neutral700: "#475467",
+  neutral800: "#344054",
+  neutral900: "#172033",
 
-  accent100: "#fff3e4",
-  accent200: "#ffe3bf",
-  accent300: "#facb8d",
-  accent400: "#e1ad66",
-  accent500: "#c28d41",
-  accent600: "#a06f24",
-  accent700: "#7d5411",
-  accent800: "#5a3b0a",
-  accent900: "#3a270d",
+  accent100: "#FFF1F0",
+  accent200: "#FFD7D4",
+  accent300: "#FFAAA5",
+  accent400: "#F87570",
+  accent500: "#E53935",
+  accent600: "#C92B27",
+  accent700: "#A92320",
+  accent800: "#821D1A",
+  accent900: "#601714",
 
-  accent2100: "#fff3e4",
-  accent2200: "#ffe3be",
-  accent2300: "#f5cd96",
-  accent2400: "#dbaf70",
-  accent2500: "#bc8f4e",
-  accent2600: "#9b7232",
-  accent2700: "#79561f",
-  accent2800: "#573d14",
-  accent2900: "#382810",
+  accent2100: "#EDF4FF",
+  accent2200: "#D7E6FF",
+  accent2300: "#AFCBFF",
+  accent2400: "#7EAAFA",
+  accent2500: "#4F84E3",
+  accent2600: "#1559C5",
+  accent2700: "#10479F",
+  accent2800: "#103A7D",
+  accent2900: "#102F62",
 } as const;
 
-/**
- * Real Cormorant Garamond / Lora static files live in src/assets/fonts and are
- * declared as the platform font family names below. Until `npx react-native-asset`
- * (or manual Info.plist / Android font asset linking) has been run on a real
- * iOS/Android toolchain — which this sandbox does not have — these family names
- * will not resolve on-device and RN silently falls back to the system font. The
- * files are real, downloaded TTFs; only the native linking step is deferred.
- */
 export const fonts = {
-  heading: "Cormorant Garamond",
-  body: "Lora",
+  heading: "System",
+  body: "System",
 } as const;
 
 /** Heading weight caps at 600/semibold per the design system — never bold. */
@@ -70,18 +56,18 @@ export const fontWeights = {
 };
 
 export const space = {
-  1: 4.6,
-  2: 9.2,
-  3: 13.8,
-  4: 18.4,
-  6: 27.6,
-  8: 36.8,
+  1: 4,
+  2: 8,
+  3: 12,
+  4: 16,
+  6: 24,
+  8: 32,
 } as const;
 
 export const radius = {
-  sm: 2,
-  md: 4,
-  lg: 7,
+  sm: 6,
+  md: 10,
+  lg: 16,
 } as const;
 
 /**

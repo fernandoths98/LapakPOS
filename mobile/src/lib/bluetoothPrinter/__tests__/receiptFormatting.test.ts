@@ -182,7 +182,7 @@ describe('receiptFormatting', () => {
         Tender                      Cash
         --------------------------------
         TOTAL                  Rp 24.000
-        Terima kasih . powered by Lapak"
+        Terima kasih - Kotdee POS"
       `);
     });
   });
@@ -254,7 +254,7 @@ describe('receiptFormatting', () => {
         Counted in drawer   Rp 1.245.000
         Short by               Rp 45.000
         --------------------------------
-        Terima kasih . powered by Lapak"
+        Terima kasih - Kotdee POS"
       `);
     });
   });
