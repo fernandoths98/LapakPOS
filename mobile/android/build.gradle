@@ -19,3 +19,20 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// Some third-party native modules (e.g. react-native-bluetooth-classic) reference their
+// own generated BuildConfig class (e.g. BuildConfig.DEBUG) without opting into
+// buildFeatures.buildConfig themselves, assuming AGP's old default of generating it
+// automatically for every module. AGP 8 turned that default off, and AGP 9 (used here)
+// removed the project-wide android.defaults.buildfeatures.buildconfig escape hatch
+// entirely — the only way left to fix this is per-module. Force it on for every Android
+// subproject (:app itself plus every autolinked native library module under
+// node_modules) here instead of patching node_modules directly, which a reinstall
+// would undo anyway.
+subprojects { subproject ->
+    ["com.android.library", "com.android.application"].each { pluginId ->
+        subproject.plugins.withId(pluginId) {
+            subproject.android.buildFeatures.buildConfig = true
+        }
+    }
+}

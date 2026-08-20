@@ -1,18 +1,18 @@
-import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import {
   createBottomTabNavigator,
   BottomTabBarProps,
-} from "@react-navigation/bottom-tabs";
-import { NavigatorScreenParams } from "@react-navigation/native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text } from "../theme/Text";
-import { colors } from "../theme/tokens";
-import { HomeStack, HomeStackParamList } from "./stacks/HomeStack";
-import { SellStack } from "./stacks/SellStack";
-import { BillsStack, BillsStackParamList } from "./stacks/BillsStack";
-import { StockStack, StockStackParamList } from "./stacks/StockStack";
-import { RecapStack, RecapStackParamList } from "./stacks/RecapStack";
+} from '@react-navigation/bottom-tabs';
+import { NavigatorScreenParams } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Text } from '../theme/Text';
+import { colors } from '../theme/tokens';
+import { HomeStack, HomeStackParamList } from './stacks/HomeStack';
+import { SellStack } from './stacks/SellStack';
+import { BillsStack, BillsStackParamList } from './stacks/BillsStack';
+import { StockStack, StockStackParamList } from './stacks/StockStack';
+import { RecapStack, RecapStackParamList } from './stacks/RecapStack';
 
 /**
  * Each tab's param list is typed as `NavigatorScreenParams<...>` (not plain
@@ -32,11 +32,11 @@ export type MainTabsParamList = {
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 const TAB_LABELS: Record<keyof MainTabsParamList, string> = {
-  HomeTab: "Home",
-  SellTab: "Sell",
-  BillsTab: "Bills",
-  StockTab: "Stock",
-  RecapTab: "Recap",
+  HomeTab: 'Home',
+  SellTab: 'Sell',
+  BillsTab: 'Bills',
+  StockTab: 'Stock',
+  RecapTab: 'Recap',
 };
 
 /**
@@ -47,14 +47,17 @@ const TAB_LABELS: Record<keyof MainTabsParamList, string> = {
 function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.tabBar, { paddingBottom: Math.max(10, insets.bottom) }]}>
+    <View
+      style={[styles.tabBar, { paddingBottom: Math.max(10, insets.bottom) }]}
+    >
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
-        const label = TAB_LABELS[route.name as keyof MainTabsParamList] ?? route.name;
+        const label =
+          TAB_LABELS[route.name as keyof MainTabsParamList] ?? route.name;
 
         const onPress = () => {
           const event = navigation.emit({
-            type: "tabPress",
+            type: 'tabPress',
             target: route.key,
             canPreventDefault: true,
           });
@@ -86,9 +89,20 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
+/**
+ * `tabBar` is a render *function* that react-navigation invokes as
+ * `tabBar(props)`, not a component it renders. Passing `TabBar` straight
+ * through would therefore call it like a plain function, running its hooks
+ * (`useSafeAreaInsets`) outside any component render — React throws
+ * "Invalid hook call". Wrapping it in an element gives it a real component
+ * instance of its own; defined at module scope so the callback identity is
+ * stable across renders.
+ */
+const renderTabBar = (props: BottomTabBarProps) => <TabBar {...props} />;
+
 export function MainTabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={TabBar}>
+    <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={renderTabBar}>
       <Tab.Screen name="HomeTab" component={HomeStack} />
       <Tab.Screen name="SellTab" component={SellStack} />
       <Tab.Screen name="BillsTab" component={BillsStack} />
@@ -100,7 +114,7 @@ export function MainTabs() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    flexDirection: "row",
+    flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: colors.text,
     backgroundColor: colors.bg,
@@ -111,8 +125,8 @@ const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
     minHeight: 52,
-    alignItems: "center",
-    justifyContent: "flex-start",
+    alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: 4,
     paddingTop: 7,
     paddingBottom: 4,
@@ -120,7 +134,7 @@ const styles = StyleSheet.create({
   mark: {
     width: 16,
     height: 2,
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
   },
   markActive: {
     backgroundColor: colors.accent,
@@ -128,6 +142,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     letterSpacing: 0.6,
-    textTransform: "none",
+    textTransform: 'none',
   },
 });

@@ -2,6 +2,23 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// The react-native Gradle plugin's built-in defaults for reactNativeDir/codegenDir/cliFile
+// are hardcoded relative paths ("../../node_modules/..."), which assume node_modules lives
+// directly inside mobile/. In this npm-workspaces monorepo those packages are hoisted to the
+// repo root instead, so the defaults don't exist. Resolve them via Node (same fix applied in
+// android/settings.gradle for the plugin itself), which works whether hoisted to the
+// workspace root or nested locally.
+def resolvePackageDir(String requireTarget) {
+  return new File(
+    providers.exec {
+      workingDir(rootDir)
+      commandLine("node", "--print", "require.resolve('${requireTarget}')")
+    }.standardOutput.asText.get().trim()
+  ).getParentFile()
+}
+def resolvedReactNativeDir = resolvePackageDir("react-native/package.json")
+def resolvedCodegenDir = resolvePackageDir("@react-native/codegen/package.json")
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -11,11 +28,11 @@ react {
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
     //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
-    // reactNativeDir = file("../../node_modules/react-native")
+    reactNativeDir = resolvedReactNativeDir
     //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
-    // codegenDir = file("../../node_modules/@react-native/codegen")
+    codegenDir = resolvedCodegenDir
     //   The cli.js file which is the React Native CLI entrypoint. Default is ../../node_modules/react-native/cli.js
-    // cliFile = file("../../node_modules/react-native/cli.js")
+    cliFile = new File(resolvedReactNativeDir, "cli.js")
 
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to

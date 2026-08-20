@@ -1,6 +1,31 @@
-pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+// The default RN CLI template hardcodes "../node_modules/@react-native/gradle-plugin",
+// which assumes node_modules lives directly inside mobile/. In this npm-workspaces
+// monorepo the package is hoisted to the repo root instead, so that relative path
+// doesn't exist. Resolve it the same way Node itself would (walking up parent
+// directories), so this works whether the package ends up hoisted to the workspace
+// root or nested locally in mobile/node_modules.
+//
+// pluginManagement {} must be the very first statement in a settings script, so the
+// resolution logic is inlined here rather than computed in a variable beforehand.
+pluginManagement {
+  includeBuild(
+    new File(
+      providers.exec {
+        workingDir(rootDir)
+        commandLine("node", "--print", "require.resolve('@react-native/gradle-plugin/package.json')")
+      }.standardOutput.asText.get().trim()
+    ).getParentFile().absolutePath
+  )
+}
 plugins { id("com.facebook.react.settings") }
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'com.lapak.mobile'
 include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
+
+def reactNativeGradlePluginDir = new File(
+  providers.exec {
+    workingDir(rootDir)
+    commandLine("node", "--print", "require.resolve('@react-native/gradle-plugin/package.json')")
+  }.standardOutput.asText.get().trim()
+).getParentFile().absolutePath
+includeBuild(reactNativeGradlePluginDir)
