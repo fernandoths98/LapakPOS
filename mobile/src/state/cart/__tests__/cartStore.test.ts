@@ -32,6 +32,13 @@ describe("cartStore", () => {
     expect(useCartStore.getState().lines.a.qty).toBe(1);
   });
 
+  it("does not increase qty beyond the product stock snapshot", () => {
+    const limitedProduct = { ...PRODUCT_A, stockQty: 1 };
+    useCartStore.getState().addItem(limitedProduct);
+    useCartStore.getState().bump("a", 1);
+    expect(useCartStore.getState().lines.a.qty).toBe(1);
+  });
+
   it("removes the line once qty reaches 0, matching the prototype's bump()", () => {
     useCartStore.getState().addItem(PRODUCT_A);
     useCartStore.getState().bump("a", -1);

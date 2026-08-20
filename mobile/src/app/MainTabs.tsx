@@ -32,11 +32,19 @@ export type MainTabsParamList = {
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 const TAB_LABELS: Record<keyof MainTabsParamList, string> = {
-  HomeTab: 'Home',
-  SellTab: 'Sell',
-  BillsTab: 'Bills',
-  StockTab: 'Stock',
-  RecapTab: 'Recap',
+  HomeTab: 'Beranda',
+  SellTab: 'Kasir',
+  BillsTab: 'PPOB',
+  StockTab: 'Stok',
+  RecapTab: 'Laporan',
+};
+
+const TAB_ICONS: Record<keyof MainTabsParamList, string> = {
+  HomeTab: '⌂',
+  SellTab: '▣',
+  BillsTab: '⌁',
+  StockTab: '□',
+  RecapTab: '≡',
 };
 
 /**
@@ -54,6 +62,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
         const isFocused = state.index === index;
         const label =
           TAB_LABELS[route.name as keyof MainTabsParamList] ?? route.name;
+        const icon = TAB_ICONS[route.name as keyof MainTabsParamList] ?? '•';
 
         const onPress = () => {
           const event = navigation.emit({
@@ -74,7 +83,11 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             onPress={onPress}
             style={styles.tabItem}
           >
-            <View style={[styles.mark, isFocused && styles.markActive]} />
+            <View style={[styles.iconWrap, isFocused && styles.iconWrapActive]}>
+              <Text variant="h3" color={isFocused ? colors.surface : colors.neutral600} style={styles.icon}>
+                {icon}
+              </Text>
+            </View>
             <Text
               variant="kicker"
               style={styles.label}
@@ -116,8 +129,8 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: colors.text,
-    backgroundColor: colors.bg,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.surface,
     paddingTop: 6,
     paddingBottom: 10,
     paddingHorizontal: 4,
@@ -126,19 +139,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 52,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 4,
-    paddingTop: 7,
+    justifyContent: 'center',
+    gap: 3,
+    paddingTop: 4,
     paddingBottom: 4,
   },
-  mark: {
-    width: 16,
-    height: 2,
-    backgroundColor: 'transparent',
-  },
-  markActive: {
-    backgroundColor: colors.accent,
-  },
+  iconWrap: { width: 29, height: 25, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  iconWrapActive: { backgroundColor: colors.accent },
+  icon: { fontSize: 17, lineHeight: 20 },
   label: {
     fontSize: 12,
     letterSpacing: 0.6,

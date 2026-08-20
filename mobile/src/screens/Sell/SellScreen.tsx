@@ -1,5 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,8 +17,9 @@ import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
 import { BarcodeScanner } from "../../components/BarcodeScanner";
-import { colors, radius, space } from "../../theme/tokens";
+import { colors, radius, shadow, space } from "../../theme/tokens";
 import { fetchProductByBarcode, useCategories, useProducts } from "../../state/api/products";
+import { useCurrentShift } from "../../state/api/shifts";
 import { cartCount, cartTotal, useCartStore } from "../../state/cart/cartStore";
 import { SellStackParamList } from "../../app/stacks/SellStack";
 
@@ -24,33 +34,48 @@ export function SellScreen() {
 
   const categoriesQuery = useCategories();
   const productsQuery = useProducts({ query, category });
-
-  const lines = useCartStore((s) => s.lines);
-  const addItem = useCartStore((s) => s.addItem);
+  const currentShiftQuery = useCurrentShift();
+  const lines = useCartStore((state) => state.lines);
+  const addItem = useCartStore((state) => state.addItem);
 
   const pills = useMemo(
-    () => [ALL_CATEGORY, ...(categoriesQuery.data?.map((c) => c.name) ?? [])],
+    () => [ALL_CATEGORY, ...(categoriesQuery.data?.map((item) => item.name) ?? [])],
     [categoriesQuery.data],
   );
-
   const total = cartTotal(lines);
   const count = cartCount(lines);
   const hasCart = count > 0;
+  const shift = currentShiftQuery.data?.shift;
 
-  const handleScan = () => setScannerOpen(true);
+  const handleAdd = (product: Product) => {
+    const qtyInCart = lines[product.id]?.qty ?? 0;
+    if (product.stockQty <= qtyInCart) {
+      Alert.alert("Stok tidak cukup", `Stok ${product.name} tersisa ${product.stockQty}.`);
+      return;
+    }
+    addItem(product);
+  };
 
-  const handleScanned = async (code: string) => {
-    setScannerOpen(false);
+  const lookupBarcode = async (rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) return;
     try {
       const product = await fetchProductByBarcode(code);
-      if (product) {
-        addItem(product);
-      } else {
-        Alert.alert("Not found", `No product with barcode ${code}.`);
+      if (!product) {
+        Alert.alert("Produk tidak ditemukan", `Barcode ${code} belum terdaftar.`);
+        return;
       }
+      handleAdd(product);
+      setQuery("");
     } catch {
-      Alert.alert("Lookup failed", "Couldn't look up that barcode. Check your connection and try again.");
+      Alert.alert("Pencarian gagal", "Periksa koneksi lalu coba lagi.");
     }
+  };
+
+  const refresh = () => {
+    productsQuery.refetch();
+    categoriesQuery.refetch();
+    currentShiftQuery.refetch();
   };
 
   return (
@@ -60,22 +85,41 @@ export function SellScreen() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        contentContainerStyle={[styles.listContent, hasCart && { paddingBottom: 96 + insets.bottom }]}
+        contentContainerStyle={[styles.listContent, hasCart && { paddingBottom: 104 + insets.bottom }]}
+        refreshControl={
+          <RefreshControl refreshing={productsQuery.isRefetching} onRefresh={refresh} tintColor={colors.accent} />
+        }
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={styles.titleRow}>
-              <Text variant="h2">Sell</Text>
-              <Button title="Scan" variant="primary" onPress={handleScan} style={styles.scanButton} />
+            <View style={styles.brandRow}>
+              <View>
+                <Text variant="h2">Kotdee POS</Text>
+                <View style={styles.shiftStatus}>
+                  <View style={[styles.statusDot, { backgroundColor: shift ? colors.success : colors.warning }]} />
+                  <Text variant="caption" color={colors.neutral600}>
+                    {shift ? "Kasir aktif" : "Shift belum dibuka"}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.registerBadge}>
+                <Text variant="kicker" color={colors.accent2}>KASIR 01</Text>
+              </View>
             </View>
 
-            <TextField
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search or type a barcode"
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.search}
-            />
+            <View style={styles.searchRow}>
+              <View style={styles.searchField}>
+                <TextField
+                  value={query}
+                  onChangeText={setQuery}
+                  onSubmitEditing={() => lookupBarcode(query)}
+                  placeholder="Cari nama / masukkan barcode"
+                  returnKeyType="search"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+              <Button title="Scan" onPress={() => setScannerOpen(true)} style={styles.scanButton} />
+            </View>
 
             <FlatList
               data={pills}
@@ -84,34 +128,57 @@ export function SellScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.pillRow}
               renderItem={({ item }) => (
-                <CategoryPill label={item} active={item === category} onPress={() => setCategory(item)} />
+                <CategoryPill
+                  label={item === ALL_CATEGORY ? "Semua" : item}
+                  active={item === category}
+                  onPress={() => setCategory(item)}
+                />
               )}
             />
 
+            <View style={styles.catalogHeading}>
+              <Text variant="h3">Daftar produk</Text>
+              <Text variant="caption">Ketuk produk untuk menambah</Text>
+            </View>
             {productsQuery.isLoading ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : null}
             {productsQuery.isError ? (
-              <Text variant="caption" color={colors.accent700} style={styles.loading}>
-                Couldn't load products. Pull to retry.
+              <Text variant="caption" color={colors.accent} style={styles.loading}>
+                Produk gagal dimuat. Tarik layar untuk mencoba lagi.
               </Text>
             ) : null}
           </View>
         }
-        renderItem={({ item }) => <ProductTile product={item} onPress={() => addItem(item)} />}
+        ListEmptyComponent={
+          !productsQuery.isLoading ? (
+            <View style={styles.emptyState}>
+              <Text variant="h3">Produk tidak ditemukan</Text>
+              <Text variant="caption" style={styles.emptyCaption}>Coba kata kunci atau kategori lain.</Text>
+            </View>
+          ) : undefined
+        }
+        renderItem={({ item }) => (
+          <ProductTile
+            product={item}
+            qtyInCart={lines[item.id]?.qty ?? 0}
+            onPress={() => handleAdd(item)}
+          />
+        )}
       />
 
       {hasCart ? (
-        <View style={[styles.cartBar, { paddingBottom: Math.max(space[4], insets.bottom) }]}>
-          <View style={styles.cartBarInfo}>
-            <Text variant="kicker">{count} items</Text>
-            <Text variant="h2" style={styles.cartBarTotal}>
-              {formatRupiah(total)}
-            </Text>
+        <View style={[styles.cartBar, { paddingBottom: Math.max(space[3], insets.bottom) }]}>
+          <View style={styles.cartCountBadge}>
+            <Text variant="h3" color={colors.surface}>{count}</Text>
           </View>
-          <Button title="Charge" onPress={() => navigation.navigate("Cart")} />
+          <View style={styles.cartBarInfo}>
+            <Text variant="caption" color={colors.neutral600}>TOTAL BELANJA</Text>
+            <Text variant="h2">{formatRupiah(total)}</Text>
+          </View>
+          <Button title="Bayar →" onPress={() => navigation.navigate("Cart")} style={styles.payButton} />
         </View>
       ) : null}
 
-      <BarcodeScanner visible={scannerOpen} onScanned={handleScanned} onClose={() => setScannerOpen(false)} />
+      <BarcodeScanner visible={scannerOpen} onScanned={lookupBarcode} onClose={() => setScannerOpen(false)} />
     </View>
   );
 }
@@ -124,38 +191,41 @@ function CategoryPill({ label, active, onPress }: { label: string; active: boole
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
     >
-      <Text variant="kicker" style={styles.pillLabel} color={active ? colors.accent700 : colors.neutral700}>
+      <Text variant="caption" color={active ? colors.surface : colors.neutral700} style={styles.pillLabel}>
         {label}
       </Text>
     </Pressable>
   );
 }
 
-function ProductTile({ product, onPress }: { product: Product; onPress: () => void }) {
+function ProductTile({ product, qtyInCart, onPress }: { product: Product; qtyInCart: number; onPress: () => void }) {
   const isLow = product.stockQty <= product.lowStockThreshold;
+  const soldOut = product.stockQty <= 0;
   return (
-    <Pressable onPress={onPress} style={styles.tile} accessibilityRole="button">
+    <Pressable
+      onPress={onPress}
+      disabled={soldOut}
+      style={({ pressed }) => [styles.tile, pressed && styles.tilePressed, soldOut && styles.tileDisabled]}
+      accessibilityRole="button"
+    >
       <View style={styles.tilePhoto}>
-        <Text variant="h2" color={colors.neutral500}>
-          {product.name.charAt(0)}
-        </Text>
+        {product.imageUrl ? (
+          <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
+        ) : (
+          <Text variant="h2" color={colors.neutral400}>{product.name.charAt(0).toUpperCase()}</Text>
+        )}
+        {qtyInCart > 0 ? (
+          <View style={styles.qtyBadge}><Text variant="caption" color={colors.surface}>{qtyInCart} di keranjang</Text></View>
+        ) : null}
       </View>
       <View style={styles.tileBody}>
-        <Text variant="body" style={styles.tileName} numberOfLines={2}>
-          {product.name}
-        </Text>
-        <View style={styles.tileFooter}>
-          <Text variant="tabular" style={styles.tilePrice}>
-            {formatRupiah(product.sellPrice)}
+        <Text variant="body" style={styles.tileName} numberOfLines={2}>{product.name}</Text>
+        <Text variant="tabular" color={colors.accent2} style={styles.tilePrice}>{formatRupiah(product.sellPrice)}</Text>
+        <View style={styles.stockRow}>
+          <Text variant="caption" color={soldOut || isLow ? colors.accent : colors.neutral600}>
+            {soldOut ? "Stok habis" : `Stok ${product.stockQty}`}
           </Text>
-          <Text
-            variant="caption"
-            color={isLow ? colors.accent700 : colors.neutral600}
-            style={styles.tileStock}
-            numberOfLines={1}
-          >
-            {isLow ? `${product.stockQty} left` : `${product.stockQty} in stock`}
-          </Text>
+          {product.barcode ? <Text variant="caption" color={colors.neutral500}>#{product.barcode.slice(-6)}</Text> : null}
         </View>
       </View>
     </Pressable>
@@ -164,65 +234,37 @@ function ProductTile({ product, onPress }: { product: Product; onPress: () => vo
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  listContent: { paddingHorizontal: space[4], paddingBottom: space[8] },
+  listContent: { paddingHorizontal: space[3], paddingBottom: space[8] },
   header: { paddingTop: space[3], paddingBottom: space[2] },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  scanButton: { paddingHorizontal: space[3], minHeight: 38 },
-  search: { marginTop: space[3] },
-  pillRow: { gap: space[2], marginTop: space[3], paddingVertical: 2 },
-  pill: {
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  pillActive: { backgroundColor: "rgba(182, 130, 53, 0.14)", borderColor: colors.accent },
-  pillInactive: { backgroundColor: "transparent", borderColor: colors.divider },
-  pillLabel: { textTransform: "none", letterSpacing: 0.2 },
-  loading: { marginTop: space[3] },
+  brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  shiftStatus: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  registerBadge: { backgroundColor: colors.accent2100, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8 },
+  searchRow: { flexDirection: "row", gap: space[2], marginTop: space[3], alignItems: "center" },
+  searchField: { flex: 1 },
+  scanButton: { minHeight: 46, paddingHorizontal: space[3] },
+  pillRow: { gap: space[2], paddingVertical: space[3] },
+  pill: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1 },
+  pillActive: { backgroundColor: colors.accent2, borderColor: colors.accent2 },
+  pillInactive: { backgroundColor: colors.surface, borderColor: colors.divider },
+  pillLabel: { fontWeight: "600" },
+  catalogHeading: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: space[2] },
+  loading: { marginVertical: space[3] },
   row: { gap: space[2] },
-  tile: {
-    flex: 1,
-    marginBottom: space[2],
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    overflow: "hidden",
-    backgroundColor: "transparent",
-  },
-  tilePhoto: {
-    height: 66,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tileBody: { paddingHorizontal: 10, paddingTop: 9, paddingBottom: 11 },
-  tileName: { minHeight: 35 },
-  tileFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    gap: 5,
-    marginTop: 4,
-  },
-  tilePrice: { fontSize: 14.5 },
-  tileStock: { flexShrink: 1, textAlign: "right" },
-  cartBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space[3],
-    backgroundColor: colors.bg,
-    borderTopWidth: 1,
-    borderTopColor: colors.text,
-    paddingHorizontal: space[4],
-    paddingTop: space[3],
-  },
+  tile: { flex: 1, marginBottom: space[2], borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.surface, ...shadow.sm },
+  tilePressed: { transform: [{ scale: 0.98 }], borderColor: colors.accent2 },
+  tileDisabled: { opacity: 0.55 },
+  tilePhoto: { height: 92, backgroundColor: colors.neutral100, alignItems: "center", justifyContent: "center" },
+  productImage: { width: "100%", height: "100%" },
+  qtyBadge: { position: "absolute", right: 6, top: 6, backgroundColor: colors.accent2, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
+  tileBody: { padding: 10 },
+  tileName: { minHeight: 40, fontWeight: "600" },
+  tilePrice: { marginTop: 4, fontSize: 16 },
+  stockRow: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginTop: 6 },
+  emptyState: { alignItems: "center", paddingVertical: space[8] },
+  emptyCaption: { marginTop: space[1] },
+  cartBar: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: space[3], backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.divider, paddingHorizontal: space[3], paddingTop: space[3], ...shadow.lg },
+  cartCountBadge: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.accent2, alignItems: "center", justifyContent: "center" },
   cartBarInfo: { flex: 1 },
-  cartBarTotal: { marginTop: 2 },
+  payButton: { minHeight: 46, paddingHorizontal: space[4] },
 });

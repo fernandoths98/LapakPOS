@@ -7,6 +7,7 @@ import axios from "axios";
 import { CreateSaleRequest, formatRupiah, GetCurrentShiftResponse, Product, Sale, TenderType } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
+import { TextField } from "../../components/TextField";
 import { Slider } from "../../components/Slider";
 import { colors, radius, space } from "../../theme/tokens";
 import { CartLine, cartLinesArray, cartTotal, useCartStore } from "../../state/cart/cartStore";
@@ -23,12 +24,12 @@ import { SellStackParamList } from "../../app/stacks/SellStack";
  * default. */
 const CHECKOUT_TIMEOUT_MS = 6_000;
 
-type TenderLabel = "Cash" | "QRIS" | "Debit card" | "Split";
-const TENDER_OPTIONS: TenderLabel[] = ["Cash", "QRIS", "Debit card", "Split"];
+type TenderLabel = "Tunai" | "QRIS" | "Kartu debit" | "Split";
+const TENDER_OPTIONS: TenderLabel[] = ["Tunai", "QRIS", "Kartu debit", "Split"];
 const TENDER_TYPE_BY_LABEL: Record<TenderLabel, TenderType> = {
-  Cash: "cash",
+  Tunai: "cash",
   QRIS: "qris",
-  "Debit card": "debit",
+  "Kartu debit": "debit",
   Split: "split",
 };
 
@@ -39,12 +40,19 @@ export function CartScreen() {
   const bump = useCartStore((s) => s.bump);
   const [tender, setTender] = useState<TenderLabel | null>(null);
   const [splitPct, setSplitPct] = useState(60);
+  const [discountText, setDiscountText] = useState("");
+  const [cashReceivedText, setCashReceivedText] = useState("");
   const createSale = useCreateSale();
   const { data: currentShift } = useCurrentShift();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const cartLines = cartLinesArray(lines);
-  const total = cartTotal(lines);
+  const subtotal = cartTotal(lines);
+  const requestedDiscount = parseMoneyInput(discountText);
+  const discount = Math.min(requestedDiscount, subtotal);
+  const total = Math.max(0, subtotal - discount);
+  const cashReceived = parseMoneyInput(cashReceivedText);
+  const change = Math.max(0, cashReceived - total);
 
   // Derive the QRIS remainder from the rounded cash figure (rather than
   // rounding both independently, as the prototype's display-only math
@@ -53,7 +61,8 @@ export function CartScreen() {
   const splitCash = Math.round((total * splitPct) / 100);
   const splitQris = total - splitCash;
 
-  const canPay = cartLines.length > 0 && tender !== null && !createSale.isPending;
+  const cashIsEnough = tender !== "Tunai" || cashReceived >= total;
+  const canPay = cartLines.length > 0 && total > 0 && tender !== null && cashIsEnough && !createSale.isPending;
 
   const handlePay = async () => {
     if (!tender) return;
@@ -67,11 +76,16 @@ export function CartScreen() {
       tenderType,
       cashAmount,
       qrisAmount,
+      discount,
     };
 
     try {
       const sale = await createSale.mutateAsync({ body, timeoutMs: CHECKOUT_TIMEOUT_MS });
-      navigation.navigate("Paid", { sale });
+      navigation.navigate("Paid", {
+        sale,
+        cashReceived: tenderType === "cash" ? cashReceived : undefined,
+        change: tenderType === "cash" ? change : undefined,
+      });
     } catch (err) {
       // Genuine network/timeout failure (the request never got a response
       // from the server — either it timed out, per CHECKOUT_TIMEOUT_MS
@@ -84,13 +98,27 @@ export function CartScreen() {
       // see and fix now — queuing it would either lose it silently or retry
       // something that's guaranteed to fail again the same way.
       if (axios.isAxiosError(err) && !err.response) {
-        const offlineSale = buildOfflineSale({ clientId, cartLines, tenderType, cashAmount, qrisAmount, total, currentShift });
+        const offlineSale = buildOfflineSale({
+          clientId,
+          cartLines,
+          tenderType,
+          cashAmount,
+          qrisAmount,
+          subtotal,
+          discount,
+          total,
+          currentShift,
+        });
         enqueue({ clientId, request: body, sale: offlineSale, enqueuedAt: offlineSale.createdAt, attempts: 0 });
         patchProductStockCache(queryClient, cartLines);
-        navigation.navigate("Paid", { sale: offlineSale });
+        navigation.navigate("Paid", {
+          sale: offlineSale,
+          cashReceived: tenderType === "cash" ? cashReceived : undefined,
+          change: tenderType === "cash" ? change : undefined,
+        });
         return;
       }
-      setSubmitError("Payment didn't go through. Check your connection and try again.");
+      setSubmitError("Pembayaran gagal. Periksa koneksi dan coba lagi.");
     }
   };
 
@@ -101,7 +129,7 @@ export function CartScreen() {
           <View key={line.productId} style={styles.line}>
             <View style={styles.lineInfo}>
               <Text variant="body">{line.name}</Text>
-              <Text variant="caption">{formatRupiah(line.unitPrice)} each</Text>
+              <Text variant="caption">{formatRupiah(line.unitPrice)} / item</Text>
             </View>
             <View style={styles.stepper}>
               <Pressable
@@ -132,10 +160,25 @@ export function CartScreen() {
       </View>
 
       <View style={styles.summary}>
-        <SummaryRow label="Subtotal" value={formatRupiah(total)} />
-        <SummaryRow label="Discount" value="—" />
+        <SummaryRow label="Subtotal" value={formatRupiah(subtotal)} />
+        <View style={styles.discountRow}>
+          <Text variant="body" color={colors.neutral700}>Diskon transaksi</Text>
+          <View style={styles.discountInputWrap}>
+            <Text variant="body" color={colors.neutral500}>Rp</Text>
+            <TextField
+              value={discountText}
+              onChangeText={(value) => setDiscountText(value.replace(/\D/g, ""))}
+              keyboardType="number-pad"
+              placeholder="0"
+              style={styles.discountInput}
+            />
+          </View>
+        </View>
+        {requestedDiscount > subtotal ? (
+          <Text variant="caption" color={colors.accent}>Diskon maksimal sebesar subtotal.</Text>
+        ) : null}
         <View style={styles.totalRow}>
-          <Text variant="kicker">Total</Text>
+          <Text variant="kicker">TOTAL TAGIHAN</Text>
           <Text variant="h1" style={styles.totalValue}>
             {formatRupiah(total)}
           </Text>
@@ -143,7 +186,7 @@ export function CartScreen() {
       </View>
 
       <Text variant="kicker" style={styles.sectionLabel}>
-        Tender
+        METODE PEMBAYARAN
       </Text>
       <View style={styles.tenderGrid}>
         {TENDER_OPTIONS.map((option) => (
@@ -151,10 +194,43 @@ export function CartScreen() {
         ))}
       </View>
 
+      {tender === "Tunai" ? (
+        <View style={styles.cashCard}>
+          <Text variant="h3">Uang diterima</Text>
+          <TextField
+            value={cashReceivedText}
+            onChangeText={(value) => setCashReceivedText(value.replace(/\D/g, ""))}
+            keyboardType="number-pad"
+            placeholder="Masukkan nominal tunai"
+            style={styles.cashInput}
+          />
+          <View style={styles.quickCashRow}>
+            {quickCashAmounts(total).map((amount) => (
+              <Pressable key={amount} onPress={() => setCashReceivedText(String(amount))} style={styles.quickCashButton}>
+                <Text variant="caption" color={colors.accent2}>
+                  {amount === total ? "Uang pas" : formatRupiah(amount)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.changeRow}>
+            <Text variant="body" color={colors.neutral700}>Kembalian</Text>
+            <Text variant="h2" color={cashReceived >= total ? colors.success : colors.accent}>
+              {formatRupiah(change)}
+            </Text>
+          </View>
+          {cashReceived > 0 && cashReceived < total ? (
+            <Text variant="caption" color={colors.accent}>
+              Uang diterima masih kurang {formatRupiah(total - cashReceived)}.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       {tender === "Split" ? (
         <View style={styles.splitCard}>
-          <SummaryRow label="Cash received" value={formatRupiah(splitCash)} />
-          <SummaryRow label="QRIS remainder" value={formatRupiah(splitQris)} valueColor={colors.accent700} />
+          <SummaryRow label="Porsi tunai" value={formatRupiah(splitCash)} />
+          <SummaryRow label="Sisa QRIS" value={formatRupiah(splitQris)} valueColor={colors.accent2} />
           <Slider
             minimumValue={0}
             maximumValue={100}
@@ -176,7 +252,7 @@ export function CartScreen() {
       ) : null}
 
       <Button
-        title={createSale.isPending ? "Taking payment…" : `Take payment · ${formatRupiah(total)}`}
+        title={createSale.isPending ? "Memproses pembayaran…" : `Proses pembayaran · ${formatRupiah(total)}`}
         onPress={handlePay}
         disabled={!canPay}
         loading={createSale.isPending}
@@ -193,6 +269,8 @@ interface OfflineSaleParams {
   tenderType: TenderType;
   cashAmount: number;
   qrisAmount: number;
+  subtotal: number;
+  discount: number;
   total: number;
   currentShift: GetCurrentShiftResponse | undefined;
 }
@@ -224,6 +302,8 @@ function buildOfflineSale({
   tenderType,
   cashAmount,
   qrisAmount,
+  subtotal,
+  discount,
   total,
   currentShift,
 }: OfflineSaleParams): Sale {
@@ -238,8 +318,8 @@ function buildOfflineSale({
     tenderType,
     cashAmount,
     qrisAmount,
-    subtotal: total,
-    discount: 0,
+    subtotal,
+    discount,
     total,
     status: "completed",
     createdAt,
@@ -294,6 +374,16 @@ function amountsForTender(
   }
 }
 
+function parseMoneyInput(value: string): number {
+  const parsed = Number(value.replace(/\D/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function quickCashAmounts(total: number): number[] {
+  const roundUp = (step: number) => Math.ceil(total / step) * step;
+  return [...new Set([total, roundUp(10_000), roundUp(20_000), roundUp(50_000)])].slice(0, 4);
+}
+
 function SummaryRow({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
   return (
     <View style={styles.summaryRow}>
@@ -315,7 +405,7 @@ function TenderPill({ label, active, onPress }: { label: TenderLabel; active: bo
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
     >
-      <Text variant="h3" color={active ? colors.accent700 : colors.neutral700} style={styles.tenderPillLabel}>
+      <Text variant="h3" color={active ? colors.accent2 : colors.neutral700} style={styles.tenderPillLabel}>
         {label}
       </Text>
     </Pressable>
@@ -324,8 +414,8 @@ function TenderPill({ label, active, onPress }: { label: TenderLabel; active: bo
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space[4], paddingBottom: space[8] },
-  lines: { borderTopWidth: 1, borderTopColor: colors.text },
+  content: { padding: space[3], paddingBottom: space[8] },
+  lines: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md, paddingHorizontal: space[3] },
   line: {
     flexDirection: "row",
     alignItems: "center",
@@ -345,15 +435,18 @@ const styles = StyleSheet.create({
   stepperButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   stepperQty: { width: 26, textAlign: "center", fontSize: 14 },
   lineTotal: { width: 80, textAlign: "right", fontSize: 14.5 },
-  summary: { marginTop: space[3] },
+  summary: { marginTop: space[3], backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md, padding: space[3] },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  discountRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
+  discountInputWrap: { width: 132, flexDirection: "row", alignItems: "center", gap: 6 },
+  discountInput: { minHeight: 38, paddingVertical: 6, textAlign: "right", flex: 1 },
   tabularText: { fontVariant: ["tabular-nums"] },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "baseline",
     borderTopWidth: 1,
-    borderTopColor: colors.text,
+    borderTopColor: colors.divider,
     marginTop: space[2],
     paddingTop: space[2],
   },
@@ -370,17 +463,23 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: "center",
   },
-  tenderPillActive: { backgroundColor: "rgba(182, 130, 53, 0.14)", borderColor: colors.accent },
-  tenderPillInactive: { backgroundColor: "transparent", borderColor: colors.divider },
+  tenderPillActive: { backgroundColor: colors.accent2100, borderColor: colors.accent2 },
+  tenderPillInactive: { backgroundColor: colors.surface, borderColor: colors.divider },
   tenderPillLabel: { fontSize: 14 },
   splitCard: {
     marginTop: space[3],
     borderWidth: 1,
     borderColor: colors.divider,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: space[3],
   },
   slider: { width: "100%", marginTop: space[2] },
+  cashCard: { marginTop: space[3], borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md, backgroundColor: colors.surface, padding: space[3] },
+  cashInput: { marginTop: space[2], fontSize: 18, fontWeight: "700" },
+  quickCashRow: { flexDirection: "row", flexWrap: "wrap", gap: space[2], marginTop: space[2] },
+  quickCashButton: { borderWidth: 1, borderColor: colors.accent2200, backgroundColor: colors.accent2100, borderRadius: radius.sm, paddingVertical: 8, paddingHorizontal: 10 },
+  changeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, borderTopColor: colors.divider, marginTop: space[3], paddingTop: space[3] },
   error: { marginTop: space[3] },
   payButton: { marginTop: space[6] },
 });

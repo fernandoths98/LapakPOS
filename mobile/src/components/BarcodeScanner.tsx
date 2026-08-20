@@ -90,8 +90,8 @@ export function BarcodeScanner({ visible, onScanned, onClose }: BarcodeScannerPr
             </Text>
             {permissionDenied ? (
               <Text variant="body" color={colors.neutral300} style={styles.fallbackBody}>
-                Lapak needs camera access to scan barcodes. Grant camera permission in your phone's Settings, then
-                try again.
+                Kotdee POS memerlukan akses kamera untuk memindai barcode. Aktifkan izin kamera di Pengaturan,
+                lalu coba lagi.
               </Text>
             ) : null}
             {!device && hasPermission ? (

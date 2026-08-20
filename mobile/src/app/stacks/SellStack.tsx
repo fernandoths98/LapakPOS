@@ -9,18 +9,18 @@ import { stackScreenOptions } from "./stackScreenOptions";
 export type SellStackParamList = {
   Sell: undefined;
   Cart: undefined;
-  Paid: { sale: Sale };
+  Paid: { sale: Sale; cashReceived?: number; change?: number };
 };
 
 const Stack = createNativeStackNavigator<SellStackParamList>();
 
-/** Sell → Cart → Paid, matching the prototype's register flow. */
+/** Kasir → Keranjang → Selesai. */
 export function SellStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="Sell" component={SellScreen} options={{ title: "Sell" }} />
-      <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Cart", headerBackTitle: "Sell" }} />
-      <Stack.Screen name="Paid" component={PaidScreen} options={{ title: "Paid", headerBackVisible: false }} />
+      <Stack.Screen name="Sell" component={SellScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Keranjang", headerBackTitle: "Kasir" }} />
+      <Stack.Screen name="Paid" component={PaidScreen} options={{ title: "Pembayaran berhasil", headerBackVisible: false }} />
     </Stack.Navigator>
   );
 }

@@ -20,24 +20,24 @@ type HomeNavigationProp = CompositeNavigationProp<
 >;
 
 function formatTodayHeading(): string {
-  return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 }
 
 function formatYesterdayShort(): string {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  return new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(yesterday);
+  return new Intl.DateTimeFormat("id-ID", { weekday: "short" }).format(yesterday);
 }
 
 function formatOpenedAt(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-const RECAP_DISMISSED_LINE = "Recap parked. It will be waiting when you close the shift.";
+const RECAP_DISMISSED_LINE = "Ringkasan disimpan dan tetap tersedia saat shift ditutup.";
 const RECAP_AI_UNAVAILABLE_LINE =
-  "AI recap isn't available yet — set ANTHROPIC_API_KEY on the backend to enable it.";
-const RECAP_LOADING_LINE = "Reading today's numbers…";
-const RECAP_ERROR_LINE = "Couldn't load today's recap.";
+  "Ringkasan AI belum aktif. Atur ANTHROPIC_API_KEY di backend untuk mengaktifkannya.";
+const RECAP_LOADING_LINE = "Membaca transaksi hari ini…";
+const RECAP_ERROR_LINE = "Ringkasan hari ini gagal dimuat.";
 
 export function HomeScreen() {
   const navigation = useNavigation<HomeNavigationProp>();
@@ -78,16 +78,16 @@ export function HomeScreen() {
         : recapQuery.data.headline;
 
   const shortcuts: { title: string; sub: string; go: () => void }[] = [
-    { title: "Pay a bill", sub: "PLN, pulsa, BPJS", go: () => navigation.navigate("BillsTab", { screen: "Bills" }) },
-    { title: "Snap a note", sub: "Log a cash expense", go: () => navigation.navigate("AddExpense") },
+    { title: "Bayar tagihan", sub: "PLN, pulsa, BPJS", go: () => navigation.navigate("BillsTab", { screen: "Bills" }) },
+    { title: "Catat pengeluaran", sub: "Kas keluar operasional", go: () => navigation.navigate("AddExpense") },
     {
       title: "Import Excel",
-      sub: "Bring in a catalog",
+      sub: "Masukkan katalog produk",
       go: () => navigation.navigate("StockTab", { screen: "Sheet" }),
     },
     {
-      title: "Add product",
-      sub: "New catalog item",
+      title: "Tambah produk",
+      sub: "Item katalog baru",
       go: () => navigation.navigate("StockTab", { screen: "Product", params: undefined }),
     },
   ];
@@ -102,7 +102,7 @@ export function HomeScreen() {
           </Text>
         </View>
         <Button
-          title={shift ? `Shift open · ${formatOpenedAt(shift.openedAt)}` : "Open shift"}
+          title={shift ? `Shift aktif · ${formatOpenedAt(shift.openedAt)}` : "Buka shift"}
           variant="secondary"
           onPress={() => navigation.navigate(shift ? "ShiftClose" : "OpenShift")}
           style={styles.shiftButton}
@@ -110,17 +110,17 @@ export function HomeScreen() {
       </View>
 
       <View style={styles.takings}>
-        <Text variant="kicker">Takings today</Text>
+        <Text variant="kicker">PENJUALAN HARI INI</Text>
         <Text variant="h1" style={styles.takingsTotal}>
           {formatRupiah(summary?.total ?? 0)}
         </Text>
         <View style={styles.takingsMetaRow}>
           <Text variant="caption" color={colors.neutral700}>
-            {summary?.count ?? 0} sales
+            {summary?.count ?? 0} transaksi
           </Text>
           <Text color={colors.neutral400}>|</Text>
           <Text variant="caption" color={colors.neutral700}>
-            Avg {formatRupiah(summary?.avgTicket ?? 0)}
+            Rata-rata {formatRupiah(summary?.avgTicket ?? 0)}
           </Text>
           <Text color={colors.neutral400}>|</Text>
           <Text variant="caption" color={changeColor}>
@@ -147,17 +147,17 @@ export function HomeScreen() {
 
       {!recapDismissed ? (
         <View style={styles.recapCard}>
-          <Text variant="kicker">Recap</Text>
+          <Text variant="kicker">RINGKASAN</Text>
           <Text variant="body" style={styles.recapLine}>
             {recapLine}
           </Text>
           <View style={styles.recapButtons}>
             <Button
-              title="Full recap"
+              title="Lihat laporan"
               onPress={() => navigation.navigate("RecapTab", { screen: "Recap", params: { tab: "Story" } })}
               style={styles.recapButtonFlex}
             />
-            <Button title="Later" variant="secondary" onPress={() => setRecapDismissed(true)} />
+            <Button title="Nanti" variant="secondary" onPress={() => setRecapDismissed(true)} />
           </View>
         </View>
       ) : (
@@ -169,7 +169,7 @@ export function HomeScreen() {
       )}
 
       <Text variant="kicker" style={styles.sectionTitle}>
-        Shortcuts
+        AKSES CEPAT
       </Text>
       <View style={styles.shortcutsGrid}>
         {shortcuts.map((s) => (
@@ -185,11 +185,11 @@ export function HomeScreen() {
       </View>
 
       <Text variant="kicker" style={styles.sectionTitle}>
-        Needs attention
+        PERLU PERHATIAN
       </Text>
       {alerts.length === 0 ? (
         <Text variant="body" color={colors.neutral600} style={styles.alertsEmpty}>
-          Nothing needs attention right now.
+          Semua aman. Tidak ada tindakan mendesak.
         </Text>
       ) : (
         alerts.map((alert, index) => (

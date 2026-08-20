@@ -29,9 +29,9 @@ export interface ButtonProps extends Omit<PressableProps, "style" | "children"> 
 }
 
 const PRESSED_TINT: Record<ButtonVariant, string> = {
-  primary: "rgba(182, 130, 53, 0.22)",
-  secondary: "rgba(32, 31, 29, 0.14)",
-  ghost: "rgba(182, 130, 53, 0.18)",
+  primary: colors.accent600,
+  secondary: colors.neutral200,
+  ghost: colors.accent100,
 };
 
 export function Button({
@@ -67,7 +67,7 @@ export function Button({
           <Text
             variant="h3"
             style={styles.label}
-            color={variant === "secondary" ? colors.text : colors.accent700}
+            color={variant === "primary" ? colors.surface : variant === "secondary" ? colors.text : colors.accent}
           >
             {title}
           </Text>
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   primary: {
     borderWidth: 1,
     borderColor: colors.accent,
-    backgroundColor: "transparent",
+    backgroundColor: colors.accent,
   },
   secondary: {
     borderWidth: 1,

@@ -31,7 +31,7 @@ export function createApp() {
   app.use("/uploads", express.static(UPLOADS_ROOT));
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, service: "lapak-backend" });
+    res.json({ ok: true, service: "kotdee-pos-backend" });
   });
 
   // Feature routers are mounted here.

@@ -153,6 +153,30 @@ describe("sales.service", () => {
     });
   });
 
+  it("rejects a negative discount", async () => {
+    const body: CreateSaleRequest = {
+      clientId: uuidv4(),
+      lineItems: [{ productId, qty: 1 }],
+      tenderType: "cash",
+      cashAmount: 11000,
+      qrisAmount: 0,
+      discount: -1000,
+    };
+    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("rejects a discount greater than the subtotal", async () => {
+    const body: CreateSaleRequest = {
+      clientId: uuidv4(),
+      lineItems: [{ productId, qty: 1 }],
+      tenderType: "cash",
+      cashAmount: 0,
+      qrisAmount: 0,
+      discount: 10001,
+    };
+    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body)).rejects.toMatchObject({ status: 400 });
+  });
+
   it("fetches a sale by id with its line items", async () => {
     const body: CreateSaleRequest = {
       clientId: uuidv4(),
