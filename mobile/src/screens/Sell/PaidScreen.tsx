@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Alert, Platform, StyleSheet, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { formatRupiah, TenderType } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
@@ -32,6 +33,8 @@ export function PaidScreen() {
   const time = new Date(sale.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const tenderLabel = TENDER_LABEL[sale.tenderType];
   const [printSheetVisible, setPrintSheetVisible] = useState(false);
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width >= 800 && width > height;
 
   const receiptLines: ReceiptLine[] = buildSaleReceiptLines(sale, tenderLabel, {
     name: merchantName,
@@ -52,21 +55,24 @@ export function PaidScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.hero}>
+    <SafeAreaView style={styles.container} edges={[]}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, isLandscape && styles.contentLandscape]}>
+      <View style={[styles.hero, isLandscape && styles.heroLandscape]}>
         <View style={styles.check}>
           <Text variant="h1" color={colors.accent700} style={styles.checkGlyph}>
             ✓
           </Text>
         </View>
         <Text variant="h1" style={styles.paidTitle}>
-          Berhasil
+          Pembayaran berhasil
         </Text>
         <Text variant="tabular" color={colors.neutral700}>
           {tenderLabel} · {formatRupiah(sale.total)} · {time}
         </Text>
       </View>
 
+      <View style={[styles.receiptColumn, isLandscape && styles.receiptColumnLandscape]}>
+      <Text variant="kicker" style={styles.receiptLabel}>PREVIEW STRUK</Text>
       <View style={styles.receipt}>
         <Text variant="h3" style={styles.receiptMerchant}>
           {merchantName}
@@ -76,13 +82,12 @@ export function PaidScreen() {
         </Text>
         <View style={styles.dashedRule} />
         {sale.lineItems.map((line) => (
-          <View key={line.id} style={styles.receiptRow}>
-            <Text variant="caption" style={styles.receiptLeft} numberOfLines={1}>
-              {line.qty}x {line.productName.slice(0, 18)}
-            </Text>
-            <Text variant="caption" style={styles.receiptRight}>
-              {formatRupiah(line.lineTotal)}
-            </Text>
+          <View key={line.id} style={styles.receiptItem}>
+            <Text variant="caption" style={styles.receiptProduct} numberOfLines={1}>{line.productName}</Text>
+            <View style={styles.receiptRow}>
+              <Text variant="caption" style={styles.receiptUnit}>{line.qty} × {formatRupiah(line.unitPrice)}</Text>
+              <Text variant="caption" style={styles.receiptRight}>{formatRupiah(line.lineTotal)}</Text>
+            </View>
           </View>
         ))}
         <View style={styles.receiptRow}>
@@ -120,12 +125,13 @@ export function PaidScreen() {
       </View>
 
       <View style={styles.actions}>
-        <Button title="Cetak struk" onPress={handlePrint} style={styles.actionButton} />
+        <Button title="Cetak struk sekarang" onPress={handlePrint} style={styles.actionButton} />
         <Button title="Transaksi baru" variant="secondary" onPress={handleNewSale} style={styles.actionButton} />
       </View>
       <Text variant="caption" color={colors.neutral600} style={styles.shareCaption}>
-        Bagikan via WhatsApp · Email · Salin tautan
+        Printer Bluetooth dipilih setelah menekan tombol cetak
       </Text>
+      </View>
 
       <PrintSheetScreen
         visible={printSheetVisible}
@@ -133,23 +139,29 @@ export function PaidScreen() {
         jobType="receipt"
         lines={receiptLines}
       />
-    </View>
+    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, padding: space[4] },
+  container: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: space[4], paddingBottom: space[8] },
+  contentLandscape: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: space[8] },
   hero: {
     alignItems: "center",
     paddingVertical: space[4],
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
+  heroLandscape: { width: 300, borderBottomWidth: 0, paddingTop: space[8] },
   check: { alignItems: "center", justifyContent: "center" },
   checkGlyph: { fontSize: 34, lineHeight: 38 },
   paidTitle: { marginTop: space[2] },
+  receiptColumn: { width: "100%" },
+  receiptColumnLandscape: { width: 430 },
+  receiptLabel: { marginTop: space[4], marginBottom: space[2] },
   receipt: {
-    marginTop: space[4],
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: colors.neutral100,
@@ -161,6 +173,9 @@ const styles = StyleSheet.create({
   receiptAddress: { textAlign: "center", marginTop: 2 },
   dashedRule: { borderTopWidth: 1, borderTopColor: colors.neutral400, borderStyle: "dashed", marginVertical: space[2] },
   receiptRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  receiptItem: { marginBottom: 3 },
+  receiptProduct: { fontWeight: "600" },
+  receiptUnit: { flex: 1, paddingLeft: 8, color: colors.neutral700 },
   receiptLeft: { flex: 1 },
   receiptRight: { flexShrink: 0 },
   receiptTotalLabel: { fontSize: 12.5 },

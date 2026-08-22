@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CloseShiftResponse, formatRupiah, parseRupiah } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
@@ -70,9 +71,9 @@ export function ShiftCloseScreen() {
 
   if (currentShiftQuery.isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={["left", "right"]}>
         <ActivityIndicator color={colors.accent} />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -81,11 +82,11 @@ export function ShiftCloseScreen() {
 
   if (!shift || !running) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={["left", "right"]}>
         <Text variant="body" color={colors.neutral700}>
           No shift is currently open.
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -102,6 +103,7 @@ export function ShiftCloseScreen() {
   ];
 
   return (
+    <SafeAreaView style={styles.container} edges={["left", "right"]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="caption" color={colors.neutral600}>
         Opened {formatOpenedAt(shift.openedAt)} · {shift.userName}
@@ -170,6 +172,7 @@ export function ShiftCloseScreen() {
         lines={zReportQuery.data ? buildZReportLines(zReportQuery.data, MERCHANT_NAME) : []}
       />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { unauthorized } from "../../utils/errors";
 import * as ppobService from "./ppob.service";
+import { applyDigiflazzWebhook, verifyDigiflazzSignature } from "./digiflazzWebhook.service";
+import { env } from "../../config/env";
 
 export async function getBillersHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
@@ -12,7 +14,14 @@ export async function getBillersHandler(req: Request, res: Response): Promise<vo
 const checkBillSchema = z.object({
   billerId: z.string().uuid(),
   customerNumber: z.string().min(1),
+  skuCode: z.string().min(1).optional(),
 });
+
+export async function getPrepaidProductsHandler(req: Request, res: Response): Promise<void> {
+  if (!req.user) throw unauthorized();
+  const { category } = z.object({ category: z.enum(["mobile", "ewallet", "electricity", "games", "tv_voucher", "gas"]) }).parse(req.query);
+  res.json(await ppobService.getPrepaidProducts(category));
+}
 
 export async function checkBillHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
@@ -57,4 +66,25 @@ export async function getCommissionSummaryHandler(req: Request, res: Response): 
   const { month } = commissionSummaryQuerySchema.parse(req.query);
   const summary = await ppobService.getCommissionSummary(req.user.merchantId, month);
   res.json(summary);
+}
+
+export async function digiflazzWebhookHandler(req: Request, res: Response): Promise<void> {
+  const signature = req.header("x-hub-signature") ?? undefined;
+  if (!req.rawBody || !verifyDigiflazzSignature(req.rawBody, signature)) {
+    res.status(401).json({ message: "Invalid webhook signature" });
+    return;
+  }
+  const result = await applyDigiflazzWebhook(req.body?.data ?? {});
+  res.json({ ok: true, result });
+}
+
+export async function getProviderStatusHandler(req: Request, res: Response): Promise<void> {
+  if (!req.user) throw unauthorized();
+  const digiflazz = env.PPOB_PROVIDER === "digiflazz";
+  const key = env.DIGIFLAZZ_MODE === "production" ? env.DIGIFLAZZ_PRODUCTION_KEY : env.DIGIFLAZZ_DEVELOPMENT_KEY;
+  res.json({
+    provider: digiflazz ? "digiflazz" : "mock",
+    mode: digiflazz ? env.DIGIFLAZZ_MODE : "mock",
+    configured: digiflazz ? Boolean(env.DIGIFLAZZ_USERNAME && key) : true,
+  });
 }

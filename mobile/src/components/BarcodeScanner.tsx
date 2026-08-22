@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Camera,
   useCameraDevice,
@@ -75,7 +76,7 @@ export function BarcodeScanner({ visible, onScanned, onClose }: BarcodeScannerPr
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top", "right", "bottom", "left"]}>
         {hasPermission && device ? (
           <Camera
             style={StyleSheet.absoluteFill}
@@ -125,7 +126,7 @@ export function BarcodeScanner({ visible, onScanned, onClose }: BarcodeScannerPr
             />
           </View>
         ) : null}
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

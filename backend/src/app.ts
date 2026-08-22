@@ -23,7 +23,10 @@ export function createApp() {
 
   app.use(helmet());
   app.use(cors());
-  app.use(express.json({ limit: "10mb" })); // generous limit: base64 product photos go through this
+  app.use(express.json({
+    limit: "10mb",
+    verify: (req, _res, buffer) => { (req as express.Request).rawBody = Buffer.from(buffer); },
+  })); // generous limit: base64 product photos go through this
   app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
 
   // Serves uploaded product photos (backend/uploads/products/<uuid>.<ext>)

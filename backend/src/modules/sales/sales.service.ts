@@ -188,6 +188,16 @@ export async function getSaleById(merchantId: string, id: string): Promise<Sale>
   return toSaleDto(sale);
 }
 
+export async function getRecentSales(merchantId: string, limit = 50): Promise<Sale[]> {
+  const sales = await prisma.sale.findMany({
+    where: { merchantId },
+    include: { lineItems: true },
+    orderBy: { createdAt: "desc" },
+    take: Math.min(Math.max(limit, 1), 100),
+  });
+  return sales.map(toSaleDto);
+}
+
 export interface DayRevenue {
   /** Sales `total` (all tender types, including `debit`) + successful PPOB `totalCharged`. */
   total: number;

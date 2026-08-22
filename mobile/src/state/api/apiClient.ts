@@ -6,7 +6,7 @@ import { useAuthStore } from "../auth/authStore";
  * to the dev machine). Kept as a single exported constant so switching to a
  * real host (physical device, staging API) is a one-line change.
  */
-export const API_BASE_URL = "http://192.168.97.61:3000";
+export const API_BASE_URL = "https://lapak-api.kotdee.tech";
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

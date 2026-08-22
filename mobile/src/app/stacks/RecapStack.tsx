@@ -14,7 +14,7 @@ const Stack = createNativeStackNavigator<RecapStackParamList>();
 export function RecapStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="Recap" component={RecapScreen} options={{ title: "Recap" }} />
+      <Stack.Screen name="Recap" component={RecapScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

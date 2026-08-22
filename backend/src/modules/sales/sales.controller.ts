@@ -32,6 +32,12 @@ export async function getSaleHandler(req: Request, res: Response): Promise<void>
   res.json(sale);
 }
 
+export async function getSalesHandler(req: Request, res: Response): Promise<void> {
+  if (!req.user) throw unauthorized();
+  const query = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) }).parse(req.query);
+  res.json(await salesService.getRecentSales(req.user.merchantId, query.limit));
+}
+
 export async function getTodaySummaryHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const summary = await salesService.getTodaySummary(req.user.merchantId);

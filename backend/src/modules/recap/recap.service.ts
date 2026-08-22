@@ -61,6 +61,7 @@ interface StoryContent {
 
 const SYSTEM_PROMPT =
   "You are a warm, plain-spoken business analyst for a small Indonesian warung (corner shop) point-of-sale app. " +
+  "Always write in clear, natural Bahasa Indonesia for a shop owner. " +
   "You write a short daily recap for the shop owner: one warm headline, a short body, and a few grounded insights. " +
   "You are given a JSON object of real numbers already computed from the shop's database (sales, stock, costs). " +
   "You must ONLY use figures that appear in that JSON — never invent, estimate, or round a number that isn't " +
@@ -108,35 +109,35 @@ async function callClaudeForStory(context: RecapAggregationContext): Promise<Sto
 function buildDeterministicStory(context: RecapAggregationContext): StoryContent {
   const { today, topSellers, lowStock, costIncreases } = context;
 
-  const headline = `Takings today: ${formatRupiah(today.total)}`;
+  const headline = `Omzet hari ini ${formatRupiah(today.total)}`;
 
   const changeAbs = Math.abs(Math.round(today.pctChangeVsYesterday));
   const changeClause =
-    today.count > 0 ? `, ${changeAbs}% ${today.pctChangeVsYesterday >= 0 ? "up" : "down"} on yesterday` : "";
-  const bestSellerClause = topSellers[0] ? ` ${topSellers[0].name} led with ${topSellers[0].qty} sold.` : "";
+    today.count > 0 ? `, ${today.pctChangeVsYesterday >= 0 ? "naik" : "turun"} ${changeAbs}% dari kemarin` : "";
+  const bestSellerClause = topSellers[0] ? ` Produk paling laku: ${topSellers[0].name}, terjual ${topSellers[0].qty}.` : "";
   const body =
     today.count > 0
-      ? `${formatRupiah(today.total)} from ${today.count} sale${today.count === 1 ? "" : "s"}${changeClause}.${bestSellerClause}`
-      : "No sales recorded yet today.";
+      ? `${formatRupiah(today.total)} dari ${today.count} transaksi${changeClause}.${bestSellerClause}`
+      : "Belum ada penjualan yang tercatat hari ini.";
 
   const insights: RecapInsight[] = [];
   const lowest = lowStock[0];
   if (lowest) {
     insights.push({
-      title: `${lowest.name} is low`,
+      title: `Stok ${lowest.name} menipis`,
       body:
         lowest.daysOfCover !== null
-          ? `${lowest.stockQty} left — about ${lowest.daysOfCover} day${lowest.daysOfCover === 1 ? "" : "s"} of cover at the recent sale rate.`
-          : `${lowest.stockQty} left.`,
-      action: "Review restock",
+          ? `Tersisa ${lowest.stockQty}; diperkirakan cukup sekitar ${lowest.daysOfCover} hari berdasarkan penjualan terakhir.`
+          : `Tersisa ${lowest.stockQty}.`,
+      action: "Periksa kebutuhan belanja stok",
     });
   }
   const costliest = costIncreases[0];
   if (costliest) {
     insights.push({
-      title: `${costliest.name} cost rose ${costliest.pctIncrease}%`,
-      body: `Up from ${formatRupiah(costliest.oldCost)} to ${formatRupiah(costliest.newCost)} at your supplier.`,
-      action: "Review pricing",
+      title: `Modal ${costliest.name} naik ${costliest.pctIncrease}%`,
+      body: `Harga modal berubah dari ${formatRupiah(costliest.oldCost)} menjadi ${formatRupiah(costliest.newCost)}.`,
+      action: "Periksa kembali harga jual",
     });
   }
 

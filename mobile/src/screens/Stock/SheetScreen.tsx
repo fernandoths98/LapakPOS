@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { errorCodes, isErrorWithCode, keepLocalCopy, pick, types } from "@react-native-documents/picker";
 import ReactNativeBlobUtil from "react-native-blob-util";
 import * as XLSX from "xlsx";
@@ -142,6 +143,7 @@ export function SheetScreen() {
   const isBusy = isPicking || importPreview.isPending;
 
   return (
+    <SafeAreaView style={styles.container} edges={[]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="h2">Excel</Text>
       <Text variant="body" color={colors.neutral700} style={styles.intro}>
@@ -269,6 +271,7 @@ export function SheetScreen() {
         </Pressable>
       ))}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

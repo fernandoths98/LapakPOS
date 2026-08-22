@@ -1,4 +1,4 @@
-import { TenderType, UserRole } from "../constants";
+import { BusinessType, TenderType, UserRole } from "../constants";
 import { AiChatMessage, Expense, Merchant, PpobBiller, PpobTransaction, Product, Sale, Shift } from "./domain";
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -10,8 +10,36 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   token: string;
-  user: { id: string; name: string; email: string; role: UserRole; merchantId: string };
+  user: { id: string; name: string; email: string; role: UserRole; merchantId: string; outletId?: string | null };
 }
+
+export interface RegisterRequest {
+  ownerName: string;
+  email: string;
+  password: string;
+  businessName: string;
+  businessType: BusinessType;
+  phone: string;
+  address?: string;
+}
+
+export interface RegisterResponse extends LoginResponse {
+  merchant: { id: string; name: string; slug: string; businessType: BusinessType; trialEndsAt: string };
+  outlet: { id: string; name: string; code: string };
+  subscription: { planCode: "starter"; status: "trialing"; trialEndsAt: string };
+}
+
+export interface OutletDto { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; createdAt: string }
+export interface StaffDto { id: string; name: string; email: string; role: UserRole; outletId: string | null; isActive: boolean; createdAt: string }
+export interface AccountSetupResponse {
+  merchant: { id: string; name: string; slug: string | null; businessType: BusinessType; onboardingCompleted: boolean; trialEndsAt: string | null };
+  subscription: { planCode: "starter" | "growth" | "pro"; status: "trialing" | "active" | "past_due" | "canceled"; trialEndsAt: string } | null;
+  outlets: OutletDto[];
+  staff: StaffDto[];
+}
+export interface CreateOutletRequest { name: string; code: string; address?: string; phone?: string }
+export interface CreateStaffRequest { name: string; email?: string; role: Exclude<UserRole, "owner">; outletId: string; pin: string; password?: string }
+export interface PinLoginRequest { businessSlug: string; outletCode: string; pin: string }
 
 // ── Products ──────────────────────────────────────────────────────────────
 
@@ -97,6 +125,32 @@ export interface TodaySummaryResponse {
   tenderMix: { label: string; amount: number; pct: number }[];
 }
 
+export interface WalletSummaryResponse {
+  balance: number;
+}
+
+export interface WalletLedgerItem {
+  id: string;
+  type: "topup_credit" | "ppob_debit" | "ppob_refund" | "adjustment";
+  amount: number;
+  balanceAfter: number;
+  reference: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface WalletTopupResponse {
+  id: string;
+  amount: number;
+  partnerRef: string;
+  providerRef: string | null;
+  qrContent: string;
+  status: "pending" | "paid" | "expired" | "failed";
+  expiresAt: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
 // ── Merchant ──────────────────────────────────────────────────────────────
 
 /** GET /api/merchant/me — the caller's own merchant record. Same shape as the `Merchant` domain type. */
@@ -176,6 +230,17 @@ export interface CreateExpenseRequest {
 export interface CheckBillRequest {
   billerId: string;
   customerNumber: string;
+  skuCode?: string;
+}
+
+export interface PrepaidProduct {
+  skuCode: string;
+  name: string;
+  category: string;
+  brand: string;
+  type: string;
+  price: number;
+  description: string;
 }
 
 export interface CheckBillResponse {
@@ -201,6 +266,12 @@ export interface PayBillResponse {
 export interface PpobCommissionSummaryResponse {
   commissionThisMonth: number;
   deposit: number;
+}
+
+export interface PpobProviderStatusResponse {
+  provider: "mock" | "digiflazz";
+  mode: "mock" | "development" | "production";
+  configured: boolean;
 }
 
 // ── Recap / AI ────────────────────────────────────────────────────────────

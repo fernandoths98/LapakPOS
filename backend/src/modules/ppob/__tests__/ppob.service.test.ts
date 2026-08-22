@@ -27,7 +27,7 @@ function fakeProvider(overrides?: { checkBill?: Partial<CheckBillResult>; payBil
       ...overrides?.checkBill,
     }),
     payBill: jest.fn().mockResolvedValue({
-      success: true,
+      status: "success",
       providerRef: "test-pay-ref",
       paidAt: new Date().toISOString(),
       ...overrides?.payBill,
@@ -193,7 +193,7 @@ describe("ppob.service", () => {
 
     it("on provider failure: still records a failed transaction, writes NO commission entry, and surfaces a real error", async () => {
       getPpobProvider.mockReturnValue(
-        fakeProvider({ payBill: { success: false, failureReason: "Aggregator float exhausted for this biller" } }),
+        fakeProvider({ payBill: { status: "failed", failureReason: "Aggregator float exhausted for this biller" } }),
       );
       const quote = await ppobService.checkBill(TEST_MERCHANT_ID, { billerId, customerNumber: "0813123123" });
 

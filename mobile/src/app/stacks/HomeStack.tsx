@@ -4,6 +4,8 @@ import { HomeScreen } from "../../screens/Home/HomeScreen";
 import { AddExpenseScreen } from "../../screens/Home/AddExpenseScreen";
 import { OpenShiftScreen } from "../../screens/Home/OpenShiftScreen";
 import { ShiftCloseScreen } from "../../screens/Shift/ShiftCloseScreen";
+import { ProfileScreen } from "../../screens/Profile/ProfileScreen";
+import { AccountManagementScreen } from "../../screens/Profile/AccountManagementScreen";
 import { stackScreenOptions } from "./stackScreenOptions";
 
 export type HomeStackParamList = {
@@ -15,6 +17,8 @@ export type HomeStackParamList = {
   ShiftClose: undefined;
   /** Minimal add-expense form (Phase 5). */
   AddExpense: undefined;
+  Profile: undefined;
+  AccountManagement: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -23,7 +27,7 @@ const Stack = createNativeStackNavigator<HomeStackParamList>();
 export function HomeStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="Home" component={HomeScreen} options={{ title: "Home" }} />
+      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="OpenShift"
         component={OpenShiftScreen}
@@ -39,6 +43,8 @@ export function HomeStack() {
         component={AddExpenseScreen}
         options={{ title: "Add expense", headerBackTitle: "Home" }}
       />
+      <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AccountManagement" component={AccountManagementScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

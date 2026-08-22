@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { parseRupiah } from "@lapak/shared";
@@ -35,6 +36,7 @@ export function OpenShiftScreen() {
   };
 
   return (
+    <SafeAreaView style={styles.container} edges={["left", "right"]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="h2">Open shift</Text>
       <Text variant="body" color={colors.neutral700} style={styles.intro}>
@@ -69,6 +71,7 @@ export function OpenShiftScreen() {
         style={styles.openButton}
       />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

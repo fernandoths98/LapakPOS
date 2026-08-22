@@ -134,6 +134,9 @@ async function main() {
     { code: "bpjs", name: "BPJS", sub: "Health premiums", category: "health_insurance" as const, marginAmount: 2500 },
     { code: "ewallet", name: "E-wallet", sub: "GoPay, OVO, DANA", category: "ewallet" as const, marginAmount: 1000 },
     { code: "internet_tv", name: "Internet & TV", sub: "IndiHome, First Media", category: "internet_tv" as const, marginAmount: 3500 },
+    { code: "games", name: "Voucher game", sub: "Mobile Legends, Free Fire", category: "games" as const, marginAmount: 2000 },
+    { code: "tv_voucher", name: "Voucher TV", sub: "K-Vision dan TV prabayar", category: "tv_voucher" as const, marginAmount: 2000 },
+    { code: "gas", name: "Gas", sub: "Produk gas prabayar", category: "gas" as const, marginAmount: 2000 },
   ];
 
   for (const def of billerDefs) {

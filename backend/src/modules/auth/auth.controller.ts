@@ -8,10 +8,30 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+const registerSchema = z.object({
+  ownerName: z.string().trim().min(2).max(80),
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(128),
+  businessName: z.string().trim().min(2).max(100),
+  businessType: z.enum(["retail", "restaurant"]),
+  phone: z.string().trim().min(8).max(24),
+  address: z.string().trim().max(240).optional(),
+});
+const pinLoginSchema = z.object({ businessSlug: z.string().min(3), outletCode: z.string().min(2), pin: z.string().regex(/^\d{4,6}$/) });
+
 export async function loginHandler(req: Request, res: Response): Promise<void> {
   const { email, password } = loginSchema.parse(req.body);
   const result = await authService.login(email, password);
   res.json(result);
+}
+
+export async function registerHandler(req: Request, res: Response): Promise<void> {
+  const input = registerSchema.parse(req.body);
+  const result = await authService.register(input);
+  res.status(201).json(result);
+}
+export async function pinLoginHandler(req: Request, res: Response): Promise<void> {
+  res.json(await authService.loginWithPin(pinLoginSchema.parse(req.body)));
 }
 
 export async function meHandler(req: Request, res: Response): Promise<void> {

@@ -5,7 +5,14 @@ import {
   BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import { NavigatorScreenParams } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ChartNoAxesColumnIncreasing,
+  House,
+  PackageOpen,
+  ReceiptText,
+  ShoppingCart,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Text } from '../theme/Text';
 import { colors } from '../theme/tokens';
 import { HomeStack, HomeStackParamList } from './stacks/HomeStack';
@@ -39,12 +46,12 @@ const TAB_LABELS: Record<keyof MainTabsParamList, string> = {
   RecapTab: 'Laporan',
 };
 
-const TAB_ICONS: Record<keyof MainTabsParamList, string> = {
-  HomeTab: '⌂',
-  SellTab: '▣',
-  BillsTab: '⌁',
-  StockTab: '□',
-  RecapTab: '≡',
+const TAB_ICONS: Record<keyof MainTabsParamList, LucideIcon> = {
+  HomeTab: House,
+  SellTab: ShoppingCart,
+  BillsTab: ReceiptText,
+  StockTab: PackageOpen,
+  RecapTab: ChartNoAxesColumnIncreasing,
 };
 
 /**
@@ -53,16 +60,13 @@ const TAB_ICONS: Record<keyof MainTabsParamList, string> = {
  * pill or icon — color is stroke/mark only, per the design system.
  */
 function TabBar({ state, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
   return (
-    <View
-      style={[styles.tabBar, { paddingBottom: Math.max(10, insets.bottom) }]}
-    >
+    <View style={styles.tabBar}>
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
         const label =
           TAB_LABELS[route.name as keyof MainTabsParamList] ?? route.name;
-        const icon = TAB_ICONS[route.name as keyof MainTabsParamList] ?? '•';
+        const Icon = TAB_ICONS[route.name as keyof MainTabsParamList] ?? House;
 
         const onPress = () => {
           const event = navigation.emit({
@@ -83,15 +87,12 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             onPress={onPress}
             style={styles.tabItem}
           >
-            <View style={[styles.iconWrap, isFocused && styles.iconWrapActive]}>
-              <Text variant="h3" color={isFocused ? colors.surface : colors.neutral600} style={styles.icon}>
-                {icon}
-              </Text>
-            </View>
+            <View style={[styles.activeIndicator, isFocused && styles.activeIndicatorVisible]} />
+            <Icon size={21} strokeWidth={isFocused ? 2.3 : 1.9} color={isFocused ? colors.text : colors.neutral500} />
             <Text
-              variant="kicker"
-              style={styles.label}
-              color={isFocused ? colors.accent700 : colors.neutral600}
+              variant="caption"
+              style={[styles.label, isFocused && styles.labelActive]}
+              color={isFocused ? colors.text : colors.neutral600}
             >
               {label}
             </Text>
@@ -131,25 +132,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.divider,
     backgroundColor: colors.surface,
-    paddingTop: 6,
-    paddingBottom: 10,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   tabItem: {
     flex: 1,
-    minHeight: 52,
+    height: 58,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingTop: 4,
-    paddingBottom: 4,
+    gap: 2,
+    paddingTop: 7,
+    paddingBottom: 5,
   },
-  iconWrap: { width: 29, height: 25, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  iconWrapActive: { backgroundColor: colors.accent },
-  icon: { fontSize: 17, lineHeight: 20 },
+  activeIndicator: { position: 'absolute', top: -1, width: 30, height: 3, backgroundColor: 'transparent' },
+  activeIndicatorVisible: { backgroundColor: colors.accent },
   label: {
-    fontSize: 12,
-    letterSpacing: 0.6,
-    textTransform: 'none',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '500',
   },
+  labelActive: { fontWeight: '700' },
 });

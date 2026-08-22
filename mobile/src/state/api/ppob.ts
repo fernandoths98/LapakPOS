@@ -7,6 +7,11 @@ import {
   PpobBiller,
   PpobCommissionSummaryResponse,
   PpobTransaction,
+  PpobProviderStatusResponse,
+  WalletLedgerItem,
+  WalletSummaryResponse,
+  WalletTopupResponse,
+  PrepaidProduct,
 } from "@lapak/shared";
 import { apiClient } from "./apiClient";
 
@@ -16,6 +21,42 @@ export function useBillers() {
     queryKey: ["ppob", "billers"],
     queryFn: async () => {
       const { data } = await apiClient.get<PpobBiller[]>("/api/ppob/billers");
+      return data;
+    },
+  });
+}
+
+export type PrepaidCategory = "mobile" | "ewallet" | "electricity" | "games" | "tv_voucher" | "gas";
+
+export function usePrepaidProducts(category: PrepaidCategory, enabled = true) {
+  return useQuery({ queryKey: ["ppob", "prepaid-products", category], enabled, staleTime: 10 * 60_000, queryFn: async () => (await apiClient.get<PrepaidProduct[]>("/api/ppob/prepaid-products", { params: { category } })).data });
+}
+
+export function useWalletSummary() {
+  return useQuery({ queryKey: ["ppob", "wallet"], queryFn: async () => (await apiClient.get<WalletSummaryResponse>("/api/ppob/wallet")).data });
+}
+
+export function useWalletLedger(limit = 50) {
+  return useQuery({ queryKey: ["ppob", "wallet", "ledger", limit], queryFn: async () => (await apiClient.get<WalletLedgerItem[]>("/api/ppob/wallet/ledger", { params: { limit } })).data });
+}
+
+export function useWalletTopups(limit = 20, poll = false) {
+  return useQuery({ queryKey: ["ppob", "wallet", "topups", limit], queryFn: async () => (await apiClient.get<WalletTopupResponse[]>("/api/ppob/wallet/topups", { params: { limit } })).data, refetchInterval: poll ? 3000 : false });
+}
+
+export function useCreateWalletTopup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (amount: number) => (await apiClient.post<WalletTopupResponse>("/api/ppob/wallet/topups", { amount })).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ppob", "wallet", "topups"] }),
+  });
+}
+
+export function usePpobProviderStatus() {
+  return useQuery({
+    queryKey: ["ppob", "provider-status"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PpobProviderStatusResponse>("/api/ppob/provider-status");
       return data;
     },
   });
@@ -50,6 +91,9 @@ export function usePayBill() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ppob", "transactions"] });
       queryClient.invalidateQueries({ queryKey: ["ppob", "commission-summary"] });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["ppob", "wallet"] });
     },
   });
 }

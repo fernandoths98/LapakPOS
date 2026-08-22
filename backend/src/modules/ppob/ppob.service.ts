@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import axios from "axios";
 import {
   CheckBillRequest,
   CheckBillResponse,
@@ -14,6 +15,8 @@ import { prisma } from "../../db/prisma";
 import { AppError, badRequest, notFound } from "../../utils/errors";
 import { getOrOpenCurrentShift } from "../shifts/shifts.service";
 import { getPpobProvider } from "./providers";
+import { env } from "../../config/env";
+import { debitWallet, getWalletSummary, refundWallet } from "./wallet.service";
 
 // ── DTOs ─────────────────────────────────────────────────────────────────
 
@@ -64,6 +67,24 @@ export async function getBillers(merchantId: string): Promise<PpobBillerDto[]> {
   const billers = await prisma.ppobBiller.findMany({ where: { merchantId, isActive: true } });
   const rank = (category: string) => PPOB_CATEGORIES.indexOf(category as (typeof PPOB_CATEGORIES)[number]);
   return billers.sort((a, b) => rank(a.category) - rank(b.category)).map(toBillerDto);
+}
+
+export type PrepaidCategory = "mobile" | "ewallet" | "electricity" | "games" | "tv_voucher" | "gas";
+
+const PREPAID_CATEGORY_MATCH: Record<PrepaidCategory, string[]> = {
+  mobile: ["data", "pulsa", "paket sms", "aktivasi voucher", "aktivasi perdana", "masa aktif"],
+  ewallet: ["e-money"],
+  electricity: ["pln"],
+  games: ["games"],
+  tv_voucher: ["tv"],
+  gas: ["gas"],
+};
+
+export async function getPrepaidProducts(category: PrepaidCategory) {
+  const provider = getPpobProvider();
+  if (!provider.listPrepaidProducts) return [];
+  const allowed = PREPAID_CATEGORY_MATCH[category];
+  return (await provider.listPrepaidProducts()).filter(product => allowed.some(value => product.category.toLowerCase().includes(value)));
 }
 
 // ── Quote store (check → charge) ────────────────────────────────────────
@@ -129,7 +150,17 @@ export async function checkBill(merchantId: string, body: CheckBillRequest): Pro
 
   const biller = await findActiveBiller(merchantId, body.billerId);
   const provider = getPpobProvider();
-  const result = await provider.checkBill({ billerCode: biller.code, category: biller.category, customerNumber });
+  let result;
+  try {
+    result = await provider.checkBill({ billerCode: biller.code, category: biller.category, customerNumber, skuCode: body.skuCode });
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data as { data?: { message?: string }; message?: string } | undefined;
+      throw new AppError(502, "ppob_provider_failed", data?.data?.message ?? data?.message ?? "Digiflazz tidak dapat memproses nomor tersebut.");
+    }
+    throw new AppError(502, "ppob_provider_failed", error instanceof Error ? error.message : "Layanan PPOB sedang bermasalah.");
+  }
 
   const customerPays = result.billAmount + result.adminFee + biller.marginAmount;
   const checkRef = randomUUID();
@@ -188,13 +219,25 @@ export async function payBill(merchantId: string, userId: string, body: PayBillR
 
   const biller = await findActiveBiller(merchantId, quote.billerId);
   const provider = getPpobProvider();
-  const result = await provider.payBill({
-    billerCode: quote.billerCode,
-    customerNumber: quote.customerNumber,
-    billAmount: quote.billAmount,
-    adminFee: quote.adminFee,
-    checkProviderRef: quote.checkProviderRef,
-  });
+  const walletDebitAmount = quote.billAmount + quote.adminFee;
+  const walletReference =
+    env.PPOB_PROVIDER === "digiflazz" && env.DIGIFLAZZ_MODE === "production"
+      ? `ppob:${body.checkRef}:debit`
+      : null;
+  if (walletReference) await debitWallet(merchantId, walletDebitAmount, walletReference, `Pembelian ${biller.name} untuk ${quote.customerNumber}`);
+  let result;
+  try {
+    result = await provider.payBill({
+      billerCode: quote.billerCode,
+      customerNumber: quote.customerNumber,
+      billAmount: quote.billAmount,
+      adminFee: quote.adminFee,
+      checkProviderRef: quote.checkProviderRef,
+    });
+  } catch (error) {
+    if (walletReference) await refundWallet(merchantId, walletDebitAmount, walletReference, `Refund ${biller.name}: provider tidak dapat dihubungi`);
+    throw error;
+  }
 
   const totalCharged = quote.billAmount + quote.adminFee + quote.marginAmount;
 
@@ -213,18 +256,20 @@ export async function payBill(merchantId: string, userId: string, body: PayBillR
         marginAmount: quote.marginAmount,
         totalCharged,
         providerRef: result.providerRef,
-        status: result.success ? "success" : "failed",
+        status: result.status,
+        walletDebitAmount: walletReference ? walletDebitAmount : 0,
+        walletReference,
       },
       include: { biller: true },
     });
 
-    if (result.success) {
+    if (result.status === "success") {
       await tx.ppobCommissionLedgerEntry.create({
         data: {
           merchantId,
           ppobTransactionId: transaction.id,
           commissionAmount: quote.marginAmount,
-          depositDelta: quote.marginAmount,
+          depositDelta: 0,
         },
       });
     }
@@ -232,7 +277,8 @@ export async function payBill(merchantId: string, userId: string, body: PayBillR
     return transaction;
   });
 
-  if (!result.success) {
+  if (result.status === "failed") {
+    if (walletReference) await refundWallet(merchantId, walletDebitAmount, walletReference, `Refund ${biller.name}: transaksi gagal`);
     throw new AppError(
       502,
       "ppob_provider_failed",
@@ -284,19 +330,16 @@ function resolveMonthRange(month?: string): { start: Date; end: Date } {
 export async function getCommissionSummary(merchantId: string, month?: string): Promise<PpobCommissionSummaryResponse> {
   const { start, end } = resolveMonthRange(month);
 
-  const [monthAgg, allTimeAgg] = await Promise.all([
+  const [monthAgg, wallet] = await Promise.all([
     prisma.ppobCommissionLedgerEntry.aggregate({
       where: { merchantId, createdAt: { gte: start, lt: end } },
       _sum: { commissionAmount: true },
     }),
-    prisma.ppobCommissionLedgerEntry.aggregate({
-      where: { merchantId },
-      _sum: { depositDelta: true },
-    }),
+    getWalletSummary(merchantId),
   ]);
 
   return {
     commissionThisMonth: monthAgg._sum.commissionAmount ?? 0,
-    deposit: allTimeAgg._sum.depositDelta ?? 0,
+    deposit: wallet.balance,
   };
 }

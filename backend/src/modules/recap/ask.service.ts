@@ -20,10 +20,10 @@ const ASK_HISTORY_TURNS = 10;
  * mirrors the daily recap's degraded-path honesty: never pretend a real
  * Claude answer was given.
  */
-export const AI_UNAVAILABLE_REPLY = "AI isn't available yet — ask again once ANTHROPIC_API_KEY is configured.";
+export const AI_UNAVAILABLE_REPLY = "Asisten AI belum tersedia. Silakan coba lagi setelah layanan AI diaktifkan.";
 
 /** Shown when Claude is configured but a live call fails (network, rate limit, etc) — a transient problem, not a config problem. */
-const AI_TRANSIENT_FAILURE_REPLY = "Couldn't reach the AI assistant just now — try again in a moment.";
+const AI_TRANSIENT_FAILURE_REPLY = "Asisten AI sedang tidak dapat dihubungi. Silakan coba lagi beberapa saat lagi.";
 
 const ASK_SCHEMA: JsonSchema = {
   type: "object",
@@ -43,7 +43,8 @@ const ASK_SCHEMA: JsonSchema = {
 
 const ASK_SYSTEM_PROMPT_PREFIX =
   "You are the same warm, plain-spoken business analyst for a small Indonesian warung (corner shop) point-of-sale " +
-  "app who writes the shop's daily recap — except now the shop owner is chatting with you directly, asking " +
+  "app. Always answer in clear, natural Bahasa Indonesia for a shop owner. You are the same analyst " +
+  "who writes the shop's daily recap — except now the shop owner is chatting with you directly, asking " +
   "follow-up questions like \"what should I restock?\" or \"when am I quiet?\". You must ONLY use figures that " +
   "appear in the JSON business-data block below — never invent, estimate, or round a number that isn't directly " +
   "present in it. If the data doesn't contain what's needed to answer a question, say so honestly rather than " +

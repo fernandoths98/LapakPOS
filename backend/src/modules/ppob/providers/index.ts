@@ -1,5 +1,6 @@
 import { env } from "../../../config/env";
 import { MockPpobProvider } from "./MockPpobProvider";
+import { DigiflazzProvider } from "./DigiflazzProvider";
 import { PpobProvider } from "./PpobProvider";
 
 /**
@@ -10,8 +11,11 @@ import { PpobProvider } from "./PpobProvider";
 export function getPpobProvider(): PpobProvider {
   switch (env.PPOB_PROVIDER) {
     case "mock":
-    default:
       return new MockPpobProvider();
+    case "digiflazz":
+      return new DigiflazzProvider();
+    default:
+      throw new Error(`Unsupported PPOB provider: ${env.PPOB_PROVIDER}`);
   }
 }
 

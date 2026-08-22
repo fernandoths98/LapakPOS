@@ -18,6 +18,7 @@ def resolvePackageDir(String requireTarget) {
 }
 def resolvedReactNativeDir = resolvePackageDir("react-native/package.json")
 def resolvedCodegenDir = resolvePackageDir("@react-native/codegen/package.json")
+def resolvedHermesCompilerDir = resolvePackageDir("hermes-compiler/package.json")
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -62,7 +63,7 @@ react {
 
     /* Hermes Commands */
     //   The hermes compiler command to run. By default it is 'hermesc'
-    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    hermesCommand = new File(resolvedHermesCompilerDir, "hermesc/%OS-BIN%/hermesc").absolutePath
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]

@@ -3,8 +3,11 @@ export const LOW_STOCK_THRESHOLD_DEFAULT = 8;
 export const TENDER_TYPES = ["cash", "qris", "debit", "split"] as const;
 export type TenderType = (typeof TENDER_TYPES)[number];
 
-export const USER_ROLES = ["owner", "cashier"] as const;
+export const USER_ROLES = ["owner", "manager", "cashier", "stocker"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+export const BUSINESS_TYPES = ["retail", "restaurant"] as const;
+export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
 export const PPOB_CATEGORIES = [
   "electricity",
@@ -13,6 +16,9 @@ export const PPOB_CATEGORIES = [
   "health_insurance",
   "ewallet",
   "internet_tv",
+  "games",
+  "tv_voucher",
+  "gas",
 ] as const;
 export type PpobCategory = (typeof PPOB_CATEGORIES)[number];
 

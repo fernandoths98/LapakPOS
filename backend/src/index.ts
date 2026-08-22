@@ -3,7 +3,7 @@ import { env } from "./config/env";
 
 const app = createApp();
 
-app.listen(env.PORT, () => {
+app.listen(env.PORT, env.HOST, () => {
   // eslint-disable-next-line no-console
-  console.log(`Lapak backend listening on http://localhost:${env.PORT}`);
+  console.log(`Lapak backend listening on http://${env.HOST}:${env.PORT}`);
 });

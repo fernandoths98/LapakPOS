@@ -1,9 +1,10 @@
-import { PpobCategory } from "@lapak/shared";
+import { PpobCategory, PrepaidProduct } from "@lapak/shared";
 
 export interface CheckBillInput {
   billerCode: string;
   category: PpobCategory;
   customerNumber: string;
+  skuCode?: string;
 }
 
 export interface CheckBillResult {
@@ -24,7 +25,7 @@ export interface PayBillInput {
 }
 
 export interface PayBillResult {
-  success: boolean;
+  status: "success" | "pending" | "failed";
   providerRef: string;
   paidAt: string;
   failureReason?: string;
@@ -38,6 +39,7 @@ export interface PayBillResult {
  * factory, with zero changes to `ppob.service.ts` or anything above it.
  */
 export interface PpobProvider {
+  listPrepaidProducts?(): Promise<PrepaidProduct[]>;
   checkBill(input: CheckBillInput): Promise<CheckBillResult>;
   payBill(input: PayBillInput): Promise<PayBillResult>;
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { parseRupiah, PhotoFillResponse } from "@lapak/shared";
 import { Text } from "../../theme/Text";
@@ -235,13 +236,14 @@ export function ProductScreen() {
 
   if (isEditing && productQuery.isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={[]}>
         <ActivityIndicator color={colors.accent} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
+    <SafeAreaView style={styles.container} edges={[]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="h2">{isEditing ? "Edit product" : "New product"}</Text>
 
@@ -364,6 +366,7 @@ export function ProductScreen() {
 
       <BarcodeScanner visible={scannerOpen} onScanned={handleScanned} onClose={() => setScannerOpen(false)} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

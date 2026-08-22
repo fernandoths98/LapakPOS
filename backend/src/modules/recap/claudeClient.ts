@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import axios from "axios";
 import { aiEnabled, env } from "../../config/env";
 
 /**
@@ -15,7 +16,7 @@ export class AiUnavailableError extends Error {
 }
 
 /** Model id per this phase's spec — the current Claude Sonnet 5. */
-export const RECAP_MODEL = "claude-sonnet-5";
+export const RECAP_MODEL = env.OPENROUTER_API_KEY ? env.OPENROUTER_MODEL : "claude-sonnet-5";
 
 let client: Anthropic | null = null;
 
@@ -24,6 +25,57 @@ function getClient(): Anthropic {
     client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   }
   return client;
+}
+
+function toOpenRouterMessages(system: string, messages: Anthropic.MessageParam[]): Array<Record<string, unknown>> {
+  return [
+    { role: "system", content: system },
+    ...messages.map((message) => ({
+      role: message.role,
+      content: typeof message.content === "string"
+        ? message.content
+        : message.content.flatMap((block): Array<Record<string, unknown>> => {
+            if (block.type === "text") return [{ type: "text", text: block.text }];
+            if (block.type === "image" && block.source.type === "base64") {
+              return [{ type: "image_url", image_url: { url: `data:${block.source.media_type};base64,${block.source.data}` } }];
+            }
+            return [];
+          }),
+    })),
+  ];
+}
+
+async function generateViaOpenRouter<T>(
+  system: string,
+  messages: Anthropic.MessageParam[],
+  jsonSchema: JsonSchema,
+  toolName: string,
+  maxTokens: number,
+): Promise<T> {
+  const response = await axios.post<{ choices?: Array<{ message?: { content?: string } }> }>(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      model: env.OPENROUTER_MODEL,
+      messages: toOpenRouterMessages(system, messages),
+      max_tokens: maxTokens,
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: toolName, strict: true, schema: jsonSchema },
+      },
+    },
+    {
+      timeout: 30_000,
+      headers: {
+        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://lapak-api.kotdee.tech",
+        "X-Title": "Kotdee POS",
+      },
+    },
+  );
+  const content = response.data.choices?.[0]?.message?.content;
+  if (!content) throw new Error("OpenRouter response did not contain structured content");
+  return JSON.parse(content) as T;
 }
 
 /**
@@ -97,6 +149,10 @@ export async function generateStructured<T>({
     throw new Error("generateStructured requires exactly one of `user` or `messages`");
   }
   const resolvedMessages: Anthropic.MessageParam[] = messages ?? [{ role: "user", content: user as string }];
+
+  if (env.OPENROUTER_API_KEY) {
+    return generateViaOpenRouter<T>(system, resolvedMessages, jsonSchema, toolName, maxTokens);
+  }
 
   const response = await getClient().messages.create({
     model: RECAP_MODEL,

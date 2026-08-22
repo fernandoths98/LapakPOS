@@ -5,6 +5,8 @@ import { colors, fonts } from "../../theme/tokens";
 export const stackScreenOptions: NativeStackNavigationOptions = {
   headerStyle: { backgroundColor: colors.bg },
   headerShadowVisible: false,
+  // App's single SafeAreaView already owns the system top inset.
+  unstable_headerInsets: { top: false },
   headerTintColor: colors.accent700,
   headerTitleStyle: {
     fontFamily: fonts.heading,

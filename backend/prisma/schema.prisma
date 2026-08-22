@@ -9,7 +9,27 @@ datasource db {
 
 enum UserRole {
   owner
+  manager
   cashier
+  stocker
+}
+
+enum BusinessType {
+  retail
+  restaurant
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+}
+
+enum PlanCode {
+  starter
+  growth
+  pro
 }
 
 enum ShiftStatus {
@@ -41,11 +61,28 @@ enum PpobCategory {
   health_insurance
   ewallet
   internet_tv
+  games
+  tv_voucher
+  gas
 }
 
 enum PpobTransactionStatus {
   pending
   success
+  failed
+}
+
+enum WalletEntryType {
+  topup_credit
+  ppob_debit
+  ppob_refund
+  adjustment
+}
+
+enum WalletTopupStatus {
+  pending
+  paid
+  expired
   failed
 }
 
@@ -66,6 +103,10 @@ model Merchant {
   phone              String?
   defaultPrinterName String?
   createdAt          DateTime @default(now())
+  slug               String?  @unique
+  businessType       BusinessType @default(retail) @map("business_type")
+  onboardingCompleted Boolean @default(false) @map("onboarding_completed")
+  trialEndsAt        DateTime? @map("trial_ends_at")
 
   users             User[]
   categories        Category[]
@@ -76,8 +117,13 @@ model Merchant {
   ppobBillers       PpobBiller[]
   ppobTransactions  PpobTransaction[]
   commissionLedger  PpobCommissionLedgerEntry[]
+  wallet             MerchantWallet?
+  walletEntries      WalletLedgerEntry[]
+  walletTopups       WalletTopup[]
   aiRecapCache      AiRecapCache[]
   aiChatMessages    AiChatMessage[]
+  outlets           Outlet[]
+  subscription      Subscription?
 
   @@map("merchants")
 }
@@ -90,12 +136,47 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   role         UserRole
+  outletId     String?  @map("outlet_id")
+  outlet       Outlet?  @relation(fields: [outletId], references: [id])
+  pinHash      String?  @map("pin_hash")
+  isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now())
 
   shifts         Shift[]
   aiChatMessages AiChatMessage[]
 
   @@map("users")
+}
+
+model Outlet {
+  id         String   @id @default(uuid())
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  name       String
+  code       String
+  address    String?
+  phone      String?
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at")
+  users      User[]
+
+  @@unique([merchantId, code])
+  @@index([merchantId])
+  @@map("outlets")
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  merchantId         String             @unique @map("merchant_id")
+  merchant           Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  planCode            PlanCode           @default(starter) @map("plan_code")
+  status              SubscriptionStatus @default(trialing)
+  trialEndsAt         DateTime           @map("trial_ends_at")
+  currentPeriodEndsAt DateTime?          @map("current_period_ends_at")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
 }
 
 model Category {
@@ -256,11 +337,54 @@ model PpobTransaction {
   providerRef     String                 @map("provider_ref")
   status          PpobTransactionStatus  @default(pending)
   createdAt       DateTime               @default(now()) @map("created_at")
+  walletDebitAmount Int                  @default(0) @map("wallet_debit_amount")
+  walletReference String?                @unique @map("wallet_reference")
 
   commissionEntry PpobCommissionLedgerEntry?
 
   @@index([merchantId, createdAt])
   @@map("ppob_transactions")
+}
+
+model MerchantWallet {
+  merchantId String   @id @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  balance    Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("merchant_wallets")
+}
+
+model WalletLedgerEntry {
+  id           String          @id @default(uuid())
+  merchantId   String          @map("merchant_id")
+  merchant     Merchant        @relation(fields: [merchantId], references: [id])
+  type         WalletEntryType
+  amount       Int
+  balanceAfter Int             @map("balance_after")
+  reference    String          @unique
+  description  String
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  @@index([merchantId, createdAt])
+  @@map("wallet_ledger_entries")
+}
+
+model WalletTopup {
+  id           String            @id @default(uuid())
+  merchantId   String            @map("merchant_id")
+  merchant     Merchant          @relation(fields: [merchantId], references: [id])
+  amount       Int
+  partnerRef   String            @unique @map("partner_ref")
+  providerRef  String?           @map("provider_ref")
+  qrContent    String            @map("qr_content")
+  status       WalletTopupStatus @default(pending)
+  expiresAt    DateTime          @map("expires_at")
+  paidAt       DateTime?         @map("paid_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  @@index([merchantId, createdAt])
+  @@map("wallet_topups")
 }
 
 model PpobCommissionLedgerEntry {

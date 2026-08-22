@@ -1,0 +1,19 @@
+[Unit]
+Description=LapakPOS API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/lapakpos/backend
+EnvironmentFile=/opt/lapakpos/backend/.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=4100
+ExecStart=/usr/bin/node dist/src/index.js
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

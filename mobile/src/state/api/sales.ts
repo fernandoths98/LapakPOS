@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import uuid from "react-native-uuid";
 import { CreateSaleRequest, Sale } from "@lapak/shared";
 import { apiClient } from "./apiClient";
@@ -34,5 +34,20 @@ export function useCreateSale() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
     },
+  });
+}
+
+export function useRecentSales(limit = 50) {
+  return useQuery({
+    queryKey: ["sales", "recent", limit],
+    queryFn: async () => (await apiClient.get<Sale[]>("/api/sales", { params: { limit } })).data,
+  });
+}
+
+export function useSale(id: string) {
+  return useQuery({
+    queryKey: ["sales", id],
+    queryFn: async () => (await apiClient.get<Sale>(`/api/sales/${id}`)).data,
+    enabled: Boolean(id),
   });
 }

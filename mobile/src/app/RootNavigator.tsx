@@ -1,13 +1,15 @@
 import React from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuthStore } from "../state/auth/authStore";
 import { LoginScreen } from "../screens/Auth/LoginScreen";
+import { RegisterScreen } from "../screens/Auth/RegisterScreen";
 import { MainTabs } from "./MainTabs";
 import { colors } from "../theme/tokens";
 
 export type RootStackParamList = {
   Login: undefined;
+  Register: undefined;
   Main: undefined;
 };
 
@@ -25,6 +27,7 @@ export function RootNavigator() {
   if (!hasHydrated) {
     return (
       <View style={styles.splash}>
+        <Image source={require("../assets/branding/kotdee-pos-mark.png")} style={styles.splashLogo} resizeMode="contain" />
         <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
@@ -35,7 +38,10 @@ export function RootNavigator() {
       {token ? (
         <Stack.Screen name="Main" component={MainTabs} />
       ) : (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Group>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+        </Stack.Group>
       )}
     </Stack.Navigator>
   );
@@ -47,5 +53,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.bg,
+    gap: 20,
   },
+  splashLogo: { width: 132, height: 132 },
 });

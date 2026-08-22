@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { formatRupiah, Product } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
@@ -30,7 +31,7 @@ export function StockScreen() {
   }, [allProductsQuery.data]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <FlatList
         data={filteredQuery.data ?? []}
         keyExtractor={(item) => item.id}
@@ -88,7 +89,7 @@ export function StockScreen() {
           ) : undefined
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -137,9 +138,9 @@ function CatalogRow({ product, onPress }: { product: Product; onPress: () => voi
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  listContent: { paddingHorizontal: space[4], paddingBottom: space[8] },
-  header: { paddingTop: space[3], paddingBottom: space[2] },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  listContent: { paddingHorizontal: space[4], paddingTop: 0, paddingBottom: space[8] },
+  header: { paddingTop: 0, paddingBottom: space[2] },
+  titleRow: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerButtons: { flexDirection: "row", gap: space[2] },
   headerButton: { paddingHorizontal: space[3], minHeight: 38 },
   statStrip: {

@@ -64,7 +64,8 @@ export interface ReceiptMerchantInfo {
 
 /**
  * Builds the printable receipt content for a completed sale — merchant
- * header, one row per line item (qty + name, price), tender, TOTAL, and the
+ * header, two rows per line item (product name, then quantity × unit price
+ * with the line subtotal), tender, TOTAL, and the
  * "Terima kasih" footer. Mirrors `receiptLines`/`isPaid` in the prototype
  * (Warung POS.dc.html) and the on-screen receipt in PaidScreen.tsx exactly,
  * just re-rendered for a monospace 32-column printer instead of a phone
@@ -76,8 +77,8 @@ export function buildSaleReceiptLines(sale: Sale, tenderLabel: string, merchant:
   lines.push({ text: truncate(merchant.addressLine, RECEIPT_WIDTH), align: "center" });
   lines.push({ text: dashedRule() });
   for (const item of sale.lineItems) {
-    const left = `${item.qty}x ${item.productName.slice(0, 18)}`;
-    lines.push({ text: formatRow(left, formatRupiah(item.lineTotal)) });
+    lines.push({ text: truncate(item.productName, RECEIPT_WIDTH) });
+    lines.push({ text: formatRow(`  ${item.qty} x ${formatRupiah(item.unitPrice)}`, formatRupiah(item.lineTotal)) });
   }
   lines.push({ text: formatRow("Tender", tenderLabel) });
   lines.push({ text: dashedRule() });

@@ -56,6 +56,9 @@ const ADMIN_FEE_BY_CATEGORY: Record<PpobCategory, number> = {
   health_insurance: 2500,
   ewallet: 1000,
   internet_tv: 3000,
+  games: 1000,
+  tv_voucher: 1000,
+  gas: 1000,
 };
 
 function buildBillDetails(input: CheckBillInput, hash: number): { meta: string; billAmount: number } {
@@ -91,6 +94,12 @@ function buildBillDetails(input: CheckBillInput, hash: number): { meta: string; 
       const amount = 180000 + (hash % 26) * 8000; // Rp 180.000 - Rp 380.000
       return { meta: `${pkg} · period ${CURRENT_PERIOD()}`, billAmount: amount };
     }
+    case "games":
+      return { meta: "Voucher game", billAmount: pick(MOBILE_DENOMS, hash, 9) };
+    case "tv_voucher":
+      return { meta: "Voucher TV prabayar", billAmount: pick(MOBILE_DENOMS, hash, 10) };
+    case "gas":
+      return { meta: "Produk gas prabayar", billAmount: pick(MOBILE_DENOMS, hash, 11) };
   }
 }
 
@@ -125,7 +134,7 @@ export class MockPpobProvider implements PpobProvider {
 
     if (Math.random() < 0.05) {
       return {
-        success: false,
+        status: "failed",
         providerRef: `mock-fail-${input.billerCode}-${randomUUID()}`,
         paidAt: new Date().toISOString(),
         failureReason: "Provider declined the payment — the aggregator's float for this biller ran out mid-transaction.",
@@ -133,7 +142,7 @@ export class MockPpobProvider implements PpobProvider {
     }
 
     return {
-      success: true,
+      status: "success",
       providerRef: `mock-pay-${input.billerCode}-${randomUUID()}`,
       paidAt: new Date().toISOString(),
     };

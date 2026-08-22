@@ -151,13 +151,12 @@ describe('receiptFormatting', () => {
       expect(lines[1].text).toContain('Jl. Kaliurang');
     });
 
-    it('includes one row per line item, product name truncated to 18 chars and price right-aligned', () => {
-      // "Es Kopi Susu Gula Aren" is 22 chars — truncated to 18 ("Es Kopi Susu Gula "),
-      // never wrapped to a second line, matching the prototype's `.slice(0, 18)`.
-      expect(text).toContain('1x Es Kopi Susu Gula ');
-      expect(text).not.toContain('Es Kopi Susu Gula Aren');
+    it('includes product name plus quantity, unit price, and line subtotal', () => {
+      expect(text).toContain('Es Kopi Susu Gula Aren');
+      expect(text).toContain('1 x Rp 18.000');
       expect(text).toContain('Rp 18.000');
-      expect(text).toContain('1x Teh Botol 450ml');
+      expect(text).toContain('Teh Botol 450ml');
+      expect(text).toContain('1 x Rp 6.000');
       expect(text).toContain('Rp 6.000');
     });
 
@@ -177,8 +176,10 @@ describe('receiptFormatting', () => {
         "WARUNG SARI RASA
         Jl. Kaliurang KM 5 · 0812-3344-9
         --------------------------------
-        1x Es Kopi Susu Gula   Rp 18.000
-        1x Teh Botol 450ml      Rp 6.000
+        Es Kopi Susu Gula Aren
+          1 x Rp 18.000        Rp 18.000
+        Teh Botol 450ml
+          1 x Rp 6.000          Rp 6.000
         Tender                      Cash
         --------------------------------
         TOTAL                  Rp 24.000
@@ -241,8 +242,8 @@ describe('receiptFormatting', () => {
         "WARUNG SARI RASA
         Z-REPORT
         --------------------------------
-        Opened                     00:10
-        Closed                     12:55
+        Opened                     07:10
+        Closed                     19:55
         Cashier                     Sari
         --------------------------------
         Opening float         Rp 300.000

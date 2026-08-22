@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp, useRoute } from "@react-navigation/native";
 import { AiChatMessage, formatRupiah, RecapInsight, TopSeller, WeeklyBar } from "@lapak/shared";
 import { Text } from "../../theme/Text";
@@ -10,46 +11,46 @@ import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWe
 import { RecapStackParamList } from "../../app/stacks/RecapStack";
 
 export type RecapTabName = "Story" | "Ask" | "Reports";
-const TAB_NAMES: RecapTabName[] = ["Story", "Ask", "Reports"];
-
 const AI_UNAVAILABLE_MESSAGE =
-  "AI recap isn't available yet — set ANTHROPIC_API_KEY on the backend to enable it. The numbers below are real, just not AI-written.";
+  "Analisis pintar belum aktif. Angka penjualan tetap akurat dan dapat digunakan seperti biasa.";
 
 // Mirrors the prototype's `suggestions` chips exactly (Warung POS.dc.html, isRecap/recapIsAsk block).
-const ASK_SUGGESTIONS = ["What should I restock?", "How is my margin?", "When am I quiet?"];
+const ASK_SUGGESTIONS = ["Stok apa yang perlu dibeli?", "Produk apa paling laku hari ini?", "Kapan toko paling sepi?"];
 
 const ASK_AI_UNAVAILABLE_MESSAGE =
-  "AI isn't available yet — set ANTHROPIC_API_KEY on the backend for real answers. Your questions are still saved, and this thread will pick up as soon as it's configured.";
+  "Asisten AI belum aktif. Laporan angka tetap tersedia di tab Penjualan.";
 
 const BAR_MAX_HEIGHT = 96;
 
 export function RecapScreen() {
   const route = useRoute<RouteProp<RecapStackParamList, "Recap">>();
-  const [tab, setTab] = useState<RecapTabName>(route.params?.tab ?? "Story");
+  const initialAssistant = route.params?.tab === "Story" || route.params?.tab === "Ask" ? route.params.tab : null;
+  const [assistantView, setAssistantView] = useState<"Story" | "Ask" | null>(initialAssistant);
 
   return (
+    <SafeAreaView style={styles.container} edges={[]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text variant="h2">Recap</Text>
-
-      <View style={styles.tabRow}>
-        {TAB_NAMES.map((name) => {
-          const active = name === tab;
-          return (
-            <Button
-              key={name}
-              title={name}
-              variant={active ? "primary" : "secondary"}
-              onPress={() => setTab(name)}
-              style={styles.tabButton}
-            />
-          );
-        })}
+      <View style={styles.pageHeader}>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerCopy}>
+            <Text variant="h2">{assistantView ? "Asisten toko" : "Laporan"}</Text>
+            <Text variant="caption" color={colors.neutral600} style={styles.pageIntro}>
+              {assistantView ? "Baca insight atau tanyakan kondisi toko." : "Ringkasan penjualan 7 hari terakhir."}
+            </Text>
+          </View>
+          {assistantView ? (
+            <Pressable onPress={() => setAssistantView(null)} style={styles.backToReport}>
+              <Text variant="body" color={colors.accent2}>Kembali ke laporan</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
-      {tab === "Story" ? <StoryTab /> : null}
-      {tab === "Ask" ? <AskTab /> : null}
-      {tab === "Reports" ? <ReportsTab /> : null}
+      {assistantView === "Story" ? <StoryTab /> : null}
+      {assistantView === "Ask" ? <AskTab /> : null}
+      {!assistantView ? <ReportsTab onOpenAssistant={setAssistantView} /> : null}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -63,7 +64,7 @@ function StoryTab() {
   if (recapQuery.isError || !recapQuery.data) {
     return (
       <Text variant="body" color={colors.accent700} style={styles.loading}>
-        Couldn't load today's recap. Pull to retry.
+        Ringkasan hari ini gagal dimuat. Coba buka kembali halaman ini.
       </Text>
     );
   }
@@ -72,6 +73,17 @@ function StoryTab() {
 
   return (
     <View style={styles.storySection}>
+      <View style={styles.featureIntro}>
+        <Text variant="kicker" color={colors.accent2700}>INSIGHT OTOMATIS</Text>
+        <Text variant="h3" style={styles.featureTitle}>Prioritas toko hari ini</Text>
+        <Text variant="caption" color={colors.neutral700} style={styles.featureDescription}>
+          AI memeriksa omzet, produk terlaris, stok menipis, perubahan harga modal, dan pola jam sepi lalu merangkum hal yang perlu ditindaklanjuti.
+        </Text>
+        <Text variant="caption" color={colors.neutral600} style={styles.readOnlyNote}>
+          Hanya membaca data toko · tidak mengubah transaksi, stok, atau harga
+        </Text>
+      </View>
+
       {!recap.aiAvailable ? (
         <View style={styles.aiNotice}>
           <Text variant="caption" color={colors.accent700}>
@@ -89,7 +101,7 @@ function StoryTab() {
 
       <View style={styles.regenerateRow}>
         <Button
-          title={regenerate.isPending ? "Refreshing…" : "Refresh recap"}
+          title={regenerate.isPending ? "Memperbarui…" : "Perbarui ringkasan"}
           variant="ghost"
           loading={regenerate.isPending}
           onPress={() => regenerate.mutate()}
@@ -97,11 +109,11 @@ function StoryTab() {
       </View>
 
       <Text variant="kicker" style={styles.sectionLabel}>
-        Noticed
+        YANG PERLU DIPERHATIKAN
       </Text>
       {recap.insights.length === 0 ? (
         <Text variant="body" color={colors.neutral600} style={styles.emptyInsights}>
-          Nothing stands out today.
+          Belum ada hal penting yang perlu ditindaklanjuti hari ini.
         </Text>
       ) : (
         recap.insights.map((insight, index) => <InsightRow key={`${insight.title}-${index}`} insight={insight} />)
@@ -148,7 +160,7 @@ function AskTab() {
   if (historyQuery.isError) {
     return (
       <Text variant="body" color={colors.accent700} style={styles.loading}>
-        Couldn't load the chat. Pull to retry.
+        Percakapan gagal dimuat. Coba buka kembali halaman ini.
       </Text>
     );
   }
@@ -158,6 +170,17 @@ function AskTab() {
 
   return (
     <View style={styles.askSection}>
+      <View style={styles.featureIntro}>
+        <Text variant="kicker" color={colors.accent2700}>TANYA DATA TOKO</Text>
+        <Text variant="h3" style={styles.featureTitle}>Cari jawaban tanpa membaca tabel</Text>
+        <Text variant="caption" color={colors.neutral700} style={styles.featureDescription}>
+          Gunakan untuk pertanyaan lanjutan tentang penjualan hari ini, produk terlaris, kebutuhan restok, kenaikan modal, atau jam sepi.
+        </Text>
+        <Text variant="caption" color={colors.neutral600} style={styles.readOnlyNote}>
+          Jawaban mengikuti data yang tersedia; jika datanya belum cukup, AI akan mengatakannya.
+        </Text>
+      </View>
+
       {showAiUnavailableBanner ? (
         <View style={styles.aiNotice}>
           <Text variant="caption" color={colors.accent700}>
@@ -169,14 +192,14 @@ function AskTab() {
       <View style={styles.chatThread}>
         {messages.length === 0 && !pendingMessage ? (
           <Text variant="body" color={colors.neutral700}>
-            Ask me anything about the shop — restocking, margin, quiet hours.
+            Pilih contoh pertanyaan di bawah atau tulis pertanyaan sendiri.
           </Text>
         ) : null}
         {messages.map((message) => (
           <ChatBubble key={message.id} role={message.role} text={message.content} />
         ))}
         {pendingMessage ? <ChatBubble role="user" text={pendingMessage} /> : null}
-        {askChat.isPending ? <ChatBubble role="assistant" text="Thinking…" muted /> : null}
+        {askChat.isPending ? <ChatBubble role="assistant" text="Sedang menganalisis…" muted /> : null}
       </View>
 
       <View style={styles.suggestionsRow}>
@@ -196,13 +219,13 @@ function AskTab() {
         <TextField
           value={draft}
           onChangeText={setDraft}
-          placeholder="Ask about your shop…"
+          placeholder="Contoh: produk apa yang paling laku?"
           editable={!askChat.isPending}
           onSubmitEditing={() => handleSend(draft)}
           style={styles.askInput}
         />
         <Button
-          title={askChat.isPending ? "Asking…" : "Ask"}
+          title={askChat.isPending ? "Mengirim…" : "Kirim"}
           onPress={() => handleSend(draft)}
           loading={askChat.isPending}
           disabled={askChat.isPending || draft.trim() === ""}
@@ -225,7 +248,7 @@ function ChatBubble({ role, text, muted }: { role: AiChatMessage["role"]; text: 
   );
 }
 
-function ReportsTab() {
+function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "Ask") => void }) {
   const reportsQuery = useWeeklyReports();
 
   if (reportsQuery.isLoading) {
@@ -234,35 +257,106 @@ function ReportsTab() {
   if (reportsQuery.isError || !reportsQuery.data) {
     return (
       <Text variant="body" color={colors.accent700} style={styles.loading}>
-        Couldn't load reports. Pull to retry.
+        Data penjualan gagal dimuat. Coba buka kembali halaman ini.
       </Text>
     );
   }
 
   const { bars, topSellers } = reportsQuery.data;
+  const weeklyTotal = bars.reduce((sum, bar) => sum + bar.total, 0);
+  const ppobTotal = bars.reduce((sum, bar) => sum + bar.ppobShare, 0);
+  const activeDays = bars.filter((bar) => bar.total > 0).length;
+  const averagePerActiveDay = activeDays ? weeklyTotal / activeDays : 0;
+  const ppobPercentage = weeklyTotal ? Math.round((ppobTotal / weeklyTotal) * 100) : 0;
 
   return (
     <View style={styles.reportsSection}>
-      <Text variant="kicker" style={styles.sectionLabel}>
-        Last 7 days
-      </Text>
-      <WeeklyBarChart bars={bars} />
-      <View style={styles.legendRow}>
-        <LegendSwatch outline label="total" />
-        <LegendSwatch label="PPOB share" />
+      <View style={styles.reportIntro}>
+        <View>
+          <Text variant="kicker" color={colors.neutral600}>PERIODE LAPORAN</Text>
+          <Text variant="h3" style={styles.periodTitle}>7 hari terakhir</Text>
+        </View>
+        <Text variant="caption" color={colors.neutral600}>{activeDays} hari ada transaksi</Text>
       </View>
 
-      <View style={styles.topSellersHeaderRow}>
-        <Text variant="kicker">Top sellers</Text>
-        <Text variant="kicker">Qty · Margin</Text>
+      <View style={styles.revenueCard}>
+        <Text variant="kicker" color={colors.neutral600}>TOTAL OMZET</Text>
+        <Text variant="h1" style={styles.revenueValue}>{formatRupiah(weeklyTotal)}</Text>
+        <Text variant="caption" color={colors.neutral600}>Penjualan barang dan transaksi PPOB</Text>
       </View>
-      {topSellers.length === 0 ? (
-        <Text variant="body" color={colors.neutral600} style={styles.emptyInsights}>
-          No sales in the last 7 days yet.
-        </Text>
-      ) : (
-        topSellers.map((seller) => <TopSellerRow key={seller.name} seller={seller} />)
-      )}
+
+      <View style={styles.metricGrid}>
+        <MetricCard label="RATA-RATA / HARI AKTIF" value={formatRupiah(averagePerActiveDay)} />
+        <MetricCard label="KONTRIBUSI PPOB" value={formatRupiah(ppobTotal)} note={`${ppobPercentage}% dari omzet`} />
+      </View>
+
+      <View style={styles.reportBlock}>
+        <Text variant="h3">Tren omzet harian</Text>
+        <Text variant="caption" color={colors.neutral600} style={styles.blockCaption}>Bandingkan pemasukan toko setiap hari.</Text>
+        <WeeklyBarChart bars={bars} />
+        <View style={styles.legendRow}>
+          <LegendSwatch label="Omzet total" color={colors.accent2} />
+          <LegendSwatch label="Bagian PPOB" color={colors.accent} />
+        </View>
+      </View>
+
+      <View style={styles.reportBlock}>
+        <Text variant="h3">Rincian per hari</Text>
+        <View style={styles.reportTableHeader}>
+          <Text variant="kicker" color={colors.neutral600} style={styles.dayColumn}>HARI</Text>
+          <Text variant="kicker" color={colors.neutral600} style={styles.amountColumn}>OMZET</Text>
+          <Text variant="kicker" color={colors.neutral600} style={styles.amountColumn}>PPOB</Text>
+        </View>
+        {bars.map((bar, index) => <DailyReportRow key={`${bar.label}-${index}-detail`} bar={bar} />)}
+      </View>
+
+      <View style={styles.reportBlock}>
+        <View style={styles.topSellersHeaderRow}>
+          <View>
+            <Text variant="h3">Produk terlaris</Text>
+            <Text variant="caption" color={colors.neutral600} style={styles.blockCaption}>Diurutkan dari jumlah terjual terbanyak.</Text>
+          </View>
+        </View>
+        <View style={styles.reportTableHeader}>
+          <Text variant="kicker" color={colors.neutral600} style={styles.topSellerName}>PRODUK</Text>
+          <Text variant="kicker" color={colors.neutral600}>QTY · EST. LABA</Text>
+        </View>
+        {topSellers.length === 0 ? (
+          <Text variant="body" color={colors.neutral600} style={styles.emptyInsights}>
+            Belum ada penjualan dalam 7 hari terakhir.
+          </Text>
+        ) : (
+          topSellers.map((seller) => <TopSellerRow key={seller.name} seller={seller} />)
+        )}
+        <Text variant="caption" color={colors.neutral500} style={styles.marginNote}>Estimasi laba dihitung dari harga jual dikurangi harga modal yang tersimpan.</Text>
+      </View>
+
+      <View style={styles.assistantSection}>
+        <Text variant="h3">Butuh bantuan membaca laporan?</Text>
+        <Text variant="caption" color={colors.neutral600} style={styles.blockCaption}>AI hanya membaca data toko dan tidak dapat mengubah transaksi.</Text>
+        <View style={styles.assistantActions}>
+          <Pressable onPress={() => onOpenAssistant("Story")} style={styles.assistantButton}>
+            <Text variant="body" color={colors.accent2} style={styles.assistantButtonText}>Lihat insight AI</Text>
+          </Pressable>
+          <Pressable onPress={() => onOpenAssistant("Ask")} style={styles.assistantButton}>
+            <Text variant="body" color={colors.accent2} style={styles.assistantButtonText}>Tanya data toko</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function MetricCard({ label, value, note }: { label: string; value: string; note?: string }) {
+  return <View style={styles.metricCard}><Text variant="kicker" color={colors.neutral600}>{label}</Text><Text variant="h3" style={styles.metricValue}>{value}</Text>{note ? <Text variant="caption" color={colors.neutral600}>{note}</Text> : null}</View>;
+}
+
+function DailyReportRow({ bar }: { bar: WeeklyBar }) {
+  return (
+    <View style={styles.dailyRow}>
+      <Text variant="body" style={styles.dayColumn}>{bar.label}</Text>
+      <Text variant="tabular" style={styles.amountColumn}>{formatRupiah(bar.total)}</Text>
+      <Text variant="tabular" color={colors.neutral700} style={styles.amountColumn}>{formatRupiah(bar.ppobShare)}</Text>
     </View>
   );
 }
@@ -297,10 +391,10 @@ function WeeklyBarChart({ bars }: { bars: WeeklyBar[] }) {
   );
 }
 
-function LegendSwatch({ label, outline }: { label: string; outline?: boolean }) {
+function LegendSwatch({ label, color }: { label: string; color: string }) {
   return (
     <View style={styles.legendItem}>
-      <View style={[styles.legendSwatch, outline ? styles.legendSwatchOutline : styles.legendSwatchFill]} />
+      <View style={[styles.legendSwatch, { backgroundColor: color }]} />
       <Text variant="caption" color={colors.neutral600}>
         {label}
       </Text>
@@ -323,18 +417,27 @@ function TopSellerRow({ seller }: { seller: TopSeller }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space[4], paddingBottom: space[8] },
-  tabRow: { flexDirection: "row", gap: space[2] - 2, marginTop: space[3] },
-  tabButton: { flex: 1, paddingHorizontal: space[2], minHeight: 38 },
+  content: { paddingHorizontal: space[4], paddingTop: 0, paddingBottom: space[8] },
+  pageHeader: { minHeight: 64, justifyContent: "center" },
+  headerTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space[3] },
+  headerCopy: { flex: 1 },
+  pageIntro: { marginTop: space[1], lineHeight: 18 },
+  backToReport: { minHeight: 40, justifyContent: "center", paddingHorizontal: space[2] },
+  tabRow: { flexDirection: "row", marginTop: space[3], borderBottomWidth: 1, borderBottomColor: colors.divider },
+  tabButton: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderBottomWidth: 2, borderBottomColor: "transparent" },
+  tabButtonActive: { borderBottomColor: colors.accent2 },
+  tabButtonPressed: { backgroundColor: colors.neutral100 },
+  tabTextActive: { fontWeight: "600" },
   loading: { marginTop: space[6] },
 
   // Story tab
   storySection: {
     marginTop: space[4],
-    borderTopWidth: 1,
-    borderTopColor: colors.text,
-    paddingTop: space[3],
   },
+  featureIntro: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.sm, padding: space[4], marginBottom: space[4] },
+  featureTitle: { marginTop: space[1] },
+  featureDescription: { marginTop: space[2], lineHeight: 19 },
+  readOnlyNote: { marginTop: space[3], paddingTop: space[2], borderTopWidth: 1, borderTopColor: colors.divider, lineHeight: 17 },
   aiNotice: {
     borderWidth: 1,
     borderColor: colors.accent,
@@ -361,9 +464,6 @@ const styles = StyleSheet.create({
   // Ask tab
   askSection: {
     marginTop: space[4],
-    borderTopWidth: 1,
-    borderTopColor: colors.text,
-    paddingTop: space[4],
   },
   chatThread: { gap: space[2] + 3 },
   bubble: {
@@ -391,12 +491,24 @@ const styles = StyleSheet.create({
 
   // Reports tab
   reportsSection: {
-    marginTop: space[4],
-    borderTopWidth: 1,
-    borderTopColor: colors.text,
-    paddingTop: space[3],
+    marginTop: space[2],
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[4],
+    paddingBottom: space[4],
   },
-  chart: { marginTop: space[2] },
+  reportIntro: { minHeight: 64, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: colors.divider },
+  periodTitle: { marginTop: 2 },
+  revenueCard: { paddingVertical: space[4] },
+  revenueValue: { marginTop: space[1], marginBottom: 2, color: colors.text, fontSize: 28 },
+  metricGrid: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.divider, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  metricCard: { flex: 1, minHeight: 78, paddingVertical: space[3], paddingRight: space[3] },
+  metricValue: { marginTop: space[1], marginBottom: 2, fontSize: 16 },
+  reportBlock: { marginTop: 20, paddingTop: space[4], borderTopWidth: 1, borderTopColor: colors.divider },
+  blockCaption: { marginTop: 2 },
+  chart: { marginTop: space[4] },
   chartBars: { flexDirection: "row", alignItems: "flex-end", height: BAR_MAX_HEIGHT + 2, gap: space[1] },
   barColumn: { flex: 1, alignItems: "center" },
   barTrack: { width: "72%", height: BAR_MAX_HEIGHT, justifyContent: "flex-end" },
@@ -405,30 +517,29 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    borderWidth: 1,
-    borderColor: colors.accent,
+    backgroundColor: colors.accent2,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   barPpob: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(182, 130, 53, 0.18)",
+    backgroundColor: colors.accent,
   },
   chartLabels: { flexDirection: "row", marginTop: space[1] },
   chartLabel: { flex: 1, textAlign: "center" },
   legendRow: { flexDirection: "row", gap: space[4], marginTop: space[2] },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendSwatch: { width: 12, height: 12, borderRadius: 2 },
-  legendSwatchOutline: { borderWidth: 1, borderColor: colors.accent, backgroundColor: "transparent" },
-  legendSwatchFill: { backgroundColor: "rgba(182, 130, 53, 0.18)" },
+  reportTableHeader: { flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: colors.divider, paddingTop: space[3], paddingBottom: space[2] },
+  dailyRow: { flexDirection: "row", alignItems: "center", minHeight: 44, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  dayColumn: { flex: 0.65 },
+  amountColumn: { flex: 1, textAlign: "right", fontSize: 13 },
   topSellersHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: colors.text,
-    paddingBottom: space[2] - 2,
-    marginTop: space[6],
   },
   topSellerRow: {
     flexDirection: "row",
@@ -439,4 +550,9 @@ const styles = StyleSheet.create({
   },
   topSellerName: { flex: 1, marginRight: space[2] },
   topSellerRight: { fontSize: 13.5 },
+  marginNote: { marginTop: space[3], lineHeight: 16 },
+  assistantSection: { marginTop: space[6], paddingTop: space[4], borderTopWidth: 1, borderTopColor: colors.text },
+  assistantActions: { flexDirection: "row", gap: space[2], marginTop: space[3] },
+  assistantButton: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.accent2300, borderRadius: radius.sm, backgroundColor: colors.accent2100 },
+  assistantButtonText: { fontWeight: "600" },
 });
