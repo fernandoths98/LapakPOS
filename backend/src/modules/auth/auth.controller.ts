@@ -4,8 +4,8 @@ import { unauthorized } from "../../utils/errors";
 import * as authService from "./auth.service";
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().email().max(160),
+  password: z.string().min(1, "Password is required").max(200),
 });
 
 const registerSchema = z.object({
@@ -17,7 +17,7 @@ const registerSchema = z.object({
   phone: z.string().trim().min(8).max(24),
   address: z.string().trim().max(240).optional(),
 });
-const pinLoginSchema = z.object({ businessSlug: z.string().min(3), outletCode: z.string().min(2), pin: z.string().regex(/^\d{4,6}$/) });
+const pinLoginSchema = z.object({ businessSlug: z.string().trim().min(3).max(60), outletCode: z.string().trim().min(2).max(20), pin: z.string().regex(/^\d{4,6}$/) });
 
 export async function loginHandler(req: Request, res: Response): Promise<void> {
   const { email, password } = loginSchema.parse(req.body);
