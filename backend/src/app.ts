@@ -9,8 +9,11 @@ import { catalogIoRouter } from "./modules/catalog-io/catalog-io.routes";
 import { categoriesRouter, productsRouter } from "./modules/products/products.routes";
 import { ensureUploadsDirExists, UPLOADS_ROOT } from "./modules/products/products.photo";
 import { expensesRouter } from "./modules/expenses/expenses.routes";
+import { franchiseRouter } from "./modules/franchise/franchise.routes";
 import { homeRouter } from "./modules/home/home.routes";
+import { inventoryRouter } from "./modules/inventory/inventory.routes";
 import { merchantRouter } from "./modules/merchant/merchant.routes";
+import { reportsRouter } from "./modules/reports/reports.routes";
 import { ppobRouter } from "./modules/ppob/ppob.routes";
 import { recapRouter } from "./modules/recap/recap.routes";
 import { salesRouter } from "./modules/sales/sales.routes";
@@ -42,6 +45,7 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/products", productsRouter);
   app.use("/api/categories", categoriesRouter);
+  app.use("/api/inventory", inventoryRouter);
   app.use("/api/sales", salesRouter);
   app.use("/api/catalog", catalogIoRouter);
   app.use("/api/ppob", ppobRouter);
@@ -49,6 +53,8 @@ export function createApp() {
   app.use("/api/expenses", expensesRouter);
   app.use("/api/merchant", merchantRouter);
   app.use("/api/subscription", subscriptionRouter);
+  app.use("/api/franchise", franchiseRouter);
+  app.use("/api/reports", reportsRouter);
   app.use("/api/home", homeRouter);
   app.use("/api/recap", recapRouter);
 

@@ -24,6 +24,17 @@ enum OutletType {
   franchise
 }
 
+enum FranchiseStatus {
+  active
+  ended
+}
+
+enum RoyaltyStatementStatus {
+  draft
+  issued
+  paid
+}
+
 enum SubscriptionStatus {
   trialing
   active
@@ -131,6 +142,8 @@ model Merchant {
   outlets           Outlet[]
   subscription      Subscription?
   subscriptionInvoices SubscriptionInvoice[]
+  franchiseAgreements  FranchiseAgreement[]
+  franchiseStatements  FranchiseRoyaltyStatement[]
 
   @@map("merchants")
 }
@@ -174,6 +187,7 @@ model Outlet {
   sales            Sale[]
   expenses         Expense[]
   ppobTransactions PpobTransaction[]
+  franchiseAgreement FranchiseAgreement?
 
   @@unique([merchantId, code])
   @@index([merchantId])
@@ -474,6 +488,56 @@ model PpobCommissionLedgerEntry {
   createdAt         DateTime        @default(now()) @map("created_at")
 
   @@map("ppob_commission_ledger")
+}
+
+/// Terms for one franchise outlet: what royalty % of gross sales and what
+/// fixed monthly fee the franchisee owes the franchisor, and whether the
+/// franchisee may set its own per-outlet prices (`allowPriceOverride`).
+model FranchiseAgreement {
+  id                 String          @id @default(uuid())
+  merchantId         String          @map("merchant_id")
+  merchant           Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  outletId           String          @unique @map("outlet_id")
+  outlet             Outlet          @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  royaltyPercent     Int             @default(0) @map("royalty_percent")
+  feeMonthly         Int             @default(0) @map("fee_monthly")
+  allowPriceOverride Boolean         @default(false) @map("allow_price_override")
+  startDate          DateTime        @map("start_date")
+  status             FranchiseStatus @default(active)
+  notes              String?
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  statements FranchiseRoyaltyStatement[]
+
+  @@index([merchantId])
+  @@map("franchise_agreements")
+}
+
+/// A generated royalty bill for one franchise outlet + period:
+/// `royaltyDue = grossSales * royaltyPercent / 100`, `feeDue = feeMonthly`.
+/// Recording only — payment collection is out of scope for now.
+model FranchiseRoyaltyStatement {
+  id          String                 @id @default(uuid())
+  agreementId String                 @map("agreement_id")
+  agreement   FranchiseAgreement     @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  merchantId  String                 @map("merchant_id")
+  merchant    Merchant               @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  outletId    String                 @map("outlet_id")
+  periodStart DateTime               @map("period_start")
+  periodEnd   DateTime               @map("period_end")
+  grossSales  Int                    @map("gross_sales")
+  royaltyDue  Int                    @map("royalty_due")
+  feeDue      Int                    @map("fee_due")
+  totalDue    Int                    @map("total_due")
+  status      RoyaltyStatementStatus @default(draft)
+  issuedAt    DateTime?              @map("issued_at")
+  paidAt      DateTime?              @map("paid_at")
+  createdAt   DateTime               @default(now()) @map("created_at")
+
+  @@unique([agreementId, periodStart])
+  @@index([merchantId, periodStart])
+  @@map("franchise_royalty_statements")
 }
 
 model AiRecapCache {

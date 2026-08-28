@@ -83,6 +83,111 @@ export interface SubscriptionInvoiceResponse {
   createdAt: string;
 }
 
+// ── Per-outlet inventory ────────────────────────────────────────────────
+
+export interface OutletInventoryItem {
+  productId: string;
+  name: string;
+  barcode: string | null;
+  categoryName: string | null;
+  /** Merchant-level reference price. */
+  referenceSellPrice: number;
+  costPrice: number;
+  stockQty: number;
+  lowStockThreshold: number;
+  /** null = follows the reference price. */
+  priceOverride: number | null;
+  /** priceOverride ?? referenceSellPrice */
+  effectivePrice: number;
+  isAvailable: boolean;
+}
+
+export interface UpdateInventoryRequest {
+  stockQty?: number;
+  lowStockThreshold?: number;
+  /** null clears the override (back to the reference price). */
+  priceOverride?: number | null;
+  isAvailable?: boolean;
+}
+
+// ── Multi-outlet report ────────────────────────────────────────────────
+
+export interface OutletReportRow {
+  outletId: string;
+  outletName: string;
+  outletCode: string;
+  type: "owned" | "franchise";
+  isActive: boolean;
+  revenue: number;
+  txnCount: number;
+  avgTicket: number;
+  lowStockCount: number;
+  openShift: boolean;
+}
+
+export interface OutletReportsResponse {
+  /** The window actually reported, after clamping to the plan's history limit. */
+  days: number;
+  from: string;
+  to: string;
+  rows: OutletReportRow[];
+  totals: { revenue: number; txnCount: number };
+}
+
+// ── Franchise ──────────────────────────────────────────────────────────
+
+export interface FranchiseAgreementDto {
+  id: string;
+  outletId: string;
+  outletName: string;
+  outletCode: string;
+  royaltyPercent: number;
+  feeMonthly: number;
+  allowPriceOverride: boolean;
+  startDate: string;
+  status: "active" | "ended";
+  notes: string | null;
+}
+
+export interface UpsertFranchiseAgreementRequest {
+  outletId: string;
+  royaltyPercent: number;
+  feeMonthly: number;
+  allowPriceOverride?: boolean;
+  startDate?: string;
+  notes?: string | null;
+}
+
+export interface FranchiseRoyaltyStatementDto {
+  id: string;
+  agreementId: string;
+  outletId: string;
+  outletName: string;
+  periodStart: string;
+  periodEnd: string;
+  grossSales: number;
+  royaltyDue: number;
+  feeDue: number;
+  totalDue: number;
+  status: "draft" | "issued" | "paid";
+  issuedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface GenerateStatementsRequest {
+  /** ISO date (YYYY-MM-DD). Defaults to the first day of last month. */
+  periodStart?: string;
+  /** ISO date, exclusive. Defaults to the first day of this month. */
+  periodEnd?: string;
+}
+
+export interface GenerateStatementsResponse {
+  created: number;
+  updated: number;
+  statements: FranchiseRoyaltyStatementDto[];
+}
+
 // ── Products ──────────────────────────────────────────────────────────────
 
 export interface CreateProductRequest {
