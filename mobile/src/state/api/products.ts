@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Category, CreateProductRequest, PhotoFillRequest, PhotoFillResponse, Product, UpdateProductRequest } from "@lapak/shared";
 import { apiClient } from "./apiClient";
+import { useOutletScopeKey } from "../outlet/outletStore";
 
 /** Category-pill sentinels — mirror the backend's `listProducts` contract. */
 export const ALL_CATEGORIES = "all";
@@ -16,9 +17,10 @@ export interface UseProductsOptions {
 export function useProducts(opts: UseProductsOptions = {}) {
   const query = opts.query?.trim() ?? "";
   const categoryId = opts.categoryId ?? ALL_CATEGORIES;
+  const outletKey = useOutletScopeKey();
 
   return useQuery({
-    queryKey: ["products", query, categoryId],
+    queryKey: ["products", outletKey, query, categoryId],
     queryFn: async () => {
       const { data } = await apiClient.get<Product[]>("/api/products", {
         params: {
@@ -45,8 +47,9 @@ export function useCategories() {
 
 /** GET /api/products/:id — a single product, for the edit form. Disabled until an id is given. */
 export function useProduct(id: string | undefined) {
+  const outletKey = useOutletScopeKey();
   return useQuery({
-    queryKey: ["product", id],
+    queryKey: ["product", outletKey, id],
     queryFn: async () => {
       const { data } = await apiClient.get<Product>(`/api/products/${id}`);
       return data;
@@ -98,9 +101,9 @@ export function useUpdateProduct() {
       const { data } = await apiClient.patch<Product>(`/api/products/${id}`, body);
       return data;
     },
-    onSuccess: (product) => {
+    onSuccess: () => {
       invalidateProductLists(queryClient);
-      queryClient.invalidateQueries({ queryKey: ["product", product.id] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
     },
   });
 }

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { badRequest, notFound } from "../../utils/errors";
 import { getOrOpenCurrentShift } from "../shifts/shifts.service";
+import { resolvePlan } from "../subscription/entitlements.service";
 
 /**
  * Midnight-to-midnight boundaries for the calendar day containing `at`, in
@@ -202,8 +203,13 @@ export async function getSaleById(merchantId: string, id: string): Promise<Sale>
 }
 
 export async function getRecentSales(merchantId: string, outletId: string | undefined, limit = 50): Promise<Sale[]> {
+  // The plan's report-history window caps how far back the list can reach —
+  // a free-plan merchant sees the last 7 days, not the last 50 sales ever.
+  const { entitlements } = await resolvePlan(merchantId);
+  const cutoff = new Date(Date.now() - entitlements.reportHistoryDays * 86_400_000);
+
   const sales = await prisma.sale.findMany({
-    where: { merchantId, ...(outletId ? { outletId } : {}) },
+    where: { merchantId, ...(outletId ? { outletId } : {}), createdAt: { gte: cutoff } },
     include: { lineItems: true },
     orderBy: { createdAt: "desc" },
     take: Math.min(Math.max(limit, 1), 100),

@@ -25,6 +25,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { formatRupiah } from '@lapak/shared';
 import { Text } from '../../theme/Text';
 import { OutletSwitcher } from '../../components/OutletSwitcher';
+import { OutletsSummaryCard } from '../../components/OutletsSummaryCard';
 import { colors, radius, space } from '../../theme/tokens';
 import { useTodaySummary, useHomeAlerts } from '../../state/api/home';
 import { useMerchant } from '../../state/api/merchant';
@@ -244,6 +245,8 @@ export function HomeScreen() {
             </View>
           ))}
         </View>
+
+        <OutletsSummaryCard />
 
         <Pressable
           style={styles.recapCard}
