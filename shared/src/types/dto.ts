@@ -1,4 +1,5 @@
-import { BusinessType, TenderType, UserRole } from "../constants";
+import { BusinessType, PlanCode, SubscriptionStatus, TenderType, UserRole } from "../constants";
+import { Entitlements, PlanInfo } from "../entitlements";
 import { AiChatMessage, Expense, Merchant, PpobBiller, PpobTransaction, Product, Sale, Shift } from "./domain";
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -24,22 +25,63 @@ export interface RegisterRequest {
 }
 
 export interface RegisterResponse extends LoginResponse {
-  merchant: { id: string; name: string; slug: string; businessType: BusinessType; trialEndsAt: string };
+  merchant: { id: string; name: string; slug: string; businessType: BusinessType; trialEndsAt: string | null };
   outlet: { id: string; name: string; code: string };
-  subscription: { planCode: "starter"; status: "trialing"; trialEndsAt: string };
+  subscription: { planCode: PlanCode; status: SubscriptionStatus; trialEndsAt: string | null };
 }
 
-export interface OutletDto { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; createdAt: string }
+export interface OutletDto { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; isActive: boolean; createdAt: string }
 export interface StaffDto { id: string; name: string; email: string; role: UserRole; outletId: string | null; isActive: boolean; createdAt: string }
 export interface AccountSetupResponse {
   merchant: { id: string; name: string; slug: string | null; businessType: BusinessType; onboardingCompleted: boolean; trialEndsAt: string | null };
-  subscription: { planCode: "starter" | "growth" | "pro"; status: "trialing" | "active" | "past_due" | "canceled"; trialEndsAt: string } | null;
+  subscription: { planCode: PlanCode; status: SubscriptionStatus; trialEndsAt: string | null; currentPeriodEndsAt: string | null } | null;
   outlets: OutletDto[];
   staff: StaffDto[];
 }
-export interface CreateOutletRequest { name: string; code: string; address?: string; phone?: string }
+export interface CreateOutletRequest { name: string; code: string; address?: string; phone?: string; type?: "owned" | "franchise" }
 export interface CreateStaffRequest { name: string; email?: string; role: Exclude<UserRole, "owner">; outletId: string; pin: string; password?: string }
 export interface PinLoginRequest { businessSlug: string; outletCode: string; pin: string }
+
+// ── Subscription / entitlements ──────────────────────────────────────────
+
+export interface EntitlementUsage {
+  outlets: number;
+  staff: number;
+  products: number;
+}
+
+export interface EntitlementsResponse {
+  planCode: PlanCode;
+  status: SubscriptionStatus;
+  entitlements: Entitlements;
+  usage: EntitlementUsage;
+  currentPeriodEndsAt: string | null;
+}
+
+export interface SubscriptionPlansResponse {
+  plans: PlanInfo[];
+  current: PlanCode;
+}
+
+export interface SubscriptionCheckoutRequest {
+  /** The paid plan to move to. `free` is never a checkout target. */
+  planCode: Exclude<PlanCode, "free">;
+  /** Billing periods to pay for at once (1–12). Defaults to 1. */
+  months?: number;
+}
+
+export interface SubscriptionInvoiceResponse {
+  id: string;
+  planCode: PlanCode;
+  months: number;
+  amount: number;
+  partnerRef: string;
+  qrContent: string;
+  status: "pending" | "paid" | "expired" | "failed";
+  expiresAt: string;
+  paidAt: string | null;
+  createdAt: string;
+}
 
 // ── Products ──────────────────────────────────────────────────────────────
 

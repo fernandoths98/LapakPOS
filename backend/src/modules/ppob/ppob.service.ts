@@ -39,6 +39,7 @@ function toTransactionDto(tx: TransactionWithBiller): PpobTransactionDto {
   return {
     id: tx.id,
     merchantId: tx.merchantId,
+    outletId: tx.outletId,
     billerId: tx.billerId,
     billerName: tx.biller.name,
     shiftId: tx.shiftId,
@@ -203,7 +204,12 @@ export async function checkBill(merchantId: string, body: CheckBillRequest): Pro
  * successful payment writes a commission ledger entry — the merchant's
  * deposit/float only grows when they actually got paid their margin.
  */
-export async function payBill(merchantId: string, userId: string, body: PayBillRequest): Promise<PayBillResponse> {
+export async function payBill(
+  merchantId: string,
+  userId: string,
+  outletId: string,
+  body: PayBillRequest,
+): Promise<PayBillResponse> {
   sweepExpiredQuotes();
 
   const quote = quotes.get(body.checkRef);
@@ -242,11 +248,12 @@ export async function payBill(merchantId: string, userId: string, body: PayBillR
   const totalCharged = quote.billAmount + quote.adminFee + quote.marginAmount;
 
   const created = await prisma.$transaction(async (tx) => {
-    const shift = await getOrOpenCurrentShift(merchantId, userId, tx);
+    const shift = await getOrOpenCurrentShift(merchantId, userId, outletId, tx);
 
     const transaction = await tx.ppobTransaction.create({
       data: {
         merchantId,
+        outletId,
         billerId: biller.id,
         shiftId: shift.id,
         customerNumber: quote.customerNumber,
@@ -291,9 +298,13 @@ export async function payBill(merchantId: string, userId: string, body: PayBillR
 
 // ── Transactions / commission summary ───────────────────────────────────
 
-export async function getRecentTransactions(merchantId: string, limit: number): Promise<PpobTransactionDto[]> {
+export async function getRecentTransactions(
+  merchantId: string,
+  outletId: string | undefined,
+  limit: number,
+): Promise<PpobTransactionDto[]> {
   const transactions = await prisma.ppobTransaction.findMany({
-    where: { merchantId },
+    where: { merchantId, ...(outletId ? { outletId } : {}) },
     include: { biller: true },
     orderBy: { createdAt: "desc" },
     take: limit,

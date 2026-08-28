@@ -14,6 +14,7 @@ import * as ppobService from "../ppob.service";
 
 const TEST_MERCHANT_ID = "00000000-0000-0000-0000-000000000070";
 const OTHER_MERCHANT_ID = "00000000-0000-0000-0000-000000000071";
+const TEST_OUTLET_ID = "00000000-0000-0000-0000-000000000270";
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000170";
 
 function fakeProvider(overrides?: { checkBill?: Partial<CheckBillResult>; payBill?: Partial<PayBillResult> }): PpobProvider {
@@ -49,12 +50,18 @@ describe("ppob.service", () => {
       update: {},
       create: { id: OTHER_MERCHANT_ID, name: "PPOB Other Merchant" },
     });
+    await prisma.outlet.upsert({
+      where: { id: TEST_OUTLET_ID },
+      update: {},
+      create: { id: TEST_OUTLET_ID, merchantId: TEST_MERCHANT_ID, name: "PPOB Test Outlet", code: "UTAMA", isPrimary: true },
+    });
     await prisma.user.upsert({
       where: { id: TEST_USER_ID },
-      update: { merchantId: TEST_MERCHANT_ID },
+      update: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID },
       create: {
         id: TEST_USER_ID,
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         name: "Test Cashier",
         email: "ppob-service-test@lapak.test",
         passwordHash: "not-a-real-hash",
@@ -93,12 +100,17 @@ describe("ppob.service", () => {
   });
 
   afterAll(async () => {
-    await prisma.ppobCommissionLedgerEntry.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
-    await prisma.ppobTransaction.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
-    await prisma.ppobBiller.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
-    await prisma.shift.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
+    const merchantIds = { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] };
+    await prisma.ppobCommissionLedgerEntry.deleteMany({ where: { merchantId: merchantIds } });
+    await prisma.ppobTransaction.deleteMany({ where: { merchantId: merchantIds } });
+    await prisma.ppobBiller.deleteMany({ where: { merchantId: merchantIds } });
+    await prisma.shift.deleteMany({ where: { merchantId: merchantIds } });
+    await prisma.walletLedgerEntry.deleteMany({ where: { merchantId: merchantIds } }).catch(() => undefined);
+    await prisma.walletTopup.deleteMany({ where: { merchantId: merchantIds } }).catch(() => undefined);
+    await prisma.merchantWallet.deleteMany({ where: { merchantId: merchantIds } }).catch(() => undefined);
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
-    await prisma.merchant.deleteMany({ where: { id: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
+    await prisma.outlet.deleteMany({ where: { merchantId: merchantIds } });
+    await prisma.merchant.deleteMany({ where: { id: merchantIds } });
     await prisma.$disconnect();
   });
 
@@ -139,7 +151,7 @@ describe("ppob.service", () => {
       getPpobProvider.mockReturnValue(fakeProvider());
       const quote = await ppobService.checkBill(TEST_MERCHANT_ID, { billerId, customerNumber: "51234488901" });
 
-      const { transaction } = await ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, {
+      const { transaction } = await ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, {
         billerId,
         customerNumber: "51234488901",
         checkRef: quote.checkRef,
@@ -154,12 +166,14 @@ describe("ppob.service", () => {
         where: { ppobTransactionId: transaction.id },
       });
       expect(ledgerEntry?.commissionAmount).toBe(3000);
-      expect(ledgerEntry?.depositDelta).toBe(3000);
+      // depositDelta is a legacy column left at 0 since the wallet feature
+      // (migration 20260821150000_ppob_wallet) took over float tracking.
+      expect(ledgerEntry?.depositDelta).toBe(0);
 
       // Replaying the exact same (already-redeemed) checkRef must be a real
       // 400, not a second charge — the quote was deleted the moment it was read.
       await expect(
-        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, { billerId, customerNumber: "51234488901", checkRef: quote.checkRef }),
+        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { billerId, customerNumber: "51234488901", checkRef: quote.checkRef }),
       ).rejects.toThrow(AppError);
 
       const chargeCount = await prisma.ppobTransaction.count({
@@ -173,7 +187,7 @@ describe("ppob.service", () => {
       const quote = await ppobService.checkBill(TEST_MERCHANT_ID, { billerId, customerNumber: "0812000000" });
 
       await expect(
-        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, {
+        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, {
           billerId,
           customerNumber: "0899999999", // different customer number than the quote
           checkRef: quote.checkRef,
@@ -183,7 +197,7 @@ describe("ppob.service", () => {
 
     it("rejects an unknown checkRef", async () => {
       await expect(
-        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, {
+        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, {
           billerId,
           customerNumber: "0812000000",
           checkRef: "not-a-real-check-ref",
@@ -198,7 +212,7 @@ describe("ppob.service", () => {
       const quote = await ppobService.checkBill(TEST_MERCHANT_ID, { billerId, customerNumber: "0813123123" });
 
       await expect(
-        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, { billerId, customerNumber: "0813123123", checkRef: quote.checkRef }),
+        ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { billerId, customerNumber: "0813123123", checkRef: quote.checkRef }),
       ).rejects.toThrow("Aggregator float exhausted for this biller");
 
       const failedTx = await prisma.ppobTransaction.findFirst({
@@ -212,23 +226,25 @@ describe("ppob.service", () => {
   });
 
   describe("getCommissionSummary", () => {
-    it("sums commissionAmount for the given month and depositDelta all-time", async () => {
+    it("sums commissionAmount for the given month; deposit reflects the wallet balance", async () => {
       const summaryNow = await ppobService.getCommissionSummary(TEST_MERCHANT_ID);
       const priorDeposit = summaryNow.deposit;
 
       getPpobProvider.mockReturnValue(fakeProvider());
       const quote = await ppobService.checkBill(TEST_MERCHANT_ID, { billerId, customerNumber: "0877000111" });
-      await ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, { billerId, customerNumber: "0877000111", checkRef: quote.checkRef });
+      await ppobService.payBill(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { billerId, customerNumber: "0877000111", checkRef: quote.checkRef });
 
       const currentMonth = new Date().toISOString().slice(0, 7);
       const summary = await ppobService.getCommissionSummary(TEST_MERCHANT_ID, currentMonth);
       expect(summary.commissionThisMonth).toBeGreaterThanOrEqual(3000);
-      expect(summary.deposit).toBe(priorDeposit + 3000);
+      // `deposit` is now the wallet balance, not a running commission sum; a
+      // mock-provider payment never debits/credits the wallet, so it's unchanged.
+      expect(summary.deposit).toBe(priorDeposit);
 
-      // A month with no activity has zero commission but the same all-time deposit.
+      // A month with no activity has zero commission and the same deposit.
       const emptyMonth = await ppobService.getCommissionSummary(TEST_MERCHANT_ID, "2020-01");
       expect(emptyMonth.commissionThisMonth).toBe(0);
-      expect(emptyMonth.deposit).toBe(priorDeposit + 3000);
+      expect(emptyMonth.deposit).toBe(priorDeposit);
     });
 
     it("rejects a malformed month", async () => {

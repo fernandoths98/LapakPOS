@@ -5,6 +5,8 @@ import * as catalogIoService from "../catalog-io.service";
 
 const TEST_MERCHANT_ID = "00000000-0000-0000-0000-000000000096";
 const OTHER_MERCHANT_ID = "00000000-0000-0000-0000-000000000095";
+const TEST_OUTLET_ID = "00000000-0000-0000-0000-000000000296";
+const OTHER_OUTLET_ID = "00000000-0000-0000-0000-000000000295";
 
 function buildImportRequest(overrides?: Partial<ImportPreviewRequest>): ImportPreviewRequest {
   return {
@@ -35,6 +37,24 @@ describe("catalog-io.service", () => {
       update: {},
       create: { id: OTHER_MERCHANT_ID, name: "Catalog IO Other Merchant" },
     });
+    await prisma.outlet.upsert({
+      where: { id: TEST_OUTLET_ID },
+      update: {},
+      create: { id: TEST_OUTLET_ID, merchantId: TEST_MERCHANT_ID, name: "Catalog IO Test Outlet", code: "UTAMA", isPrimary: true },
+    });
+    await prisma.outlet.upsert({
+      where: { id: OTHER_OUTLET_ID },
+      update: {},
+      create: { id: OTHER_OUTLET_ID, merchantId: OTHER_MERCHANT_ID, name: "Catalog IO Other Outlet", code: "UTAMA", isPrimary: true },
+    });
+    // Excel import/export needs a plan that includes it.
+    for (const merchantId of [TEST_MERCHANT_ID, OTHER_MERCHANT_ID]) {
+      await prisma.subscription.upsert({
+        where: { merchantId },
+        update: { planCode: "pro", status: "active" },
+        create: { merchantId, planCode: "pro", status: "active" },
+      });
+    }
   });
 
   afterAll(async () => {
@@ -42,8 +62,11 @@ describe("catalog-io.service", () => {
     await prisma.sale.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.shift.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.productCostHistory.deleteMany({ where: { product: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } } });
+    await prisma.outletProduct.deleteMany({ where: { product: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } } });
     await prisma.product.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.user.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
+    await prisma.subscription.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
+    await prisma.outlet.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.merchant.deleteMany({ where: { id: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.$disconnect();
   });
@@ -196,13 +219,20 @@ describe("catalog-io.service", () => {
 
   describe("exports", () => {
     it("builds a stock valuation workbook with one row per active product", async () => {
+      await prisma.outletProduct.deleteMany({ where: { product: { merchantId: OTHER_MERCHANT_ID } } });
       await prisma.product.deleteMany({ where: { merchantId: OTHER_MERCHANT_ID } });
-      await prisma.product.createMany({
-        data: [
-          { merchantId: OTHER_MERCHANT_ID, name: "Beras 5kg", sellPrice: 65000, costPrice: 58000, stockQty: 10 },
-          { merchantId: OTHER_MERCHANT_ID, name: "Minyak Goreng 2L", sellPrice: 32000, costPrice: 27000, stockQty: 4 },
-        ],
-      });
+      for (const def of [
+        { name: "Beras 5kg", sellPrice: 65000, costPrice: 58000, stockQty: 10 },
+        { name: "Minyak Goreng 2L", sellPrice: 32000, costPrice: 27000, stockQty: 4 },
+      ]) {
+        await prisma.product.create({
+          data: {
+            merchantId: OTHER_MERCHANT_ID,
+            ...def,
+            outletProducts: { create: { outletId: OTHER_OUTLET_ID, stockQty: def.stockQty } },
+          },
+        });
+      }
 
       const workbook = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID);
       const sheet = workbook.getWorksheet("Stock & valuation");
@@ -226,7 +256,7 @@ describe("catalog-io.service", () => {
         },
       });
       const shift = await prisma.shift.create({
-        data: { merchantId: OTHER_MERCHANT_ID, userId: user.id, openingFloat: 100000 },
+        data: { merchantId: OTHER_MERCHANT_ID, outletId: OTHER_OUTLET_ID, userId: user.id, openingFloat: 100000 },
       });
       const product = await prisma.product.findFirstOrThrow({ where: { merchantId: OTHER_MERCHANT_ID, name: "Beras 5kg" } });
 
@@ -234,6 +264,7 @@ describe("catalog-io.service", () => {
       const sale = await prisma.sale.create({
         data: {
           merchantId: OTHER_MERCHANT_ID,
+          outletId: OTHER_OUTLET_ID,
           shiftId: shift.id,
           orderNo: "9001",
           clientId: `catalog-io-test-client-${Date.now()}`,

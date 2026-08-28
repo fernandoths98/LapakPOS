@@ -21,6 +21,32 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`Seeded merchant ${merchant.name} (${merchant.id})`);
 
+  // Primary outlet. Real merchants get one from the saas_foundation migration
+  // (or register()); the seed merchant is created directly here, so it needs
+  // its own. Keyed on the (merchantId, code) unique so reseeding is idempotent.
+  const outlet = await prisma.outlet.upsert({
+    where: { merchantId_code: { merchantId: merchant.id, code: "UTAMA" } },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000021",
+      merchantId: merchant.id,
+      name: merchant.name,
+      code: "UTAMA",
+      address: merchant.address,
+      phone: merchant.phone,
+      isPrimary: true,
+    },
+  });
+
+  // eslint-disable-next-line no-console
+  console.log(`Seeded outlet ${outlet.code} (${outlet.id})`);
+
+  await prisma.subscription.upsert({
+    where: { merchantId: merchant.id },
+    update: {},
+    create: { merchantId: merchant.id, planCode: "free", status: "active" },
+  });
+
   const ownerEmail = process.env.SEED_OWNER_EMAIL ?? "owner@lapak.test";
   const ownerPassword = process.env.SEED_OWNER_PASSWORD ?? "lapak12345";
   const cashierEmail = process.env.SEED_CASHIER_EMAIL ?? "sari@lapak.test";
@@ -33,10 +59,11 @@ async function main() {
 
   const owner = await prisma.user.upsert({
     where: { email: ownerEmail },
-    update: { passwordHash: ownerPasswordHash, merchantId: merchant.id, role: "owner", name: "Budi" },
+    update: { passwordHash: ownerPasswordHash, merchantId: merchant.id, role: "owner", name: "Budi", outletId: outlet.id },
     create: {
       id: "00000000-0000-0000-0000-000000000011",
       merchantId: merchant.id,
+      outletId: outlet.id,
       name: "Budi",
       email: ownerEmail,
       passwordHash: ownerPasswordHash,
@@ -46,10 +73,11 @@ async function main() {
 
   const cashier = await prisma.user.upsert({
     where: { email: cashierEmail },
-    update: { passwordHash: cashierPasswordHash, merchantId: merchant.id, role: "cashier", name: "Sari" },
+    update: { passwordHash: cashierPasswordHash, merchantId: merchant.id, role: "cashier", name: "Sari", outletId: outlet.id },
     create: {
       id: "00000000-0000-0000-0000-000000000012",
       merchantId: merchant.id,
+      outletId: outlet.id,
       name: "Sari",
       email: cashierEmail,
       passwordHash: cashierPasswordHash,
@@ -99,7 +127,7 @@ async function main() {
     // A plausible cost at ~62% of sell price (roughly the 38% margin the
     // prototype's own "New product" screen shows for its example item).
     const costPrice = Math.round(def.sellPrice * 0.62);
-    await prisma.product.upsert({
+    const product = await prisma.product.upsert({
       where: { merchantId_barcode: { merchantId: merchant.id, barcode: def.barcode } },
       update: {
         name: def.name,
@@ -118,10 +146,23 @@ async function main() {
         stockQty: def.stockQty,
       },
     });
+
+    // Phase 1: mirror stock into the per-outlet inventory row for the primary
+    // outlet, matching what the backfill migration does for real merchants.
+    await prisma.outletProduct.upsert({
+      where: { outletId_productId: { outletId: outlet.id, productId: product.id } },
+      update: { stockQty: def.stockQty },
+      create: {
+        outletId: outlet.id,
+        productId: product.id,
+        stockQty: def.stockQty,
+        lowStockThreshold: product.lowStockThreshold,
+      },
+    });
   }
 
   // eslint-disable-next-line no-console
-  console.log(`Seeded ${productDefs.length} products`);
+  console.log(`Seeded ${productDefs.length} products (+ per-outlet inventory)`);
 
   // PPOB billers ported verbatim from the prototype's `billers` array (name,
   // sub, margin). Codes are our own short stable identifiers (the prototype

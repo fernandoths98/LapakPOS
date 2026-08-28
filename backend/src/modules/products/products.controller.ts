@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { requireOutlet } from "../../middleware/outlet";
+import { requireFeature } from "../subscription/entitlements.service";
 import { unauthorized } from "../../utils/errors";
 import { saveProductPhoto } from "./products.photo";
 import { photoFillProduct } from "./products.photoFill.service";
@@ -7,13 +9,19 @@ import * as productsService from "./products.service";
 
 const listProductsQuerySchema = z.object({
   query: z.string().optional(),
+  categoryId: z.string().optional(),
+  // Legacy name-based filter, still sent by older mobile builds.
   category: z.string().optional(),
 });
 
 export async function listProductsHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
-  const { query, category } = listProductsQuerySchema.parse(req.query);
-  const products = await productsService.listProducts(req.user.merchantId, { query, category });
+  const { query, categoryId, category } = listProductsQuerySchema.parse(req.query);
+  const products = await productsService.listProducts(req.user.merchantId, requireOutlet(req), {
+    query,
+    categoryId,
+    categoryName: category,
+  });
   res.json(products);
 }
 
@@ -25,13 +33,13 @@ export async function listCategoriesHandler(req: Request, res: Response): Promis
 
 export async function getProductHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
-  const product = await productsService.getProductById(req.user.merchantId, req.params.id);
+  const product = await productsService.getProductById(req.user.merchantId, requireOutlet(req), req.params.id);
   res.json(product);
 }
 
 export async function getProductByBarcodeHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
-  const product = await productsService.getProductByBarcode(req.user.merchantId, req.params.code);
+  const product = await productsService.getProductByBarcode(req.user.merchantId, requireOutlet(req), req.params.code);
   res.json(product);
 }
 
@@ -58,7 +66,7 @@ const updateProductSchema = createProductSchema.partial();
 export async function updateProductHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const body = updateProductSchema.parse(req.body);
-  const product = await productsService.updateProduct(req.user.merchantId, req.params.id, body);
+  const product = await productsService.updateProduct(req.user.merchantId, requireOutlet(req), req.params.id, body);
   res.json(product);
 }
 
@@ -92,6 +100,7 @@ const photoFillSchema = z.object({
  */
 export async function photoFillProductHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
+  await requireFeature(req.user.merchantId, "ai");
   const { imageBase64, mimeType } = photoFillSchema.parse(req.body);
   const result = await photoFillProduct(imageBase64, mimeType);
   res.json(result);

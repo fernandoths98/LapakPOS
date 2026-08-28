@@ -5,7 +5,13 @@ import { AppError } from "../../../utils/errors";
 import * as salesService from "../sales.service";
 
 const TEST_MERCHANT_ID = "00000000-0000-0000-0000-000000000097";
+const TEST_OUTLET_ID = "00000000-0000-0000-0000-000000000297";
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000197";
+
+const outletStock = (productId: string) =>
+  prisma.outletProduct
+    .findUniqueOrThrow({ where: { outletId_productId: { outletId: TEST_OUTLET_ID, productId } } })
+    .then((op) => op.stockQty);
 
 describe("sales.service", () => {
   let productId: string;
@@ -17,12 +23,19 @@ describe("sales.service", () => {
       create: { id: TEST_MERCHANT_ID, name: "Sales Test Merchant" },
     });
 
+    await prisma.outlet.upsert({
+      where: { id: TEST_OUTLET_ID },
+      update: {},
+      create: { id: TEST_OUTLET_ID, merchantId: TEST_MERCHANT_ID, name: "Sales Test Outlet", code: "UTAMA", isPrimary: true },
+    });
+
     await prisma.user.upsert({
       where: { id: TEST_USER_ID },
-      update: { merchantId: TEST_MERCHANT_ID },
+      update: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID },
       create: {
         id: TEST_USER_ID,
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         name: "Test Cashier",
         email: "sales-service-test@lapak.test",
         passwordHash: "not-a-real-hash",
@@ -37,6 +50,7 @@ describe("sales.service", () => {
         sellPrice: 10000,
         costPrice: 6000,
         stockQty: 5,
+        outletProducts: { create: { outletId: TEST_OUTLET_ID, stockQty: 5 } },
       },
     });
     productId = product.id;
@@ -45,9 +59,12 @@ describe("sales.service", () => {
   afterAll(async () => {
     await prisma.saleLineItem.deleteMany({ where: { sale: { merchantId: TEST_MERCHANT_ID } } });
     await prisma.sale.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.expense.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.shift.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.outletProduct.deleteMany({ where: { product: { merchantId: TEST_MERCHANT_ID } } });
     await prisma.product.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.outlet.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });
@@ -62,10 +79,11 @@ describe("sales.service", () => {
       qrisAmount: 0,
     };
 
-    const sale = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body);
+    const sale = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body);
 
     expect(sale.subtotal).toBe(20000);
     expect(sale.total).toBe(20000);
+    expect(sale.outletId).toBe(TEST_OUTLET_ID);
     expect(sale.lineItems).toHaveLength(1);
     expect(sale.lineItems[0].unitPrice).toBe(10000);
     expect(sale.lineItems[0].productName).toBe("Test Product");
@@ -73,9 +91,9 @@ describe("sales.service", () => {
     const shift = await prisma.shift.findFirst({ where: { id: sale.shiftId } });
     expect(shift?.status).toBe("open");
     expect(shift?.openingFloat).toBe(0);
+    expect(shift?.outletId).toBe(TEST_OUTLET_ID);
 
-    const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
-    expect(product.stockQty).toBe(3);
+    expect(await outletStock(productId)).toBe(3);
   });
 
   it("reuses the same open shift for a second sale by the same user", async () => {
@@ -86,10 +104,10 @@ describe("sales.service", () => {
       cashAmount: 0,
       qrisAmount: 10000,
     };
-    const sale = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body);
+    const sale = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body);
 
     const openShifts = await prisma.shift.findMany({
-      where: { merchantId: TEST_MERCHANT_ID, userId: TEST_USER_ID, status: "open" },
+      where: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID, userId: TEST_USER_ID, status: "open" },
     });
     expect(openShifts).toHaveLength(1);
     expect(sale.shiftId).toBe(openShifts[0].id);
@@ -105,11 +123,11 @@ describe("sales.service", () => {
       qrisAmount: 0,
     };
 
-    const first = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body);
-    const stockAfterFirst = (await prisma.product.findUniqueOrThrow({ where: { id: productId } })).stockQty;
+    const first = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body);
+    const stockAfterFirst = await outletStock(productId);
 
-    const second = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body);
-    const stockAfterSecond = (await prisma.product.findUniqueOrThrow({ where: { id: productId } })).stockQty;
+    const second = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body);
+    const stockAfterSecond = await outletStock(productId);
 
     expect(second.id).toBe(first.id);
     expect(second.createdAt).toBe(first.createdAt);
@@ -124,7 +142,7 @@ describe("sales.service", () => {
       cashAmount: 9990000,
       qrisAmount: 0,
     };
-    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body)).rejects.toBeInstanceOf(AppError);
+    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body)).rejects.toBeInstanceOf(AppError);
   });
 
   it("rejects a cash sale whose cashAmount doesn't match the total", async () => {
@@ -135,7 +153,7 @@ describe("sales.service", () => {
       cashAmount: 5000,
       qrisAmount: 0,
     };
-    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body)).rejects.toMatchObject({
+    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body)).rejects.toMatchObject({
       status: 400,
     });
   });
@@ -148,7 +166,7 @@ describe("sales.service", () => {
       cashAmount: 3000,
       qrisAmount: 3000,
     };
-    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body)).rejects.toMatchObject({
+    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body)).rejects.toMatchObject({
       status: 400,
     });
   });
@@ -162,7 +180,7 @@ describe("sales.service", () => {
       qrisAmount: 0,
       discount: -1000,
     };
-    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body)).rejects.toMatchObject({ status: 400 });
+    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body)).rejects.toMatchObject({ status: 400 });
   });
 
   it("rejects a discount greater than the subtotal", async () => {
@@ -174,7 +192,7 @@ describe("sales.service", () => {
       qrisAmount: 0,
       discount: 10001,
     };
-    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body)).rejects.toMatchObject({ status: 400 });
+    await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body)).rejects.toMatchObject({ status: 400 });
   });
 
   it("fetches a sale by id with its line items", async () => {
@@ -185,7 +203,7 @@ describe("sales.service", () => {
       cashAmount: 0,
       qrisAmount: 0,
     };
-    const created = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, body);
+    const created = await salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body);
     const fetched = await salesService.getSaleById(TEST_MERCHANT_ID, created.id);
     expect(fetched.id).toBe(created.id);
     expect(fetched.lineItems).toHaveLength(1);

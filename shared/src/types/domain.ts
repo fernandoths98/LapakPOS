@@ -61,6 +61,7 @@ export interface ProductCostHistoryEntry {
 export interface Shift {
   id: string;
   merchantId: string;
+  outletId: string;
   userId: string;
   userName: string;
   openedAt: string;
@@ -83,6 +84,7 @@ export interface SaleLineItem {
 export interface Sale {
   id: string;
   merchantId: string;
+  outletId: string;
   shiftId: string;
   orderNo: string;
   clientId: string;
@@ -101,6 +103,7 @@ export interface Sale {
 export interface Expense {
   id: string;
   merchantId: string;
+  outletId: string;
   shiftId: string | null;
   amount: number;
   note: string | null;
@@ -123,6 +126,7 @@ export interface PpobBiller {
 export interface PpobTransaction {
   id: string;
   merchantId: string;
+  outletId: string;
   billerId: string;
   billerName: string;
   shiftId: string;

@@ -1,6 +1,7 @@
 import { TENDER_TYPES } from "@lapak/shared";
 import { Request, Response } from "express";
 import { z } from "zod";
+import { requireOutlet } from "../../middleware/outlet";
 import { unauthorized } from "../../utils/errors";
 import * as salesService from "./sales.service";
 
@@ -22,7 +23,7 @@ const createSaleSchema = z.object({
 export async function createSaleHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const body = createSaleSchema.parse(req.body);
-  const sale = await salesService.createSale(req.user.merchantId, req.user.userId, body);
+  const sale = await salesService.createSale(req.user.merchantId, req.user.userId, requireOutlet(req), body);
   res.json(sale);
 }
 
@@ -35,11 +36,11 @@ export async function getSaleHandler(req: Request, res: Response): Promise<void>
 export async function getSalesHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const query = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) }).parse(req.query);
-  res.json(await salesService.getRecentSales(req.user.merchantId, query.limit));
+  res.json(await salesService.getRecentSales(req.user.merchantId, requireOutlet(req), query.limit));
 }
 
 export async function getTodaySummaryHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
-  const summary = await salesService.getTodaySummary(req.user.merchantId);
+  const summary = await salesService.getTodaySummary(req.user.merchantId, requireOutlet(req));
   res.json(summary);
 }

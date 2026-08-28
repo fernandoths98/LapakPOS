@@ -15,6 +15,7 @@ import { ppobRouter } from "./modules/ppob/ppob.routes";
 import { recapRouter } from "./modules/recap/recap.routes";
 import { salesRouter } from "./modules/sales/sales.routes";
 import { shiftsRouter } from "./modules/shifts/shifts.routes";
+import { subscriptionRouter } from "./modules/subscription/subscription.routes";
 
 export function createApp() {
   const app = express();
@@ -47,6 +48,7 @@ export function createApp() {
   app.use("/api/shifts", shiftsRouter);
   app.use("/api/expenses", expensesRouter);
   app.use("/api/merchant", merchantRouter);
+  app.use("/api/subscription", subscriptionRouter);
   app.use("/api/home", homeRouter);
   app.use("/api/recap", recapRouter);
 

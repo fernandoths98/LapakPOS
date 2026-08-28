@@ -19,6 +19,11 @@ enum BusinessType {
   restaurant
 }
 
+enum OutletType {
+  owned
+  franchise
+}
+
 enum SubscriptionStatus {
   trialing
   active
@@ -27,6 +32,7 @@ enum SubscriptionStatus {
 }
 
 enum PlanCode {
+  free
   starter
   growth
   pro
@@ -124,6 +130,7 @@ model Merchant {
   aiChatMessages    AiChatMessage[]
   outlets           Outlet[]
   subscription      Subscription?
+  subscriptionInvoices SubscriptionInvoice[]
 
   @@map("merchants")
 }
@@ -149,16 +156,24 @@ model User {
 }
 
 model Outlet {
-  id         String   @id @default(uuid())
-  merchantId String   @map("merchant_id")
-  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  id         String     @id @default(uuid())
+  merchantId String     @map("merchant_id")
+  merchant   Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   name       String
   code       String
   address    String?
   phone      String?
-  isPrimary  Boolean  @default(false) @map("is_primary")
-  createdAt  DateTime @default(now()) @map("created_at")
+  isPrimary  Boolean    @default(false) @map("is_primary")
+  type       OutletType @default(owned)
+  timezone   String?
+  isActive   Boolean    @default(true) @map("is_active")
+  createdAt  DateTime   @default(now()) @map("created_at")
   users      User[]
+  outletProducts   OutletProduct[]
+  shifts           Shift[]
+  sales            Sale[]
+  expenses         Expense[]
+  ppobTransactions PpobTransaction[]
 
   @@unique([merchantId, code])
   @@index([merchantId])
@@ -169,14 +184,36 @@ model Subscription {
   id                 String             @id @default(uuid())
   merchantId         String             @unique @map("merchant_id")
   merchant           Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  planCode            PlanCode           @default(starter) @map("plan_code")
-  status              SubscriptionStatus @default(trialing)
-  trialEndsAt         DateTime           @map("trial_ends_at")
+  planCode            PlanCode           @default(free) @map("plan_code")
+  status              SubscriptionStatus @default(active)
+  trialEndsAt         DateTime?          @map("trial_ends_at")
   currentPeriodEndsAt DateTime?          @map("current_period_ends_at")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
   @@map("subscriptions")
+}
+
+/// A pending/paid QRIS invoice to move onto a paid plan. Mirrors WalletTopup:
+/// a NusaPay QR is generated, the merchant pays it, and a webhook (or a
+/// reconcile poll) flips it to `paid` and activates the plan.
+model SubscriptionInvoice {
+  id          String            @id @default(uuid())
+  merchantId  String            @map("merchant_id")
+  merchant    Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  planCode    PlanCode          @map("plan_code")
+  months      Int               @default(1)
+  amount      Int
+  partnerRef  String            @unique @map("partner_ref")
+  providerRef String?           @map("provider_ref")
+  qrContent   String            @map("qr_content")
+  status      WalletTopupStatus @default(pending)
+  expiresAt   DateTime          @map("expires_at")
+  paidAt      DateTime?         @map("paid_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@index([merchantId, createdAt])
+  @@map("subscription_invoices")
 }
 
 model Category {
@@ -188,6 +225,7 @@ model Category {
 
   products Product[]
 
+  @@unique([merchantId, name])
   @@map("categories")
 }
 
@@ -196,7 +234,7 @@ model Product {
   merchantId        String   @map("merchant_id")
   merchant          Merchant @relation(fields: [merchantId], references: [id])
   categoryId        String?  @map("category_id")
-  category          Category? @relation(fields: [categoryId], references: [id])
+  category          Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   name              String
   barcode           String?
   sellPrice         Int      @map("sell_price")
@@ -208,12 +246,38 @@ model Product {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  costHistory   ProductCostHistory[]
-  saleLineItems SaleLineItem[]
+  costHistory    ProductCostHistory[]
+  saleLineItems  SaleLineItem[]
+  outletProducts OutletProduct[]
 
   @@unique([merchantId, barcode])
   @@index([merchantId, name])
   @@map("products")
+}
+
+/// Per-outlet state for a catalog product: stock, an optional price override,
+/// and whether the outlet offers it at all. `Product` stays the merchant-level
+/// identity (name, barcode, category, reference sell/cost price); this table is
+/// what a sale decrements and what the Sell screen reads once the app is
+/// outlet-aware (Phase 2). During Phase 1 it is populated but not yet read —
+/// the app still uses `Product.stockQty`.
+model OutletProduct {
+  id                String    @id @default(uuid())
+  outletId          String    @map("outlet_id")
+  outlet            Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  productId         String    @map("product_id")
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockQty          Int       @default(0) @map("stock_qty")
+  lowStockThreshold Int       @default(8) @map("low_stock_threshold")
+  priceOverride     Int?      @map("price_override")
+  isAvailable       Boolean   @default(true) @map("is_available")
+  deletedAt         DateTime? @map("deleted_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([outletId, productId])
+  @@index([outletId])
+  @@map("outlet_products")
 }
 
 model ProductCostHistory {
@@ -231,6 +295,8 @@ model Shift {
   id            String      @id @default(uuid())
   merchantId    String      @map("merchant_id")
   merchant      Merchant    @relation(fields: [merchantId], references: [id])
+  outletId      String      @map("outlet_id")
+  outlet        Outlet      @relation(fields: [outletId], references: [id])
   userId        String      @map("user_id")
   user          User        @relation(fields: [userId], references: [id])
   openedAt      DateTime    @default(now()) @map("opened_at")
@@ -245,6 +311,7 @@ model Shift {
   ppobTransactions PpobTransaction[]
 
   @@index([merchantId, status])
+  @@index([outletId, status])
   @@map("shifts")
 }
 
@@ -252,6 +319,8 @@ model Sale {
   id             String     @id @default(uuid())
   merchantId     String     @map("merchant_id")
   merchant       Merchant   @relation(fields: [merchantId], references: [id])
+  outletId       String     @map("outlet_id")
+  outlet         Outlet     @relation(fields: [outletId], references: [id])
   shiftId        String     @map("shift_id")
   shift          Shift      @relation(fields: [shiftId], references: [id])
   orderNo        String     @map("order_no")
@@ -270,6 +339,7 @@ model Sale {
   lineItems SaleLineItem[]
 
   @@index([merchantId, createdAt])
+  @@index([outletId, createdAt])
   @@map("sales")
 }
 
@@ -292,6 +362,8 @@ model Expense {
   id         String        @id @default(uuid())
   merchantId String        @map("merchant_id")
   merchant   Merchant      @relation(fields: [merchantId], references: [id])
+  outletId   String        @map("outlet_id")
+  outlet     Outlet        @relation(fields: [outletId], references: [id])
   shiftId    String?       @map("shift_id")
   shift      Shift?        @relation(fields: [shiftId], references: [id])
   amount     Int
@@ -300,6 +372,7 @@ model Expense {
   source     ExpenseSource @default(manual)
   createdAt  DateTime      @default(now()) @map("created_at")
 
+  @@index([outletId, createdAt])
   @@map("expenses")
 }
 
@@ -324,6 +397,8 @@ model PpobTransaction {
   id              String                 @id @default(uuid())
   merchantId      String                 @map("merchant_id")
   merchant        Merchant               @relation(fields: [merchantId], references: [id])
+  outletId        String                 @map("outlet_id")
+  outlet          Outlet                 @relation(fields: [outletId], references: [id])
   billerId        String                 @map("biller_id")
   biller          PpobBiller             @relation(fields: [billerId], references: [id])
   shiftId         String                 @map("shift_id")
@@ -343,6 +418,7 @@ model PpobTransaction {
   commissionEntry PpobCommissionLedgerEntry?
 
   @@index([merchantId, createdAt])
+  @@index([outletId, createdAt])
   @@map("ppob_transactions")
 }
 

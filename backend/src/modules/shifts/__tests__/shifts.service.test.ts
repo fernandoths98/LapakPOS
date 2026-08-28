@@ -3,6 +3,7 @@ import { prisma } from "../../../db/prisma";
 import * as shiftsService from "../shifts.service";
 
 const TEST_MERCHANT_ID = "00000000-0000-0000-0000-000000000080";
+const TEST_OUTLET_ID = "00000000-0000-0000-0000-000000000280";
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000180";
 
 describe("shifts.service", () => {
@@ -15,12 +16,19 @@ describe("shifts.service", () => {
       create: { id: TEST_MERCHANT_ID, name: "Shifts Test Merchant" },
     });
 
+    await prisma.outlet.upsert({
+      where: { id: TEST_OUTLET_ID },
+      update: {},
+      create: { id: TEST_OUTLET_ID, merchantId: TEST_MERCHANT_ID, name: "Shifts Test Outlet", code: "UTAMA", isPrimary: true },
+    });
+
     await prisma.user.upsert({
       where: { id: TEST_USER_ID },
-      update: { merchantId: TEST_MERCHANT_ID },
+      update: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID },
       create: {
         id: TEST_USER_ID,
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         name: "Sari",
         email: "shifts-service-test@lapak.test",
         passwordHash: "not-a-real-hash",
@@ -46,10 +54,14 @@ describe("shifts.service", () => {
   afterAll(async () => {
     await prisma.ppobTransaction.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.expense.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.saleLineItem.deleteMany({ where: { sale: { merchantId: TEST_MERCHANT_ID } } });
     await prisma.sale.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.ppobBiller.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.shift.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.outletProduct.deleteMany({ where: { product: { merchantId: TEST_MERCHANT_ID } } });
+    await prisma.product.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.outlet.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });
@@ -64,23 +76,24 @@ describe("shifts.service", () => {
   });
 
   describe("openShift", () => {
-    it("rejects opening a second shift while one is already open for the merchant", async () => {
-      await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 100000 });
+    it("rejects opening a second shift while one is already open for the outlet", async () => {
+      await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 100000 });
 
       await expect(
-        shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 50000 }),
+        shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 50000 }),
       ).rejects.toMatchObject({ status: 400 });
     });
   });
 
   describe("closeShift arithmetic", () => {
     it("computes expected = opening + cashSales + ppobCashIn - paidOut, and discrepancy = expected - counted, exactly", async () => {
-      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 300000 });
+      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 300000 });
 
       // Plain cash sale.
       await prisma.sale.create({
         data: {
           merchantId: TEST_MERCHANT_ID,
+          outletId: TEST_OUTLET_ID,
           shiftId: shift.id,
           orderNo: "1001",
           clientId: uuidv4(),
@@ -95,6 +108,7 @@ describe("shifts.service", () => {
       await prisma.sale.create({
         data: {
           merchantId: TEST_MERCHANT_ID,
+          outletId: TEST_OUTLET_ID,
           shiftId: shift.id,
           orderNo: "1002",
           clientId: uuidv4(),
@@ -109,6 +123,7 @@ describe("shifts.service", () => {
       await prisma.sale.create({
         data: {
           merchantId: TEST_MERCHANT_ID,
+          outletId: TEST_OUTLET_ID,
           shiftId: shift.id,
           orderNo: "1003",
           clientId: uuidv4(),
@@ -124,6 +139,7 @@ describe("shifts.service", () => {
       await prisma.ppobTransaction.create({
         data: {
           merchantId: TEST_MERCHANT_ID,
+          outletId: TEST_OUTLET_ID,
           billerId,
           shiftId: shift.id,
           customerNumber: "51234488901",
@@ -140,6 +156,7 @@ describe("shifts.service", () => {
       await prisma.ppobTransaction.create({
         data: {
           merchantId: TEST_MERCHANT_ID,
+          outletId: TEST_OUTLET_ID,
           billerId,
           shiftId: shift.id,
           customerNumber: "0812000000",
@@ -155,7 +172,7 @@ describe("shifts.service", () => {
 
       // Expense paid out of the drawer.
       await prisma.expense.create({
-        data: { merchantId: TEST_MERCHANT_ID, shiftId: shift.id, amount: 25000, note: "Gas refill", source: "manual" },
+        data: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID, shiftId: shift.id, amount: 25000, note: "Gas refill", source: "manual" },
       });
 
       const cashSales = 150000 + 40000; // split's cash leg only, QRIS sale excluded
@@ -164,7 +181,7 @@ describe("shifts.service", () => {
       const expected = 300000 + cashSales + ppobCashIn - paidOut; // 570500
 
       // GET /current's live preview must match this exactly before any close call.
-      const preview = await shiftsService.getCurrentShift(TEST_MERCHANT_ID);
+      const preview = await shiftsService.getCurrentShift(TEST_MERCHANT_ID, TEST_OUTLET_ID);
       expect(preview.shift?.id).toBe(shift.id);
       expect(preview.running).toEqual({
         openingFloat: 300000,
@@ -197,21 +214,21 @@ describe("shifts.service", () => {
     });
 
     it("reports 'Over by' when counted exceeds expected", async () => {
-      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 100000 });
+      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 100000 });
       const result = await shiftsService.closeShift(TEST_MERCHANT_ID, shift.id, { countedCash: 120000 });
       expect(result.discrepancy).toBe(-20000);
       expect(result.discrepancyTitle).toBe("Over by Rp 20.000");
     });
 
     it("reports 'Drawer balances' when counted matches expected exactly", async () => {
-      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 200000 });
+      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 200000 });
       const result = await shiftsService.closeShift(TEST_MERCHANT_ID, shift.id, { countedCash: 200000 });
       expect(result.discrepancy).toBe(0);
       expect(result.discrepancyTitle).toBe("Drawer balances");
     });
 
     it("falls back to the exact Phase 5a generic discrepancyBody even when a real transaction genuinely matches the gap — proving the AI-unavailable path is safe, not just the no-candidate path", async () => {
-      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 100000 });
+      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 100000 });
 
       // A cash sale of exactly Rp 45.000 — deliberately chosen so a genuine
       // discrepancy-candidate WOULD exist (see discrepancyAi.service.test.ts
@@ -221,6 +238,7 @@ describe("shifts.service", () => {
       await prisma.sale.create({
         data: {
           merchantId: TEST_MERCHANT_ID,
+          outletId: TEST_OUTLET_ID,
           shiftId: shift.id,
           orderNo: "2001",
           clientId: uuidv4(),
@@ -267,7 +285,7 @@ describe("shifts.service", () => {
         shiftsService.closeShift(TEST_MERCHANT_ID, "00000000-0000-0000-0000-000000000000", { countedCash: 0 }),
       ).rejects.toMatchObject({ status: 404 });
 
-      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 0 });
+      const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 0 });
       await shiftsService.closeShift(TEST_MERCHANT_ID, shift.id, { countedCash: 0 });
 
       await expect(shiftsService.closeShift(TEST_MERCHANT_ID, shift.id, { countedCash: 0 })).rejects.toMatchObject({

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { aiEnabled } from "../../config/env";
 import { badRequest } from "../../utils/errors";
+import { requireFeature } from "../subscription/entitlements.service";
 import { dayBounds, dayRevenueTotal } from "../sales/sales.service";
 import { buildRecapAggregation, RecapAggregationContext } from "./recapAggregation.service";
 import { AiUnavailableError, generateStructured, JsonSchema, RECAP_MODEL } from "./claudeClient";
@@ -215,6 +216,7 @@ async function generateFreshDailyRecap(
  * `/regenerate` by hand.
  */
 export async function getDailyRecap(merchantId: string, dateStr = todayDateStr()): Promise<DailyRecapResponse> {
+  await requireFeature(merchantId, "ai");
   const date = parseDateParam(dateStr);
   const recapDateKey = toRecapDateKey(dateStr);
 
@@ -231,6 +233,7 @@ export async function getDailyRecap(merchantId: string, dateStr = todayDateStr()
 
 /** POST /api/recap/daily/regenerate — clears any cached row for the date first, then always generates fresh. */
 export async function regenerateDailyRecap(merchantId: string, dateStr = todayDateStr()): Promise<DailyRecapResponse> {
+  await requireFeature(merchantId, "ai");
   const date = parseDateParam(dateStr);
   const recapDateKey = toRecapDateKey(dateStr);
 

@@ -8,6 +8,7 @@ import {
 } from "@lapak/shared";
 import { Workbook } from "exceljs";
 import { prisma } from "../../db/prisma";
+import { assertWithinQuota, requireFeature } from "../subscription/entitlements.service";
 import { badRequest, notFound } from "../../utils/errors";
 import { recordCostChangeIfNeeded } from "../products/products.service";
 
@@ -93,6 +94,7 @@ setInterval(sweepExpiredPreviews, 5 * 60 * 1000).unref();
  * merchant updates that product rather than being held back.
  */
 export async function previewImport(merchantId: string, body: ImportPreviewRequest): Promise<ImportPreviewResponse> {
+  await requireFeature(merchantId, "excelIO");
   sweepExpiredPreviews();
 
   if (body.headers.length === 0) {
@@ -222,6 +224,7 @@ function buildFlaggedReasons(priceFlagCount: number, duplicateBarcodeFlagCount: 
  * Deletes the preview from the in-memory store once committed.
  */
 export async function commitImport(merchantId: string, previewId: string): Promise<ImportCommitResponse> {
+  await requireFeature(merchantId, "excelIO");
   sweepExpiredPreviews();
 
   const preview = previews.get(previewId);
@@ -232,10 +235,32 @@ export async function commitImport(merchantId: string, previewId: string): Promi
   const importableRows = preview.rows.filter((r) => !r.flagged);
   const skippedCount = preview.rows.length - importableRows.length;
 
+  // Rows without a matching existing barcode become new products — count
+  // those against the plan's product cap (conservative: treats an unknown
+  // barcode as a create).
+  const knownBarcodes = new Set(
+    (
+      await prisma.product.findMany({
+        where: { merchantId, barcode: { in: importableRows.map((r) => r.barcode).filter((b): b is string => !!b) } },
+        select: { barcode: true },
+      })
+    ).map((p) => p.barcode),
+  );
+  const newRowCount = importableRows.filter((r) => !r.barcode || !knownBarcodes.has(r.barcode)).length;
+  if (newRowCount > 0) await assertWithinQuota(merchantId, "products", newRowCount);
+
   let createdCount = 0;
   let updatedCount = 0;
 
   await prisma.$transaction(async (tx) => {
+    // Phase 1 dual-write target: imported products need a per-outlet inventory
+    // row too. Entered stock lands on the primary outlet (index 0).
+    const outlets = await tx.outlet.findMany({
+      where: { merchantId },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+
     for (const row of importableRows) {
       const name = row.name ?? "Imported product";
       const sellPrice = row.sellPrice ?? 0;
@@ -254,11 +279,27 @@ export async function commitImport(merchantId: string, previewId: string): Promi
           data: { name, sellPrice, costPrice, stockQty, deletedAt: null },
         });
         await recordCostChangeIfNeeded(tx, existing.id, existing.costPrice, costPrice);
+        if (outlets[0]) {
+          await tx.outletProduct.upsert({
+            where: { outletId_productId: { outletId: outlets[0].id, productId: existing.id } },
+            update: { stockQty },
+            create: { outletId: outlets[0].id, productId: existing.id, stockQty },
+          });
+        }
         updatedCount++;
       } else {
-        await tx.product.create({
+        const created = await tx.product.create({
           data: { merchantId, categoryId: null, name, barcode, sellPrice, costPrice, stockQty, lowStockThreshold: 8 },
         });
+        if (outlets.length > 0) {
+          await tx.outletProduct.createMany({
+            data: outlets.map((outlet, index) => ({
+              outletId: outlet.id,
+              productId: created.id,
+              stockQty: index === 0 ? stockQty : 0,
+            })),
+          });
+        }
         createdCount++;
       }
     }
@@ -296,6 +337,7 @@ function resolveMonthRange(month?: string): { start: Date; end: Date; label: str
 
 /** One row per sale line item within the given month (current month if omitted). Only completed sales. */
 export async function buildSalesLedgerWorkbook(merchantId: string, month?: string): Promise<{ workbook: Workbook; label: string }> {
+  await requireFeature(merchantId, "excelIO");
   const { start, end, label } = resolveMonthRange(month);
 
   const lineItems = await prisma.saleLineItem.findMany({
@@ -333,11 +375,17 @@ export async function buildSalesLedgerWorkbook(merchantId: string, month?: strin
   return { workbook, label };
 }
 
-/** One row per active (non-deleted) product: cost, sell price, stock value, and potential margin. */
+/**
+ * One row per active (non-deleted) product: cost, sell price, stock value and
+ * potential margin. `Stock Qty` is the total across every outlet that carries
+ * the product (stock is per-outlet now); the per-outlet breakdown is a
+ * separate export added when the app becomes outlet-aware.
+ */
 export async function buildStockValuationWorkbook(merchantId: string): Promise<Workbook> {
+  await requireFeature(merchantId, "excelIO");
   const products = await prisma.product.findMany({
     where: { merchantId, deletedAt: null },
-    include: { category: true },
+    include: { category: true, outletProducts: { where: { deletedAt: null }, select: { stockQty: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -355,15 +403,16 @@ export async function buildStockValuationWorkbook(merchantId: string): Promise<W
   ];
 
   for (const p of products) {
+    const stockQty = p.outletProducts.reduce((sum, op) => sum + op.stockQty, 0);
     sheet.addRow({
       name: p.name,
       barcode: p.barcode ?? "",
       category: p.category?.name ?? "",
-      stockQty: p.stockQty,
+      stockQty,
       costPrice: p.costPrice,
       sellPrice: p.sellPrice,
-      stockValue: p.costPrice * p.stockQty,
-      potentialMargin: (p.sellPrice - p.costPrice) * p.stockQty,
+      stockValue: p.costPrice * stockQty,
+      potentialMargin: (p.sellPrice - p.costPrice) * stockQty,
     });
   }
 

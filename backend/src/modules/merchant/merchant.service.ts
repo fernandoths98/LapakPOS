@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { AccountSetupResponse, CreateOutletRequest, CreateStaffRequest, MerchantResponse, OutletDto, StaffDto } from "@lapak/shared";
 import { prisma } from "../../db/prisma";
+import { assertWithinQuota } from "../subscription/entitlements.service";
 import { notFound } from "../../utils/errors";
 
 /**
@@ -25,7 +26,7 @@ export async function getMyMerchant(merchantId: string): Promise<MerchantRespons
   };
 }
 
-const outletDto = (outlet: { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; createdAt: Date }): OutletDto => ({ ...outlet, createdAt: outlet.createdAt.toISOString() });
+const outletDto = (outlet: { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; isActive: boolean; createdAt: Date }): OutletDto => ({ ...outlet, createdAt: outlet.createdAt.toISOString() });
 const staffDto = (user: { id: string; name: string; email: string; role: "owner" | "manager" | "cashier" | "stocker"; outletId: string | null; isActive: boolean; createdAt: Date }): StaffDto => ({ ...user, createdAt: user.createdAt.toISOString() });
 
 export async function getAccountSetup(merchantId: string): Promise<AccountSetupResponse> {
@@ -33,17 +34,35 @@ export async function getAccountSetup(merchantId: string): Promise<AccountSetupR
   if (!merchant) throw notFound("Merchant");
   return {
     merchant: { id: merchant.id, name: merchant.name, slug: merchant.slug, businessType: merchant.businessType, onboardingCompleted: merchant.onboardingCompleted, trialEndsAt: merchant.trialEndsAt?.toISOString() ?? null },
-    subscription: merchant.subscription ? { planCode: merchant.subscription.planCode, status: merchant.subscription.status, trialEndsAt: merchant.subscription.trialEndsAt.toISOString() } : null,
+    subscription: merchant.subscription
+      ? {
+          planCode: merchant.subscription.planCode,
+          status: merchant.subscription.status,
+          trialEndsAt: merchant.subscription.trialEndsAt?.toISOString() ?? null,
+          currentPeriodEndsAt: merchant.subscription.currentPeriodEndsAt?.toISOString() ?? null,
+        }
+      : null,
     outlets: merchant.outlets.map(outletDto), staff: merchant.users.map(staffDto),
   };
 }
 
 export async function createOutlet(merchantId: string, input: CreateOutletRequest): Promise<OutletDto> {
-  const outlet = await prisma.outlet.create({ data: { merchantId, name: input.name.trim(), code: input.code.trim().toUpperCase(), address: input.address?.trim() || null, phone: input.phone?.trim() || null } });
+  await assertWithinQuota(merchantId, "outlets");
+  const outlet = await prisma.outlet.create({
+    data: {
+      merchantId,
+      name: input.name.trim(),
+      code: input.code.trim().toUpperCase(),
+      address: input.address?.trim() || null,
+      phone: input.phone?.trim() || null,
+      type: input.type === "franchise" ? "franchise" : "owned",
+    },
+  });
   return outletDto(outlet);
 }
 
 export async function createStaff(merchantId: string, input: CreateStaffRequest): Promise<StaffDto> {
+  await assertWithinQuota(merchantId, "staff");
   const outlet = await prisma.outlet.findFirst({ where: { id: input.outletId, merchantId }, select: { id: true } });
   if (!outlet) throw notFound("Outlet");
   const pinHash = await bcrypt.hash(input.pin, 10);

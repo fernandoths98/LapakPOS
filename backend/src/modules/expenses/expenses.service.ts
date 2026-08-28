@@ -8,6 +8,7 @@ function toExpenseDto(expense: Expense): ExpenseDto {
   return {
     id: expense.id,
     merchantId: expense.merchantId,
+    outletId: expense.outletId,
     shiftId: expense.shiftId,
     amount: expense.amount,
     note: expense.note,
@@ -28,17 +29,19 @@ function toExpenseDto(expense: Expense): ExpenseDto {
 export async function createExpense(
   merchantId: string,
   userId: string,
+  outletId: string,
   body: CreateExpenseRequest,
 ): Promise<ExpenseDto> {
   if (body.amount <= 0) {
     throw badRequest("Expense amount must be greater than 0");
   }
 
-  const shift = await getOrOpenCurrentShift(merchantId, userId);
+  const shift = await getOrOpenCurrentShift(merchantId, userId, outletId);
 
   const expense = await prisma.expense.create({
     data: {
       merchantId,
+      outletId,
       shiftId: shift.id,
       amount: body.amount,
       note: body.note?.trim() || null,
@@ -55,11 +58,11 @@ export async function createExpense(
  * returns an empty list rather than silently falling back to every expense
  * the merchant has ever recorded.
  */
-export async function listExpenses(merchantId: string, shiftId?: string): Promise<ExpenseDto[]> {
+export async function listExpenses(merchantId: string, outletId: string, shiftId?: string): Promise<ExpenseDto[]> {
   let scopedShiftId = shiftId;
   if (!scopedShiftId) {
     const currentShift = await prisma.shift.findFirst({
-      where: { merchantId, status: "open" },
+      where: { merchantId, outletId, status: "open" },
       orderBy: { openedAt: "desc" },
     });
     if (!currentShift) {
@@ -69,7 +72,7 @@ export async function listExpenses(merchantId: string, shiftId?: string): Promis
   }
 
   const expenses = await prisma.expense.findMany({
-    where: { merchantId, shiftId: scopedShiftId },
+    where: { merchantId, outletId, shiftId: scopedShiftId },
     orderBy: { createdAt: "desc" },
   });
   return expenses.map(toExpenseDto);
