@@ -6,6 +6,7 @@ import { OpenShiftScreen } from "../../screens/Home/OpenShiftScreen";
 import { ShiftCloseScreen } from "../../screens/Shift/ShiftCloseScreen";
 import { ProfileScreen } from "../../screens/Profile/ProfileScreen";
 import { AccountManagementScreen } from "../../screens/Profile/AccountManagementScreen";
+import { SubscriptionScreen } from "../../screens/Profile/SubscriptionScreen";
 import { stackScreenOptions } from "./stackScreenOptions";
 
 export type HomeStackParamList = {
@@ -19,6 +20,7 @@ export type HomeStackParamList = {
   AddExpense: undefined;
   Profile: undefined;
   AccountManagement: undefined;
+  Subscription: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -45,6 +47,7 @@ export function HomeStack() {
       />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AccountManagement" component={AccountManagementScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Subscription" component={SubscriptionScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

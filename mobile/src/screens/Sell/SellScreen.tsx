@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,17 +20,20 @@ import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
 import { BarcodeScanner } from "../../components/BarcodeScanner";
 import { colors, radius, shadow, space } from "../../theme/tokens";
-import { fetchProductByBarcode, useCategories, useProducts } from "../../state/api/products";
+import { ALL_CATEGORIES, fetchProductByBarcode, UNCATEGORIZED, useCategories, useProducts } from "../../state/api/products";
 import { useCurrentShift } from "../../state/api/shifts";
 import { cartCount, cartTotal, useCartStore } from "../../state/cart/cartStore";
 import { SellStackParamList } from "../../app/stacks/SellStack";
 
-const ALL_CATEGORY = "All";
+interface CategoryPillItem {
+  id: string;
+  label: string;
+}
 
 export function SellScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<SellStackParamList>>();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState(ALL_CATEGORY);
+  const [categoryId, setCategoryId] = useState(ALL_CATEGORIES);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cartPreviewOpen, setCartPreviewOpen] = useState(false);
   const { width, height } = useWindowDimensions();
@@ -38,15 +41,28 @@ export function SellScreen() {
   const isPortraitPhone = width < 600 && height >= width;
 
   const categoriesQuery = useCategories();
-  const productsQuery = useProducts({ query, category });
+  const productsQuery = useProducts({ query, categoryId });
   const currentShiftQuery = useCurrentShift();
   const lines = useCartStore((state) => state.lines);
   const addItem = useCartStore((state) => state.addItem);
 
-  const pills = useMemo(
-    () => [ALL_CATEGORY, ...(categoriesQuery.data?.map((item) => item.name) ?? [])],
+  const pills = useMemo<CategoryPillItem[]>(
+    () => [
+      { id: ALL_CATEGORIES, label: "Semua" },
+      ...(categoriesQuery.data?.map((item) => ({ id: item.id, label: item.name })) ?? []),
+      { id: UNCATEGORIZED, label: "Tanpa kategori" },
+    ],
     [categoriesQuery.data],
   );
+
+  // If the selected category was renamed away or deleted server-side, fall
+  // back to "Semua" rather than silently showing an empty catalog.
+  useEffect(() => {
+    if (categoryId === ALL_CATEGORIES || categoryId === UNCATEGORIZED) return;
+    if (categoriesQuery.data && !categoriesQuery.data.some((c) => c.id === categoryId)) {
+      setCategoryId(ALL_CATEGORIES);
+    }
+  }, [categoriesQuery.data, categoryId]);
   const total = cartTotal(lines);
   const count = cartCount(lines);
   const hasCart = count > 0;
@@ -162,15 +178,15 @@ export function SellScreen() {
 
             <FlatList
               data={pills}
-              keyExtractor={(item) => item}
+              keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={[styles.pillRow, isPortraitPhone && styles.pillRowPortrait]}
               renderItem={({ item }) => (
                 <CategoryPill
-                  label={item === ALL_CATEGORY ? "Semua" : item}
-                  active={item === category}
-                  onPress={() => setCategory(item)}
+                  label={item.label}
+                  active={item.id === categoryId}
+                  onPress={() => setCategoryId(item.id)}
                 />
               )}
             />

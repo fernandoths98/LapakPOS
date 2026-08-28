@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { LoginResponse } from "@lapak/shared";
+import { useOutletStore } from "../outlet/outletStore";
 
 /**
  * Auth state only — MMKV is reserved for the offline sales queue (Phase 8);
@@ -21,8 +22,16 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       hasHydrated: false,
-      login: (result) => set({ token: result.token, user: result.user }),
-      logout: () => set({ token: null, user: null }),
+      login: (result) => {
+        // A cashier/stocker is pinned to their token outlet; an owner starts
+        // on their own outlet and can switch from the Home header.
+        useOutletStore.getState().setActiveOutlet(result.user.outletId ?? null);
+        set({ token: result.token, user: result.user });
+      },
+      logout: () => {
+        useOutletStore.getState().clear();
+        set({ token: null, user: null });
+      },
     }),
     {
       name: "lapak-auth",

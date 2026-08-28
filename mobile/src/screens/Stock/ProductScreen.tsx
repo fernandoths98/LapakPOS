@@ -13,6 +13,7 @@ import { colors, radius, space } from "../../theme/tokens";
 import { API_BASE_URL } from "../../state/api/apiClient";
 import {
   fetchProductByBarcode,
+  useCategories,
   useCreateProduct,
   usePhotoFillProduct,
   useProduct,
@@ -40,12 +41,14 @@ export function ProductScreen() {
   const isEditing = !!productId;
 
   const productQuery = useProduct(productId);
+  const categoriesQuery = useCategories();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const uploadPhoto = useUploadProductPhoto();
   const photoFill = usePhotoFillProduct();
 
   const [name, setName] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [sellPrice, setSellPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
   const [stockQty, setStockQty] = useState("");
@@ -64,6 +67,7 @@ export function ProductScreen() {
     const product = productQuery.data;
     if (!product) return;
     setName(product.name);
+    setCategoryId(product.categoryId);
     setSellPrice(String(product.sellPrice));
     setCostPrice(String(product.costPrice));
     setStockQty(String(product.stockQty));
@@ -212,6 +216,7 @@ export function ProductScreen() {
 
     const body = {
       name: name.trim(),
+      categoryId,
       sellPrice: sellPriceNum,
       costPrice: costPriceNum,
       stockQty: parseRupiah(stockQty),
@@ -282,6 +287,25 @@ export function ProductScreen() {
           placeholder="Product name"
           error={errors.name}
         />
+
+        <View>
+          <Text variant="kicker" style={styles.categoryLabel}>Category</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryRow}
+          >
+            <CategoryChip label="Tanpa kategori" active={categoryId === null} onPress={() => setCategoryId(null)} />
+            {(categoriesQuery.data ?? []).map((c) => (
+              <CategoryChip
+                key={c.id}
+                label={c.name}
+                active={categoryId === c.id}
+                onPress={() => setCategoryId(c.id)}
+              />
+            ))}
+          </ScrollView>
+        </View>
 
         <View>
           <TextField
@@ -406,6 +430,27 @@ function PhotoBox({
   );
 }
 
+/**
+ * A selectable category chip for the product form. Mirrors the Sell screen's
+ * category pills so a product created here can carry the same category the
+ * cashier later filters by — the fix for app-created products vanishing the
+ * moment any category pill is tapped.
+ */
+function CategoryChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.categoryChip, active ? styles.categoryChipActive : styles.categoryChipInactive]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text variant="caption" color={active ? colors.surface : colors.neutral700} style={styles.categoryChipLabel}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   loadingContainer: { flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
@@ -435,6 +480,12 @@ const styles = StyleSheet.create({
   snapButton: { alignSelf: "flex-start", paddingHorizontal: 0, minHeight: 0, marginTop: 2 },
   snapError: { marginTop: 4 },
   fields: { marginTop: space[4], gap: space[3] },
+  categoryLabel: { marginBottom: 6 },
+  categoryRow: { gap: space[2], paddingBottom: 2 },
+  categoryChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1 },
+  categoryChipActive: { backgroundColor: colors.accent2, borderColor: colors.accent2 },
+  categoryChipInactive: { backgroundColor: colors.surface, borderColor: colors.divider },
+  categoryChipLabel: { fontWeight: "600" },
   hint: { marginTop: 4 },
   submitError: { marginTop: space[3] },
   saveButton: { marginTop: space[6] },

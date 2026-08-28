@@ -12,6 +12,7 @@ const REQUEST: CreateSaleRequest = {
 const SALE: Sale = {
   id: 'local-client-1',
   merchantId: 'offline',
+  outletId: 'offline',
   shiftId: 'offline',
   orderNo: 'Queued',
   clientId: 'client-1',

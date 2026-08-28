@@ -410,6 +410,7 @@ function buildOfflineSale({
   return {
     id: `local-${clientId}`,
     merchantId: shift?.merchantId ?? 'offline',
+    outletId: shift?.outletId ?? 'offline',
     shiftId: shift?.id ?? 'offline',
     orderNo: 'Queued',
     clientId,
