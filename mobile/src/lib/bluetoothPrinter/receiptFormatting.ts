@@ -5,8 +5,9 @@
  * without any Bluetooth hardware or mocking.
  *
  * 58mm thermal paper prints roughly 32 characters per line at the printer's
- * normal (font A, not condensed) size — the same width assumption the
- * prototype's monospace receipt preview uses.
+ * normal (font A, not condensed) size. The on-screen preview in
+ * PaidScreen.tsx renders the exact same `ReceiptLine[]` in a monospace font,
+ * so what the cashier sees is what prints.
  */
 import { Sale, ZReportResponse, formatRupiah } from "@lapak/shared";
 
@@ -26,11 +27,41 @@ export function truncate(text: string, maxLen: number): string {
 }
 
 /**
+ * Word-wraps `text` into lines no wider than `width`. A single word longer
+ * than the line is hard-split. Used for the merchant address block in the
+ * header, which should flow onto as many centered lines as it needs rather
+ * than being cut off.
+ */
+export function wrapText(text: string, width: number = RECEIPT_WIDTH): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    if (word.length > width) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      for (let i = 0; i < word.length; i += width) lines.push(word.slice(i, i + width));
+      continue;
+    }
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length > width) {
+      if (current) lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [""];
+}
+
+/**
  * Lays a label/value pair across the line width, label left-aligned and
  * value right-aligned — e.g. `"1x Kopi Susu Gula Aren    Rp 18.000"`. The
- * label is truncated (never wrapped) if the value doesn't leave it room,
- * mirroring the prototype receipt's `overflow:hidden;text-overflow:ellipsis`
- * treatment of long product names against a fixed-width right column.
+ * label is truncated (never wrapped) if the value doesn't leave it room.
+ * An empty `left` right-aligns `right` on its own line.
  */
 export function formatRow(left: string, right: string, width: number = RECEIPT_WIDTH): string {
   const safeRight = truncate(right, width);
@@ -57,33 +88,103 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
+/** `YYYY-MM-DD` in the device's local time — the format on the sample warung receipts. */
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** `HH:MM:SS`, 24h, device-local. */
+function formatClock(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 export interface ReceiptMerchantInfo {
   name: string;
-  addressLine: string;
+  address: string | null;
+  phone: string | null;
+}
+
+export interface ReceiptOutletInfo {
+  name: string;
+  address: string | null;
+}
+
+export interface SaleReceiptContext {
+  tenderLabel: string;
+  /** Name of the cashier who rang the sale, printed opposite the date. */
+  cashierName: string;
+  merchant: ReceiptMerchantInfo;
+  /** The outlet the sale was rung at — printed as its own line when the merchant has more than the one. */
+  outlet: ReceiptOutletInfo | null;
+  /** For a cash sale: what the customer handed over and the change given back. */
+  cashReceived?: number;
+  change?: number;
 }
 
 /**
- * Builds the printable receipt content for a completed sale — merchant
- * header, two rows per line item (product name, then quantity × unit price
- * with the line subtotal), tender, TOTAL, and the
- * "Terima kasih" footer. Mirrors `receiptLines`/`isPaid` in the prototype
- * (Warung POS.dc.html) and the on-screen receipt in PaidScreen.tsx exactly,
- * just re-rendered for a monospace 32-column printer instead of a phone
- * screen.
+ * Builds the printable receipt for a completed sale in the layout Indonesian
+ * warung customers expect:
+ *
+ *   - centered merchant block (name, wrapped address, phone) + a receipt
+ *     reference number
+ *   - date + time on the left, cashier on the right, then the outlet line
+ *   - `No.<orderNo>`
+ *   - numbered line items: bold name, then `<qty> x <unit price>` with the
+ *     line subtotal right-aligned
+ *   - `Total QTY`, then Sub Total / (Diskon) / **Total** / `Bayar (<tender>)`
+ *     / `Kembali`
+ *   - centered "Terimakasih Telah Berbelanja"
  */
-export function buildSaleReceiptLines(sale: Sale, tenderLabel: string, merchant: ReceiptMerchantInfo): ReceiptLine[] {
+export function buildSaleReceiptLines(sale: Sale, ctx: SaleReceiptContext): ReceiptLine[] {
   const lines: ReceiptLine[] = [];
-  lines.push({ text: truncate(merchant.name.toUpperCase(), RECEIPT_WIDTH), align: "center", bold: true });
-  lines.push({ text: truncate(merchant.addressLine, RECEIPT_WIDTH), align: "center" });
-  lines.push({ text: dashedRule() });
-  for (const item of sale.lineItems) {
-    lines.push({ text: truncate(item.productName, RECEIPT_WIDTH) });
-    lines.push({ text: formatRow(`  ${item.qty} x ${formatRupiah(item.unitPrice)}`, formatRupiah(item.lineTotal)) });
+  const center = (text: string, bold = false): ReceiptLine => ({ text: centerText(text), align: "center", bold });
+
+  // ── Header ──────────────────────────────────────────────────────────────
+  lines.push(center(ctx.merchant.name.toUpperCase(), true));
+  if (ctx.merchant.address) {
+    for (const addressLine of wrapText(ctx.merchant.address)) lines.push(center(addressLine));
   }
-  lines.push({ text: formatRow("Tender", tenderLabel) });
+  if (ctx.merchant.phone) lines.push(center(`No. Telp ${ctx.merchant.phone}`));
+  lines.push(center(`No. Struk ${formatDate(sale.createdAt).replace(/-/g, "")}${formatClock(sale.createdAt).replace(/:/g, "")}-${sale.orderNo}`));
+
+  // ── Transaction meta ────────────────────────────────────────────────────
   lines.push({ text: dashedRule() });
-  lines.push({ text: formatRow("TOTAL", formatRupiah(sale.total)), bold: true });
-  lines.push({ text: truncate("Terima kasih - Kotdee POS", RECEIPT_WIDTH), align: "center" });
+  lines.push({ text: formatRow(formatDate(sale.createdAt), ctx.cashierName) });
+  lines.push({ text: formatClock(sale.createdAt) });
+  if (ctx.outlet && (ctx.outlet.address || ctx.outlet.name)) {
+    lines.push({ text: formatRow("", ctx.outlet.address ?? ctx.outlet.name) });
+  }
+  lines.push({ text: `No.${sale.orderNo}` });
+
+  // ── Items ───────────────────────────────────────────────────────────────
+  lines.push({ text: dashedRule() });
+  sale.lineItems.forEach((item, index) => {
+    lines.push({ text: truncate(`${index + 1}. ${item.productName}`, RECEIPT_WIDTH), bold: true });
+    lines.push({ text: formatRow(`   ${item.qty} x ${formatRupiah(item.unitPrice)}`, formatRupiah(item.lineTotal)) });
+  });
+
+  // ── Totals ──────────────────────────────────────────────────────────────
+  lines.push({ text: dashedRule() });
+  const totalQty = sale.lineItems.reduce((sum, item) => sum + item.qty, 0);
+  lines.push({ text: `Total QTY : ${totalQty}` });
+  lines.push({ text: "" });
+  lines.push({ text: formatRow("Sub Total", formatRupiah(sale.subtotal)) });
+  if (sale.discount > 0) {
+    lines.push({ text: formatRow("Diskon", `- ${formatRupiah(sale.discount)}`) });
+  }
+  lines.push({ text: formatRow("Total", formatRupiah(sale.total)), bold: true });
+
+  const paid = ctx.cashReceived ?? sale.total;
+  lines.push({ text: formatRow(`Bayar (${ctx.tenderLabel})`, formatRupiah(paid)) });
+  lines.push({ text: formatRow("Kembali", formatRupiah(ctx.change ?? 0)) });
+
+  // ── Footer ──────────────────────────────────────────────────────────────
+  lines.push({ text: "" });
+  lines.push(center("Terimakasih Telah Berbelanja"));
   return lines;
 }
 
