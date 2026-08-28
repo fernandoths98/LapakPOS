@@ -42,6 +42,24 @@ franchiseRouter.post(
   }),
 );
 
+franchiseRouter.post(
+  "/partners/sync-catalog",
+  ...ownerOnly,
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    res.json(await partners.syncCatalogToAllPartners(req.user.merchantId));
+  }),
+);
+
+franchiseRouter.post(
+  "/partners/:id/sync-catalog",
+  ...ownerOnly,
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    res.json(await partners.syncCatalogToPartner(req.user.merchantId, req.params.id));
+  }),
+);
+
 franchiseRouter.get(
   "/partners/statements",
   ...ownerOnly,

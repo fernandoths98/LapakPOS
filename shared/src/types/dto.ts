@@ -200,6 +200,7 @@ export interface FranchiseePartnerDto {
   franchiseeMerchantId: string | null;
   franchiseeName: string | null;
   joinedAt: string | null;
+  lastCatalogSyncAt: string | null;
   createdAt: string;
   /** Franchisee's completed-sale revenue this calendar month (0 while pending). */
   revenueThisMonth: number;
@@ -209,6 +210,17 @@ export interface CreatePartnerInviteRequest {
   label?: string;
   royaltyPercent: number;
   feeMonthly: number;
+}
+
+/** Result of a franchisor pushing its catalog to a franchisee tenant. */
+export interface CatalogSyncResult {
+  partnerId: string;
+  franchiseeName: string | null;
+  created: number;
+  updated: number;
+  /** Skipped because the franchisee's plan product cap was reached. */
+  skippedOverCap: number;
+  syncedAt: string;
 }
 
 export interface JoinFranchiseRequest {

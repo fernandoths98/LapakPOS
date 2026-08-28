@@ -24,6 +24,7 @@ import {
   usePartnerStatements,
   useSetPartnerStatementStatus,
   useSetStatementStatus,
+  useSyncPartnerCatalog,
   useUpsertFranchiseAgreement,
 } from "../../state/api/franchise";
 import type { HomeStackParamList } from "../../app/stacks/HomeStack";
@@ -62,6 +63,7 @@ export function FranchiseScreen({ navigation }: Props) {
   const createInvite = useCreatePartnerInvite();
   const genPartner = useGeneratePartnerStatements();
   const setPartnerStatus = useSetPartnerStatementStatus();
+  const syncCatalog = useSyncPartnerCatalog();
 
   const [formOutletId, setFormOutletId] = useState("");
   const [royalty, setRoyalty] = useState("5");
@@ -131,6 +133,27 @@ export function FranchiseScreen({ navigation }: Props) {
       Alert.alert("Statement dibuat", `${res.created} baru, ${res.updated} diperbarui.`);
     } catch (err) {
       Alert.alert("Gagal", apiErrorMessage(err, "Statement gagal dibuat."));
+    }
+  };
+
+  const runSync = async (partnerId?: string) => {
+    try {
+      const results = await syncCatalog.mutateAsync(partnerId);
+      if (results.length === 0) {
+        Alert.alert("Sinkron katalog", "Belum ada mitra aktif untuk dikirimi katalog.");
+        return;
+      }
+      const created = results.reduce((n, r) => n + r.created, 0);
+      const updated = results.reduce((n, r) => n + r.updated, 0);
+      const skipped = results.reduce((n, r) => n + r.skippedOverCap, 0);
+      const scope = results.length === 1 ? results[0].franchiseeName ?? "mitra" : `${results.length} mitra`;
+      Alert.alert(
+        "Katalog terkirim",
+        `${scope}: ${created} produk baru, ${updated} diperbarui` +
+          (skipped > 0 ? `, ${skipped} dilewati (kuota produk mitra penuh).` : "."),
+      );
+    } catch (err) {
+      Alert.alert("Gagal", apiErrorMessage(err, "Katalog gagal disinkronkan."));
     }
   };
 
@@ -265,7 +288,18 @@ export function FranchiseScreen({ navigation }: Props) {
             )}
 
             {/* Inter-tenant franchisee partners */}
-            <Text variant="kicker" style={styles.sectionTitle}>MITRA FRANCHISE (USAHA TERPISAH)</Text>
+            <View style={styles.rowBetween}>
+              <Text variant="kicker" style={styles.sectionTitle}>MITRA FRANCHISE (USAHA TERPISAH)</Text>
+              {(partners.data ?? []).some((p) => p.status === "active") ? (
+                <Button
+                  title="Sinkron katalog"
+                  variant="secondary"
+                  onPress={() => runSync()}
+                  loading={syncCatalog.isPending}
+                  style={styles.genButton}
+                />
+              ) : null}
+            </View>
             {(partners.data ?? []).map((p) => (
               <View key={p.id} style={styles.card}>
                 <View style={styles.cardTop}>
@@ -286,6 +320,22 @@ export function FranchiseScreen({ navigation }: Props) {
                     <Text variant="tabular" style={styles.code}>{p.joinCode}</Text>
                     <Share2 size={15} color={colors.accent2} />
                   </Pressable>
+                ) : null}
+                {p.status === "active" ? (
+                  <View style={styles.syncRow}>
+                    <Text variant="caption" color={colors.neutral500}>
+                      {p.lastCatalogSyncAt
+                        ? `Katalog disinkron ${new Date(p.lastCatalogSyncAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                        : "Katalog belum pernah disinkron"}
+                    </Text>
+                    <Button
+                      title="Sinkron"
+                      variant="secondary"
+                      onPress={() => runSync(p.id)}
+                      loading={syncCatalog.isPending}
+                      style={styles.genButton}
+                    />
+                  </View>
                 ) : null}
               </View>
             ))}
@@ -359,6 +409,7 @@ const styles = StyleSheet.create({
   subList: { marginTop: space[2], borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: space[2], gap: space[1] },
   subRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   codeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: space[2], alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.sm, backgroundColor: colors.accent2100 },
+  syncRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space[2], marginTop: space[2], borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: space[2] },
   code: { fontWeight: "700", letterSpacing: 1 },
   badge: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12 },
   badgeDraft: { backgroundColor: colors.neutral200 },

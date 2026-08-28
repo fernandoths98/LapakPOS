@@ -1,15 +1,17 @@
 import { randomBytes } from "crypto";
 import {
+  CatalogSyncResult,
   CreatePartnerInviteRequest,
   FranchiseMembershipResponse,
   FranchiseePartnerDto,
   FranchiseePartnerStatementDto,
   GenerateStatementsRequest,
+  isUnlimited,
 } from "@lapak/shared";
-import { RoyaltyStatementStatus } from "@prisma/client";
+import { Prisma, RoyaltyStatementStatus } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { badRequest, notFound } from "../../utils/errors";
-import { requireFeature } from "../subscription/entitlements.service";
+import { requireFeature, resolvePlan } from "../subscription/entitlements.service";
 
 // ── DTO mappers ─────────────────────────────────────────────────────────
 
@@ -22,6 +24,7 @@ type PartnerRow = {
   feeMonthly: number;
   franchiseeMerchantId: string | null;
   joinedAt: Date | null;
+  lastCatalogSyncAt: Date | null;
   createdAt: Date;
   franchisee: { name: string } | null;
 };
@@ -55,6 +58,7 @@ async function partnerDto(row: PartnerRow): Promise<FranchiseePartnerDto> {
     franchiseeMerchantId: row.franchiseeMerchantId,
     franchiseeName: row.franchisee?.name ?? null,
     joinedAt: row.joinedAt?.toISOString() ?? null,
+    lastCatalogSyncAt: row.lastCatalogSyncAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     revenueThisMonth,
   };
@@ -314,4 +318,159 @@ export async function setPartnerStatementStatus(
     include: { partner: { include: { franchisee: { select: { name: true } } } } },
   });
   return statementDto(row);
+}
+
+// ── Catalog sync (franchisor → franchisee tenant) ─────────────────────
+//
+// Pushes the franchisor's live catalog into a franchisee tenant's own
+// catalog: matches by barcode then case-insensitive name, updates
+// name/price/cost/category on matches, creates the rest (stock 0 on every
+// franchisee outlet). Never deletes franchisee products and never touches
+// their per-outlet stock. New products that would breach the franchisee's
+// own plan product cap are skipped (reported as `skippedOverCap`).
+
+export async function syncCatalogToPartner(
+  franchisorMerchantId: string,
+  partnerId: string,
+): Promise<CatalogSyncResult> {
+  await requireFeature(franchisorMerchantId, "franchise");
+
+  const partner = await prisma.franchiseePartner.findFirst({
+    where: { id: partnerId, franchisorMerchantId },
+    include: { franchisee: { select: { name: true } } },
+  });
+  if (!partner) throw notFound("Franchise partner");
+  if (partner.status !== "active" || !partner.franchiseeMerchantId) {
+    throw badRequest("Partner franchise belum aktif");
+  }
+  const franchiseeMerchantId = partner.franchiseeMerchantId;
+
+  const sourceProducts = await prisma.product.findMany({
+    where: { merchantId: franchisorMerchantId, deletedAt: null },
+    include: { category: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const plan = await resolvePlan(franchiseeMerchantId);
+  const maxProducts = plan.entitlements.maxProducts;
+  const [existingCount, franchiseeProducts, franchiseeCategories, outlets] = await Promise.all([
+    prisma.product.count({ where: { merchantId: franchiseeMerchantId, deletedAt: null } }),
+    prisma.product.findMany({ where: { merchantId: franchiseeMerchantId, deletedAt: null } }),
+    prisma.category.findMany({ where: { merchantId: franchiseeMerchantId } }),
+    prisma.outlet.findMany({
+      where: { merchantId: franchiseeMerchantId },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+      select: { id: true },
+    }),
+  ]);
+
+  type FProduct = (typeof franchiseeProducts)[number];
+  const byBarcode = new Map<string, FProduct>();
+  const byName = new Map<string, FProduct>();
+  for (const p of franchiseeProducts) {
+    if (p.barcode) byBarcode.set(p.barcode, p);
+    byName.set(p.name.trim().toLowerCase(), p);
+  }
+  const categoryIdByName = new Map<string, string>();
+  for (const c of franchiseeCategories) categoryIdByName.set(c.name.trim().toLowerCase(), c.id);
+
+  let created = 0;
+  let updated = 0;
+  let skippedOverCap = 0;
+  let liveCount = existingCount;
+
+  for (const src of sourceProducts) {
+    // Mirror the franchisor category by name, creating it on the franchisee side once.
+    let categoryId: string | null = null;
+    const catName = src.category?.name?.trim();
+    if (catName) {
+      const key = catName.toLowerCase();
+      categoryId = categoryIdByName.get(key) ?? null;
+      if (!categoryId) {
+        const newCat = await prisma.category.create({ data: { merchantId: franchiseeMerchantId, name: catName } });
+        categoryId = newCat.id;
+        categoryIdByName.set(key, newCat.id);
+      }
+    }
+
+    const match =
+      (src.barcode ? byBarcode.get(src.barcode) : undefined) ?? byName.get(src.name.trim().toLowerCase());
+
+    if (match) {
+      await prisma.product.update({
+        where: { id: match.id },
+        data: { name: src.name, sellPrice: src.sellPrice, costPrice: src.costPrice, categoryId },
+      });
+      updated++;
+      continue;
+    }
+
+    if (!isUnlimited(maxProducts) && liveCount >= maxProducts) {
+      skippedOverCap++;
+      continue;
+    }
+
+    try {
+      const newProduct = await prisma.$transaction(async (tx) => {
+        const p = await tx.product.create({
+          data: {
+            merchantId: franchiseeMerchantId,
+            categoryId,
+            name: src.name,
+            barcode: src.barcode ?? null,
+            sellPrice: src.sellPrice,
+            costPrice: src.costPrice,
+            stockQty: 0,
+            lowStockThreshold: src.lowStockThreshold,
+            imageUrl: src.imageUrl ?? null,
+          },
+        });
+        if (outlets.length > 0) {
+          await tx.outletProduct.createMany({
+            data: outlets.map((o) => ({
+              outletId: o.id,
+              productId: p.id,
+              stockQty: 0,
+              lowStockThreshold: src.lowStockThreshold,
+            })),
+          });
+        }
+        return p;
+      });
+      byName.set(newProduct.name.trim().toLowerCase(), newProduct);
+      if (newProduct.barcode) byBarcode.set(newProduct.barcode, newProduct);
+      created++;
+      liveCount++;
+    } catch (err) {
+      // Barcode uniqueness race / collision — skip this one product, keep syncing the rest.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
+      throw err;
+    }
+  }
+
+  const syncedAt = new Date();
+  await prisma.franchiseePartner.update({ where: { id: partner.id }, data: { lastCatalogSyncAt: syncedAt } });
+
+  return {
+    partnerId: partner.id,
+    franchiseeName: partner.franchisee?.name ?? null,
+    created,
+    updated,
+    skippedOverCap,
+    syncedAt: syncedAt.toISOString(),
+  };
+}
+
+export async function syncCatalogToAllPartners(franchisorMerchantId: string): Promise<CatalogSyncResult[]> {
+  await requireFeature(franchisorMerchantId, "franchise");
+  const partners = await prisma.franchiseePartner.findMany({
+    where: { franchisorMerchantId, status: "active", franchiseeMerchantId: { not: null } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  const results: CatalogSyncResult[] = [];
+  for (const p of partners) {
+    results.push(await syncCatalogToPartner(franchisorMerchantId, p.id));
+  }
+  return results;
 }

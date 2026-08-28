@@ -567,6 +567,7 @@ model FranchiseePartner {
   feeMonthly           Int           @default(0) @map("fee_monthly")
   status               PartnerStatus @default(pending)
   joinedAt             DateTime?     @map("joined_at")
+  lastCatalogSyncAt    DateTime?     @map("last_catalog_sync_at")
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
 

@@ -40,6 +40,9 @@ describe("partners.service — inter-tenant franchise", () => {
     await prisma.saleLineItem.deleteMany({ where: { sale: { merchantId: FE } } });
     await prisma.sale.deleteMany({ where: { merchantId: FE } });
     await prisma.shift.deleteMany({ where: { merchantId: FE } });
+    await prisma.outletProduct.deleteMany({ where: { product: { merchantId: { in: [FR, FE] } } } });
+    await prisma.product.deleteMany({ where: { merchantId: { in: [FR, FE] } } });
+    await prisma.category.deleteMany({ where: { merchantId: { in: [FR, FE] } } });
     await prisma.user.deleteMany({ where: { merchantId: { in: [FR, FE] } } });
     await prisma.subscription.deleteMany({ where: { merchantId: { in: [FR, FE] } } });
     await prisma.outlet.deleteMany({ where: { merchantId: { in: [FR, FE] } } });
@@ -111,6 +114,60 @@ describe("partners.service — inter-tenant franchise", () => {
     expect(regen.statements[0].status).toBe("paid");
     expect(regen.created).toBe(0);
     expect(regen.updated).toBe(0);
+  });
+
+  it("syncs the franchisor catalog into the franchisee tenant, mirroring categories and honouring its product cap", async () => {
+    const active = (await partners.listPartners(FR)).find((p) => p.status === "active" && p.franchiseeMerchantId === FE);
+    expect(active).toBeTruthy();
+
+    const cat = await prisma.category.create({ data: { merchantId: FR, name: "Minuman" } });
+    // Explicit createdAt so the sync visits these in a known order.
+    await prisma.product.create({
+      data: { merchantId: FR, name: "Kopi Sachet", barcode: "899100001", sellPrice: 3000, costPrice: 2000, stockQty: 0, categoryId: cat.id, createdAt: new Date("2026-01-01T00:00:00Z") },
+    });
+    await prisma.product.create({
+      data: { merchantId: FR, name: "Teh Kotak", barcode: "899100002", sellPrice: 5000, costPrice: 3500, stockQty: 0, createdAt: new Date("2026-01-02T00:00:00Z") },
+    });
+    await prisma.product.create({
+      data: { merchantId: FR, name: "Rokok Filter", barcode: "899100003", sellPrice: 25000, costPrice: 22000, stockQty: 0, createdAt: new Date("2026-01-03T00:00:00Z") },
+    });
+
+    // Franchisee already stocks "teh kotak" (different case, no barcode) — should update in place, keeping its stock.
+    await prisma.product.create({ data: { merchantId: FE, name: "teh kotak", sellPrice: 4000, costPrice: 3000, stockQty: 7 } });
+    // Fill the franchisee to exactly one slot below the free-plan cap (50).
+    const feCount = await prisma.product.count({ where: { merchantId: FE, deletedAt: null } });
+    const fillers = Array.from({ length: 49 - feCount }, (_, i) => ({
+      merchantId: FE, name: `Stok Lama ${i}`, sellPrice: 1000, costPrice: 500, stockQty: 0,
+    }));
+    if (fillers.length) await prisma.product.createMany({ data: fillers });
+
+    const res = await partners.syncCatalogToPartner(FR, active!.id);
+    expect(res.updated).toBe(1); // "teh kotak" matched by name
+    expect(res.created).toBe(1); // Kopi Sachet took the last free slot (49 -> 50)
+    expect(res.skippedOverCap).toBe(1); // Rokok Filter had nowhere to go
+    expect(res.franchiseeName).toContain("Slamet");
+
+    // Name match kept a single row, took the franchisor price, left stock alone.
+    const teh = await prisma.product.findMany({ where: { merchantId: FE, name: { in: ["teh kotak", "Teh Kotak"] } } });
+    expect(teh).toHaveLength(1);
+    expect(teh[0].sellPrice).toBe(5000);
+    expect(teh[0].stockQty).toBe(7);
+
+    // Created product carries a mirrored category + a zeroed OutletProduct row.
+    const kopi = await prisma.product.findFirst({ where: { merchantId: FE, barcode: "899100001" } });
+    expect(kopi).toBeTruthy();
+    const feCat = await prisma.category.findFirst({ where: { merchantId: FE, name: "Minuman" } });
+    expect(feCat).toBeTruthy();
+    expect(kopi!.categoryId).toBe(feCat!.id);
+    const op = await prisma.outletProduct.findUnique({ where: { outletId_productId: { outletId: FE_OUTLET, productId: kopi!.id } } });
+    expect(op?.stockQty).toBe(0);
+
+    // Rokok Filter was not created.
+    expect(await prisma.product.findFirst({ where: { merchantId: FE, barcode: "899100003" } })).toBeNull();
+
+    // Partner now records the sync time.
+    const refreshed = (await partners.listPartners(FR)).find((p) => p.id === active!.id);
+    expect(refreshed!.lastCatalogSyncAt).not.toBeNull();
   });
 
   it("a merchant that isn't anyone's franchisee reports isFranchisee:false", async () => {

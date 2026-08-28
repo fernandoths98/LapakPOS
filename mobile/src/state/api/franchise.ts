@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CatalogSyncResult,
   CreatePartnerInviteRequest,
   FranchiseAgreementDto,
   FranchiseMembershipResponse,
@@ -92,6 +93,18 @@ export function useEndPartner() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => (await apiClient.post<FranchiseePartnerDto>(`/api/franchise/partners/${id}/end`, {})).data,
+    onSuccess: () => client.invalidateQueries({ queryKey: PARTNERS_KEY }),
+  });
+}
+
+export function useSyncPartnerCatalog() {
+  const client = useQueryClient();
+  return useMutation({
+    // `id` omitted → push to every active partner.
+    mutationFn: async (id?: string) =>
+      id
+        ? [(await apiClient.post<CatalogSyncResult>(`/api/franchise/partners/${id}/sync-catalog`, {})).data]
+        : (await apiClient.post<CatalogSyncResult[]>("/api/franchise/partners/sync-catalog", {})).data,
     onSuccess: () => client.invalidateQueries({ queryKey: PARTNERS_KEY }),
   });
 }
