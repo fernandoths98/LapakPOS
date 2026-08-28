@@ -69,7 +69,10 @@ const SYSTEM_PROMPT =
   "You must ONLY use figures that appear in that JSON — never invent, estimate, or round a number that isn't " +
   "directly present in it. If the data is thin (a quiet day, no notable changes), write a short, honest recap " +
   "rather than padding it with invented detail. Keep the tone calm and specific, like a trusted assistant who " +
-  "actually read the numbers — not hype, not generic encouragement.";
+  "actually read the numbers — not hype, not generic encouragement. " +
+  "When `perOutlet` is present (a merchant with more than one branch), the day's total is split across those " +
+  "outlets — it's worth noting which branch led and which was quiet, and calling out a franchise outlet by its " +
+  "`type` when relevant. When `perOutlet` is empty, the merchant has a single outlet; don't mention branches.";
 
 /** Parses a validated `YYYY-MM-DD` string into a Date at local midnight (used for both querying and cache keys). */
 function parseDateParam(dateStr: string): Date {
@@ -109,7 +112,7 @@ async function callClaudeForStory(context: RecapAggregationContext): Promise<Sto
  * AI-written — callers set `aiAvailable: false` on the response this feeds.
  */
 function buildDeterministicStory(context: RecapAggregationContext): StoryContent {
-  const { today, topSellers, lowStock, costIncreases } = context;
+  const { today, topSellers, lowStock, costIncreases, perOutlet } = context;
 
   const headline = `Omzet hari ini ${formatRupiah(today.total)}`;
 
@@ -123,6 +126,18 @@ function buildDeterministicStory(context: RecapAggregationContext): StoryContent
       : "Belum ada penjualan yang tercatat hari ini.";
 
   const insights: RecapInsight[] = [];
+
+  if (perOutlet.length >= 2 && today.total > 0) {
+    const ranked = [...perOutlet].sort((a, b) => b.revenue - a.revenue);
+    const busiest = ranked[0];
+    const quietest = ranked[ranked.length - 1];
+    insights.push({
+      title: `${busiest.outletName} paling ramai hari ini`,
+      body: `${formatRupiah(busiest.revenue)} dari ${busiest.txnCount} transaksi di ${busiest.outletName}; paling sepi ${quietest.outletName} (${formatRupiah(quietest.revenue)}).`,
+      action: `Tinjau ${quietest.outletName}`,
+    });
+  }
+
   const lowest = lowStock[0];
   if (lowest) {
     insights.push({
