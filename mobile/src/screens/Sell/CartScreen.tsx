@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
@@ -167,8 +168,9 @@ export function CartScreen() {
           style={styles.backButton}
           accessibilityRole="button"
           accessibilityLabel="Kembali ke kasir"
+          hitSlop={6}
         >
-          <Text variant="h2" color={colors.neutral700} style={styles.backGlyph}>‹</Text>
+          <ChevronLeft size={22} color={colors.neutral700} strokeWidth={2.4} />
         </Pressable>
         <View style={styles.headerCopy}>
           <Text variant="h2">Keranjang</Text>
@@ -188,8 +190,11 @@ export function CartScreen() {
           </View>
         ) : null}
         <View style={styles.lines}>
-          {cartLines.map(line => (
-            <View key={line.productId} style={styles.line}>
+          {cartLines.map((line, index) => (
+            <View
+              key={line.productId}
+              style={[styles.line, index === cartLines.length - 1 && styles.lineLast]}
+            >
               <View style={styles.lineInfo}>
                 <Text variant="body">{line.name}</Text>
                 <Text variant="caption">
@@ -200,8 +205,9 @@ export function CartScreen() {
                 <Pressable
                   onPress={() => bump(line.productId, -1)}
                   style={styles.stepperButton}
+                  hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel={`Decrease ${line.name}`}
+                  accessibilityLabel={`Kurangi jumlah ${line.name}`}
                 >
                   <Text variant="h3">−</Text>
                 </Pressable>
@@ -211,8 +217,9 @@ export function CartScreen() {
                 <Pressable
                   onPress={() => bump(line.productId, 1)}
                   style={styles.stepperButton}
+                  hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel={`Increase ${line.name}`}
+                  accessibilityLabel={`Tambah jumlah ${line.name}`}
                 >
                   <Text variant="h3">+</Text>
                 </Pressable>
@@ -555,7 +562,6 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   screenHeader: { height: 56, flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3], backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider },
   backButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, borderWidth: 1, borderColor: colors.divider },
-  backGlyph: { lineHeight: 28, marginTop: -2 },
   headerCopy: { flex: 1 },
   content: { padding: space[3], paddingBottom: space[8] },
   shiftWarning: { marginBottom: space[3], padding: space[3], borderRadius: radius.md, borderWidth: 1, borderColor: colors.accent300, backgroundColor: colors.accent100 },
@@ -575,6 +581,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
+  lineLast: { borderBottomWidth: 0 },
   lineInfo: { flex: 1 },
   stepper: {
     flexDirection: 'row',
@@ -628,7 +635,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'baseline',
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.text,
     marginTop: space[2],
     paddingTop: space[2],
   },

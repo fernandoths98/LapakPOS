@@ -52,7 +52,7 @@ export function BillsScreen() {
   const walletQuery = useWalletSummary();
   const [query, setQuery] = useState("");
   const serviceColumns = screenWidth >= 700 ? 4 : 2;
-  const serviceTileWidth = (screenWidth - space[4] * 2 - space[2] * (serviceColumns - 1)) / serviceColumns;
+  const serviceTileWidth = (screenWidth - space[3] * 2 - space[2] * (serviceColumns - 1)) / serviceColumns;
   const billers = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return billersQuery.data ?? [];
@@ -129,7 +129,7 @@ function RecentRow({ transaction, last }: { transaction: PpobTransaction; last: 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg }, content: { paddingHorizontal: space[4], paddingTop: 0, paddingBottom: space[8] },
+  container: { flex: 1, backgroundColor: colors.bg }, content: { paddingHorizontal: space[3], paddingTop: 0, paddingBottom: space[8] },
   headerRow: { minHeight: 64, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, headerCaption: { marginTop: 2 },
   providerBanner: { flexDirection: "row", alignItems: "center", gap: space[2], backgroundColor: "#EAF8F0", borderRadius: radius.md, padding: space[3], marginTop: space[3] }, providerDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.success }, providerText: { flex: 1 }, providerTitle: { fontWeight: "600" },
   liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#EAF8F0", borderRadius: 14, paddingHorizontal: 9, paddingVertical: 6 }, liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },

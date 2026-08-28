@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Check } from "lucide-react-native";
 import { CheckBillResponse, formatRupiah, PpobCategory } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
@@ -170,7 +171,7 @@ export function BillFormScreen() {
 
       {quote ? (
         <View style={styles.card}>
-          <View style={styles.foundRow}><View style={styles.checkBadge}><Text color={colors.success}>✓</Text></View><Text variant="kicker" color={colors.success}>{prepaid ? "RINCIAN PEMBELIAN" : "TAGIHAN DITEMUKAN"}</Text></View>
+          <View style={styles.foundRow}><View style={styles.checkBadge}><Check size={13} color={colors.success} strokeWidth={3} /></View><Text variant="kicker" color={colors.success}>{prepaid ? "RINCIAN PEMBELIAN" : "TAGIHAN DITEMUKAN"}</Text></View>
           <Text variant="h3" style={styles.customerName}>
             {quote.customerName}
           </Text>
@@ -231,7 +232,7 @@ function SummaryLine({ label, value, color }: { label: string; value: string; co
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space[4], paddingBottom: space[8] },
+  content: { padding: space[3], paddingBottom: space[8] },
   stepBadge: { alignSelf: "flex-start", backgroundColor: colors.accent2100, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   title: { marginTop: space[3] },
   intro: { marginTop: space[2], lineHeight: 21 },
