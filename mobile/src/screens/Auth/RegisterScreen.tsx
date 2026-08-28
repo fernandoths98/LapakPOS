@@ -59,7 +59,7 @@ export function RegisterScreen({ navigation }: Props) {
               <View style={styles.fields}>
                 <TextField label="Nama pemilik" value={ownerName} onChangeText={setOwnerName} placeholder="Nama lengkap" />
                 <TextField label="Email" value={email} onChangeText={setEmail} placeholder="nama@email.com" autoCapitalize="none" keyboardType="email-address" />
-                <TextField label="Password" value={password} onChangeText={setPassword} placeholder="Minimal 8 karakter" secureTextEntry />
+                <TextField label="Password" value={password} onChangeText={setPassword} placeholder="Minimal 8 karakter" secureTextEntry showPasswordToggle />
               </View>
               <Button title="Lanjutkan" onPress={() => setStep(2)} disabled={!accountValid} fullWidth style={styles.action} />
             </>
