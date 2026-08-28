@@ -188,6 +188,62 @@ export interface GenerateStatementsResponse {
   statements: FranchiseRoyaltyStatementDto[];
 }
 
+// ── Franchise — inter-tenant partners ───────────────────────────────────
+
+export interface FranchiseePartnerDto {
+  id: string;
+  label: string | null;
+  joinCode: string;
+  status: "pending" | "active" | "ended";
+  royaltyPercent: number;
+  feeMonthly: number;
+  franchiseeMerchantId: string | null;
+  franchiseeName: string | null;
+  joinedAt: string | null;
+  createdAt: string;
+  /** Franchisee's completed-sale revenue this calendar month (0 while pending). */
+  revenueThisMonth: number;
+}
+
+export interface CreatePartnerInviteRequest {
+  label?: string;
+  royaltyPercent: number;
+  feeMonthly: number;
+}
+
+export interface JoinFranchiseRequest {
+  code: string;
+}
+
+export interface FranchiseePartnerStatementDto {
+  id: string;
+  partnerId: string;
+  franchiseeMerchantId: string;
+  franchiseeName: string | null;
+  periodStart: string;
+  periodEnd: string;
+  grossSales: number;
+  royaltyDue: number;
+  feeDue: number;
+  totalDue: number;
+  status: "draft" | "issued" | "paid";
+  issuedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+/** GET /api/franchise/membership — is this merchant somebody's franchisee? */
+export interface FranchiseMembershipResponse {
+  isFranchisee: boolean;
+  franchisorName: string | null;
+  status: "pending" | "active" | "ended" | null;
+  royaltyPercent: number | null;
+  feeMonthly: number | null;
+  joinedAt: string | null;
+  /** Statements the franchisor has raised against this merchant. */
+  statements: FranchiseePartnerStatementDto[];
+}
+
 // ── Products ──────────────────────────────────────────────────────────────
 
 export interface CreateProductRequest {

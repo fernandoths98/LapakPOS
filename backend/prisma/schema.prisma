@@ -35,6 +35,12 @@ enum RoyaltyStatementStatus {
   paid
 }
 
+enum PartnerStatus {
+  pending
+  active
+  ended
+}
+
 enum SubscriptionStatus {
   trialing
   active
@@ -144,6 +150,10 @@ model Merchant {
   subscriptionInvoices SubscriptionInvoice[]
   franchiseAgreements  FranchiseAgreement[]
   franchiseStatements  FranchiseRoyaltyStatement[]
+  /// FranchiseePartner rows where this merchant is the franchisor.
+  franchisorPartners  FranchiseePartner[] @relation("FranchisorPartners")
+  /// The single FranchiseePartner row where this merchant is the franchisee (if any).
+  franchiseeLink      FranchiseePartner? @relation("FranchiseeOf")
 
   @@map("merchants")
 }
@@ -538,6 +548,58 @@ model FranchiseRoyaltyStatement {
   @@unique([agreementId, periodStart])
   @@index([merchantId, periodStart])
   @@map("franchise_royalty_statements")
+}
+
+/// An inter-tenant franchise link: another business (`franchisee`) runs
+/// under this merchant's (`franchisor`) brand with its own login, plan and
+/// catalog. Created as `pending` with a `joinCode` the franchisee redeems.
+/// This is the tenant-level counterpart to the intra-merchant
+/// `FranchiseAgreement` (which is just a franchise *branch* you operate).
+model FranchiseePartner {
+  id                   String        @id @default(uuid())
+  franchisorMerchantId String        @map("franchisor_merchant_id")
+  franchisor           Merchant      @relation("FranchisorPartners", fields: [franchisorMerchantId], references: [id], onDelete: Cascade)
+  franchiseeMerchantId String?       @unique @map("franchisee_merchant_id")
+  franchisee           Merchant?     @relation("FranchiseeOf", fields: [franchiseeMerchantId], references: [id], onDelete: SetNull)
+  label                String?
+  joinCode             String        @unique @map("join_code")
+  royaltyPercent       Int           @default(0) @map("royalty_percent")
+  feeMonthly           Int           @default(0) @map("fee_monthly")
+  status               PartnerStatus @default(pending)
+  joinedAt             DateTime?     @map("joined_at")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  statements FranchiseePartnerStatement[]
+
+  @@index([franchisorMerchantId])
+  @@map("franchisee_partners")
+}
+
+/// A royalty bill from a franchisor to a franchisee tenant for one period,
+/// computed from the franchisee merchant's own completed sales across all
+/// its outlets. `royaltyDue = grossSales * royaltyPercent / 100`.
+model FranchiseePartnerStatement {
+  id                   String                 @id @default(uuid())
+  partnerId            String                 @map("partner_id")
+  partner              FranchiseePartner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  franchisorMerchantId String                 @map("franchisor_merchant_id")
+  franchiseeMerchantId String                 @map("franchisee_merchant_id")
+  periodStart          DateTime               @map("period_start")
+  periodEnd            DateTime               @map("period_end")
+  grossSales           Int                    @map("gross_sales")
+  royaltyDue           Int                    @map("royalty_due")
+  feeDue               Int                    @map("fee_due")
+  totalDue             Int                    @map("total_due")
+  status               RoyaltyStatementStatus @default(draft)
+  issuedAt             DateTime?              @map("issued_at")
+  paidAt               DateTime?             @map("paid_at")
+  createdAt            DateTime               @default(now()) @map("created_at")
+
+  @@unique([partnerId, periodStart])
+  @@index([franchisorMerchantId, periodStart])
+  @@index([franchiseeMerchantId])
+  @@map("franchisee_partner_statements")
 }
 
 model AiRecapCache {
