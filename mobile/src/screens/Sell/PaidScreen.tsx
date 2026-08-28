@@ -3,6 +3,7 @@ import { Alert, Platform, ScrollView, StyleSheet, useWindowDimensions, View } fr
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Check } from "lucide-react-native";
 import { formatRupiah, TenderType } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
@@ -30,7 +31,7 @@ export function PaidScreen() {
   const merchantName = merchantQuery.data?.name ?? "Kotdee POS";
   const merchantAddressLine = [merchantQuery.data?.address, merchantQuery.data?.phone].filter(Boolean).join(" · ");
 
-  const time = new Date(sale.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const time = new Date(sale.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const tenderLabel = TENDER_LABEL[sale.tenderType];
   const [printSheetVisible, setPrintSheetVisible] = useState(false);
   const { width, height } = useWindowDimensions();
@@ -59,9 +60,7 @@ export function PaidScreen() {
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, isLandscape && styles.contentLandscape]}>
       <View style={[styles.hero, isLandscape && styles.heroLandscape]}>
         <View style={styles.check}>
-          <Text variant="h1" color={colors.accent700} style={styles.checkGlyph}>
-            ✓
-          </Text>
+          <Check size={34} color={colors.accent700} strokeWidth={2.5} />
         </View>
         <Text variant="h1" style={styles.paidTitle}>
           Pembayaran berhasil
@@ -156,7 +155,6 @@ const styles = StyleSheet.create({
   },
   heroLandscape: { width: 300, borderBottomWidth: 0, paddingTop: space[8] },
   check: { alignItems: "center", justifyContent: "center" },
-  checkGlyph: { fontSize: 34, lineHeight: 38 },
   paidTitle: { marginTop: space[2] },
   receiptColumn: { width: "100%" },
   receiptColumnLandscape: { width: 430 },

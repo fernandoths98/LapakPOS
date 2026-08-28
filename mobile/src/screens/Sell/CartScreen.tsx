@@ -17,7 +17,7 @@ import { Text } from '../../theme/Text';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
 import { Slider } from '../../components/Slider';
-import { colors, radius, space } from '../../theme/tokens';
+import { colors, radius, shadow, space } from '../../theme/tokens';
 import {
   CartLine,
   cartLinesArray,
@@ -350,20 +350,21 @@ export function CartScreen() {
             {submitError}
           </Text>
         ) : null}
+      </ScrollView>
 
+      <View style={styles.payBar}>
+        <View style={styles.payBarInfo}>
+          <Text variant="caption" color={colors.neutral600}>TOTAL TAGIHAN</Text>
+          <Text variant="h2" style={styles.payBarTotal}>{formatRupiah(total)}</Text>
+        </View>
         <Button
-          title={
-            createSale.isPending
-              ? 'Memproses pembayaran…'
-              : `Proses pembayaran · ${formatRupiah(total)}`
-          }
+          title={createSale.isPending ? 'Memproses…' : 'Bayar'}
           onPress={handlePay}
           disabled={!canPay}
           loading={createSale.isPending}
-          fullWidth
-          style={styles.payButton}
+          style={styles.payBarButton}
         />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -563,7 +564,7 @@ const styles = StyleSheet.create({
   screenHeader: { height: 56, flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3], backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider },
   backButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, borderWidth: 1, borderColor: colors.divider },
   headerCopy: { flex: 1 },
-  content: { padding: space[3], paddingBottom: space[8] },
+  content: { padding: space[3], paddingBottom: 104 },
   shiftWarning: { marginBottom: space[3], padding: space[3], borderRadius: radius.md, borderWidth: 1, borderColor: colors.accent300, backgroundColor: colors.accent100 },
   shiftWarningText: { marginTop: 3, lineHeight: 18 },
   lines: {
@@ -703,5 +704,23 @@ const styles = StyleSheet.create({
     paddingTop: space[3],
   },
   error: { marginTop: space[3] },
-  payButton: { marginTop: space[6] },
+  payBar: {
+    position: 'absolute',
+    left: space[3],
+    right: space[3],
+    bottom: space[2],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.lg,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    ...shadow.lg,
+  },
+  payBarInfo: { flex: 1 },
+  payBarTotal: { fontSize: 22, marginTop: 1 },
+  payBarButton: { minWidth: 128 },
 });
