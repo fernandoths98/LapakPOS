@@ -24,6 +24,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { formatRupiah } from '@lapak/shared';
 import { Text } from '../../theme/Text';
+import { OutletSwitcher } from '../../components/OutletSwitcher';
 import { colors, radius, space } from '../../theme/tokens';
 import { useTodaySummary, useHomeAlerts } from '../../state/api/home';
 import { useMerchant } from '../../state/api/merchant';
@@ -148,13 +149,16 @@ export function HomeScreen() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text variant="h2" style={styles.merchantName}>
               {merchant?.name ?? ''}
             </Text>
-            <Text variant="caption" color={colors.neutral600}>
-              {formatTodayHeading()}
-            </Text>
+            <View style={styles.headerMeta}>
+              <Text variant="caption" color={colors.neutral600}>
+                {formatTodayHeading()}
+              </Text>
+              <OutletSwitcher />
+            </View>
           </View>
           <Pressable
             onPress={() => navigation.navigate('Profile')}
@@ -357,6 +361,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerLeft: { flex: 1, marginRight: space[2] },
+  headerMeta: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginTop: 2, flexWrap: 'wrap' },
   merchantName: { marginBottom: 2 },
   profileButton: {
     width: 40,

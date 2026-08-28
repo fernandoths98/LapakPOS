@@ -29,9 +29,14 @@ type ShiftWithUser = Prisma.ShiftGetPayload<{ include: { user: true } }>;
  * Accepts an optional transaction client so callers (sales.service) can run
  * this inside the same `$transaction` as the sale it's opening a shift for.
  */
-export async function getOrOpenCurrentShift(merchantId: string, userId: string, db: Db = prisma): Promise<PrismaShift> {
+export async function getOrOpenCurrentShift(
+  merchantId: string,
+  userId: string,
+  outletId: string,
+  db: Db = prisma,
+): Promise<PrismaShift> {
   const existing = await db.shift.findFirst({
-    where: { merchantId, userId, status: "open" },
+    where: { merchantId, outletId, userId, status: "open" },
     orderBy: { openedAt: "desc" },
   });
   if (existing) {
@@ -39,7 +44,7 @@ export async function getOrOpenCurrentShift(merchantId: string, userId: string, 
   }
 
   return db.shift.create({
-    data: { merchantId, userId, openingFloat: 0 },
+    data: { merchantId, outletId, userId, openingFloat: 0 },
   });
 }
 
@@ -49,6 +54,7 @@ function toShiftDto(shift: ShiftWithUser): ShiftDto {
   return {
     id: shift.id,
     merchantId: shift.merchantId,
+    outletId: shift.outletId,
     userId: shift.userId,
     userName: shift.user.name,
     openedAt: shift.openedAt.toISOString(),
@@ -128,9 +134,9 @@ function buildDiscrepancyMessage(diff: number): { title: string; body: string } 
  * merchant at a time (see `openShift`), unlike `getOrOpenCurrentShift`'s
  * per-user auto-open fallback above, which is unchanged and still scoped per user.
  */
-export async function getCurrentShift(merchantId: string): Promise<GetCurrentShiftResponse> {
+export async function getCurrentShift(merchantId: string, outletId: string): Promise<GetCurrentShiftResponse> {
   const shift = await prisma.shift.findFirst({
-    where: { merchantId, status: "open" },
+    where: { merchantId, outletId, status: "open" },
     orderBy: { openedAt: "desc" },
     include: { user: true },
   });
@@ -146,18 +152,23 @@ export async function getCurrentShift(merchantId: string): Promise<GetCurrentShi
  * from `getOrOpenCurrentShift`'s defensive zero-float auto-open. Rejects if
  * the merchant already has a shift open; only one drawer is ever live at a time.
  */
-export async function openShift(merchantId: string, userId: string, body: OpenShiftRequest): Promise<ShiftDto> {
+export async function openShift(
+  merchantId: string,
+  userId: string,
+  outletId: string,
+  body: OpenShiftRequest,
+): Promise<ShiftDto> {
   if (body.openingFloat < 0) {
     throw badRequest("Opening float cannot be negative");
   }
 
-  const existing = await prisma.shift.findFirst({ where: { merchantId, status: "open" } });
+  const existing = await prisma.shift.findFirst({ where: { merchantId, outletId, status: "open" } });
   if (existing) {
-    throw badRequest("A shift is already open for this merchant. Close it before opening a new one.");
+    throw badRequest("A shift is already open for this outlet. Close it before opening a new one.");
   }
 
   const shift = await prisma.shift.create({
-    data: { merchantId, userId, openingFloat: body.openingFloat },
+    data: { merchantId, outletId, userId, openingFloat: body.openingFloat },
     include: { user: true },
   });
   return toShiftDto(shift);

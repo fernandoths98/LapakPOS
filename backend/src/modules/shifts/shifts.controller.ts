@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { requireOutlet } from "../../middleware/outlet";
 import { unauthorized } from "../../utils/errors";
 import * as shiftsService from "./shifts.service";
 
 export async function getCurrentShiftHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
-  const result = await shiftsService.getCurrentShift(req.user.merchantId);
+  const result = await shiftsService.getCurrentShift(req.user.merchantId, requireOutlet(req));
   res.json(result);
 }
 
@@ -16,7 +17,7 @@ const openShiftSchema = z.object({
 export async function openShiftHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const body = openShiftSchema.parse(req.body);
-  const shift = await shiftsService.openShift(req.user.merchantId, req.user.userId, body);
+  const shift = await shiftsService.openShift(req.user.merchantId, req.user.userId, requireOutlet(req), body);
   res.json(shift);
 }
 

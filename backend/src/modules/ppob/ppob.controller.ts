@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { requireOutlet } from "../../middleware/outlet";
 import { unauthorized } from "../../utils/errors";
 import * as ppobService from "./ppob.service";
 import { applyDigiflazzWebhook, verifyDigiflazzSignature } from "./digiflazzWebhook.service";
@@ -39,7 +40,7 @@ const payBillSchema = z.object({
 export async function payBillHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const body = payBillSchema.parse(req.body);
-  const result = await ppobService.payBill(req.user.merchantId, req.user.userId, body);
+  const result = await ppobService.payBill(req.user.merchantId, req.user.userId, requireOutlet(req), body);
   res.json(result);
 }
 
@@ -50,7 +51,7 @@ const transactionsQuerySchema = z.object({
 export async function getTransactionsHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const { limit } = transactionsQuerySchema.parse(req.query);
-  const transactions = await ppobService.getRecentTransactions(req.user.merchantId, limit);
+  const transactions = await ppobService.getRecentTransactions(req.user.merchantId, requireOutlet(req), limit);
   res.json(transactions);
 }
 

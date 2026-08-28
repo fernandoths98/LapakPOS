@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler";
 import { requireAuth } from "../../middleware/auth";
+import { resolveOutlet } from "../../middleware/outlet";
 import {
   checkBillHandler,
   getBillersHandler,
@@ -24,6 +25,6 @@ ppobRouter.get("/provider-status", requireAuth, asyncHandler(getProviderStatusHa
 ppobRouter.get("/billers", requireAuth, asyncHandler(getBillersHandler));
 ppobRouter.get("/prepaid-products", requireAuth, asyncHandler(getPrepaidProductsHandler));
 ppobRouter.post("/check-bill", requireAuth, asyncHandler(checkBillHandler));
-ppobRouter.post("/pay-bill", requireAuth, asyncHandler(payBillHandler));
-ppobRouter.get("/transactions", requireAuth, asyncHandler(getTransactionsHandler));
+ppobRouter.post("/pay-bill", requireAuth, resolveOutlet, asyncHandler(payBillHandler));
+ppobRouter.get("/transactions", requireAuth, resolveOutlet, asyncHandler(getTransactionsHandler));
 ppobRouter.get("/commission/summary", requireAuth, asyncHandler(getCommissionSummaryHandler));

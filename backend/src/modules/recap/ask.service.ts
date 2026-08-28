@@ -4,6 +4,7 @@ import { AiChatMessage as AiChatMessageRow } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { aiEnabled } from "../../config/env";
 import { badRequest } from "../../utils/errors";
+import { requireFeature } from "../subscription/entitlements.service";
 import { buildRecapAggregation, RecapAggregationContext } from "./recapAggregation.service";
 import { AiUnavailableError, generateStructured, JsonSchema } from "./claudeClient";
 
@@ -110,6 +111,7 @@ async function callClaudeForAsk(
  * claiming insight it doesn't have.
  */
 export async function postAsk(merchantId: string, userId: string, message: string): Promise<AskResponse> {
+  await requireFeature(merchantId, "ai");
   const trimmed = message.trim();
   if (!trimmed) {
     throw badRequest("message is required");

@@ -11,6 +11,11 @@ describe("ask.service — degraded path (no ANTHROPIC_API_KEY in this sandbox)",
       update: {},
       create: { id: TEST_MERCHANT_ID, name: "Ask Test Merchant" },
     });
+    await prisma.subscription.upsert({
+      where: { merchantId: TEST_MERCHANT_ID },
+      update: { planCode: "pro", status: "active" },
+      create: { merchantId: TEST_MERCHANT_ID, planCode: "pro", status: "active" },
+    });
     await prisma.user.upsert({
       where: { id: TEST_USER_ID },
       update: { merchantId: TEST_MERCHANT_ID },
@@ -31,6 +36,7 @@ describe("ask.service — degraded path (no ANTHROPIC_API_KEY in this sandbox)",
 
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.subscription.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });

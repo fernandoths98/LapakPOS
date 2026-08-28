@@ -1,0 +1,23 @@
+# Add this service under `services:` in /opt/kotdee-stack/compose.apps.yml,
+# matching the pattern of kotdee-super-api / kotdee-wabot-api.
+#
+# Assumes the repo is checked out on the host at:
+#   /opt/kotdee-migration/source/lapak
+# (same convention as the other kotdee sources).
+
+  lapak-api:
+    build:
+      context: /opt/kotdee-migration/source/lapak
+      dockerfile: backend/Dockerfile
+    container_name: kotdee-lapak-api
+    restart: unless-stopped
+    env_file:
+      - /opt/kotdee-migration/source/lapak/backend/.env
+    environment:
+      NODE_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "4004"
+    ports:
+      # localhost-only, like every other kotdee-* api; Traefik reaches it
+      # over the shared `kotdee-internal` network by container name.
+      - "127.0.0.1:14004:4004"

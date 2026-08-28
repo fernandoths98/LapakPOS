@@ -1,0 +1,29 @@
+# Traefik dynamic config for the LapakPOS API.
+# Copy to the host's Traefik dynamic dir (mounted into n8n-traefik-1):
+#   /docker/n8n/dynamic/kotdee-lapak.yml
+#
+# IMPORTANT: open /docker/n8n/dynamic/kotdee-core.yml and copy the EXACT
+# `entryPoints` name and `certResolver` name that the `kotdee-super-api`
+# router uses — the values below are the common Traefik defaults but this
+# stack may name them differently.
+
+http:
+  routers:
+    kotdee-lapak-api:
+      rule: "Host(`lapak-api.kotdee.tech`)"
+      entryPoints:
+        - websecure
+      service: kotdee-lapak-api
+      tls:
+        certResolver: mytlschallenge
+
+  services:
+    kotdee-lapak-api:
+      loadBalancer:
+        servers:
+          # If Traefik is on the `kotdee-internal` network, address the
+          # container by name + internal port:
+          - url: "http://kotdee-lapak-api:4004"
+          # If it is NOT on that network, use the published localhost port
+          # instead (and delete the line above):
+          # - url: "http://host.docker.internal:14004"

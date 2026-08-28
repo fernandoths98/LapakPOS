@@ -13,8 +13,10 @@ import {
   ShoppingCart,
   type LucideIcon,
 } from 'lucide-react-native';
+import type { UserRole } from '@lapak/shared';
 import { Text } from '../theme/Text';
 import { colors } from '../theme/tokens';
+import { useAuthStore } from '../state/auth/authStore';
 import { HomeStack, HomeStackParamList } from './stacks/HomeStack';
 import { SellStack } from './stacks/SellStack';
 import { BillsStack, BillsStackParamList } from './stacks/BillsStack';
@@ -52,6 +54,14 @@ const TAB_ICONS: Record<keyof MainTabsParamList, LucideIcon> = {
   BillsTab: ReceiptText,
   StockTab: PackageOpen,
   RecapTab: ChartNoAxesColumnIncreasing,
+};
+
+/** Which tabs each role sees. Owner/manager get everything. */
+const TABS_BY_ROLE: Record<UserRole, Array<keyof MainTabsParamList>> = {
+  owner: ['HomeTab', 'SellTab', 'BillsTab', 'StockTab', 'RecapTab'],
+  manager: ['HomeTab', 'SellTab', 'BillsTab', 'StockTab', 'RecapTab'],
+  cashier: ['HomeTab', 'SellTab', 'BillsTab'],
+  stocker: ['HomeTab', 'StockTab'],
 };
 
 /**
@@ -114,14 +124,22 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
  */
 const renderTabBar = (props: BottomTabBarProps) => <TabBar {...props} />;
 
+const TAB_COMPONENTS: Record<keyof MainTabsParamList, React.ComponentType> = {
+  HomeTab: HomeStack,
+  SellTab: SellStack,
+  BillsTab: BillsStack,
+  StockTab: StockStack,
+  RecapTab: RecapStack,
+};
+
 export function MainTabs() {
+  const role = useAuthStore((s) => s.user?.role) ?? 'owner';
+  const visibleTabs = TABS_BY_ROLE[role] ?? TABS_BY_ROLE.owner;
   return (
     <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={renderTabBar}>
-      <Tab.Screen name="HomeTab" component={HomeStack} />
-      <Tab.Screen name="SellTab" component={SellStack} />
-      <Tab.Screen name="BillsTab" component={BillsStack} />
-      <Tab.Screen name="StockTab" component={StockStack} />
-      <Tab.Screen name="RecapTab" component={RecapStack} />
+      {visibleTabs.map((name) => (
+        <Tab.Screen key={name} name={name} component={TAB_COMPONENTS[name]} />
+      ))}
     </Tab.Navigator>
   );
 }

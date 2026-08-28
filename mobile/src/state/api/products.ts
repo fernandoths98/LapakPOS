@@ -2,23 +2,28 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Category, CreateProductRequest, PhotoFillRequest, PhotoFillResponse, Product, UpdateProductRequest } from "@lapak/shared";
 import { apiClient } from "./apiClient";
 
+/** Category-pill sentinels — mirror the backend's `listProducts` contract. */
+export const ALL_CATEGORIES = "all";
+export const UNCATEGORIZED = "none";
+
 export interface UseProductsOptions {
   query?: string;
-  category?: string;
+  /** A category id, `"none"` for uncategorized products, or `"all"` / omitted for no filter. */
+  categoryId?: string;
 }
 
-/** GET /api/products?query=&category= — the Sell screen's search + category-pill filter. */
+/** GET /api/products?query=&categoryId= — the Sell screen's search + category-pill filter. */
 export function useProducts(opts: UseProductsOptions = {}) {
   const query = opts.query?.trim() ?? "";
-  const category = opts.category ?? "All";
+  const categoryId = opts.categoryId ?? ALL_CATEGORIES;
 
   return useQuery({
-    queryKey: ["products", query, category],
+    queryKey: ["products", query, categoryId],
     queryFn: async () => {
       const { data } = await apiClient.get<Product[]>("/api/products", {
         params: {
           query: query || undefined,
-          category: category !== "All" ? category : undefined,
+          categoryId: categoryId !== ALL_CATEGORIES ? categoryId : undefined,
         },
       });
       return data;

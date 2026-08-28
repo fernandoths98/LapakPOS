@@ -1,0 +1,25 @@
+services:
+  lapak-api:
+    build:
+      context: /opt/kotdee-migration/source/lapak
+      dockerfile: backend/Dockerfile
+    image: kotdee-lapak-api:20260827
+    container_name: kotdee-lapak-api
+    restart: unless-stopped
+    env_file:
+      - /opt/kotdee-migration/source/lapak/backend/.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4004"
+      NUSAPAY_INTERNAL_URL: http://kotdee-nusapay-gateway:4010
+    ports:
+      - "127.0.0.1:14004:4004"
+    volumes:
+      - /opt/kotdee-stack/data/lapak/uploads:/app/backend/uploads
+      - /opt/kotdee-stack/data/lapak/cache:/app/backend/.cache
+    networks:
+      - kotdee-internal
+networks:
+  kotdee-internal:
+    external: true

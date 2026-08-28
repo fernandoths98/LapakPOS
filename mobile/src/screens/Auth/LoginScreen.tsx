@@ -110,6 +110,7 @@ export function LoginScreen() {
             placeholder="••••••••"
             secureTextEntry
             textContentType="password"
+            showPasswordToggle
           />
         </View>
         </> : <>

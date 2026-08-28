@@ -3,6 +3,7 @@ import { prisma } from "../../../db/prisma";
 import * as recapService from "../recap.service";
 
 const TEST_MERCHANT_ID = "00000000-0000-0000-0000-000000000600";
+const TEST_OUTLET_ID = "00000000-0000-0000-0000-000000000602";
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000601";
 
 describe("recap.service", () => {
@@ -15,13 +16,24 @@ describe("recap.service", () => {
       update: {},
       create: { id: TEST_MERCHANT_ID, name: "Recap Test Merchant" },
     });
+    await prisma.outlet.upsert({
+      where: { id: TEST_OUTLET_ID },
+      update: {},
+      create: { id: TEST_OUTLET_ID, merchantId: TEST_MERCHANT_ID, name: "Recap Test Outlet", code: "UTAMA", isPrimary: true },
+    });
+    await prisma.subscription.upsert({
+      where: { merchantId: TEST_MERCHANT_ID },
+      update: { planCode: "pro", status: "active" },
+      create: { merchantId: TEST_MERCHANT_ID, planCode: "pro", status: "active" },
+    });
 
     await prisma.user.upsert({
       where: { id: TEST_USER_ID },
-      update: { merchantId: TEST_MERCHANT_ID },
+      update: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID },
       create: {
         id: TEST_USER_ID,
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         name: "Test Cashier",
         email: "recap-service-test@lapak.test",
         passwordHash: "not-a-real-hash",
@@ -41,7 +53,7 @@ describe("recap.service", () => {
     productId = product.id;
 
     const shift = await prisma.shift.create({
-      data: { merchantId: TEST_MERCHANT_ID, userId: TEST_USER_ID, openingFloat: 0 },
+      data: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID, userId: TEST_USER_ID, openingFloat: 0 },
     });
     shiftId = shift.id;
 
@@ -49,6 +61,7 @@ describe("recap.service", () => {
     await prisma.sale.create({
       data: {
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         shiftId,
         orderNo: "9001",
         clientId: uuidv4(),
@@ -67,6 +80,7 @@ describe("recap.service", () => {
     await prisma.sale.create({
       data: {
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         shiftId,
         orderNo: "9002",
         clientId: uuidv4(),
@@ -89,8 +103,11 @@ describe("recap.service", () => {
     await prisma.saleLineItem.deleteMany({ where: { sale: { merchantId: TEST_MERCHANT_ID } } });
     await prisma.sale.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.shift.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.outletProduct.deleteMany({ where: { product: { merchantId: TEST_MERCHANT_ID } } });
     await prisma.product.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.subscription.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.outlet.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });
@@ -101,7 +118,7 @@ describe("recap.service", () => {
 
       expect(result.aiAvailable).toBe(false);
       expect(result.headline).toContain("Rp 90.000"); // 54.000 + 36.000
-      expect(result.body).toContain("2 sales");
+      expect(result.body).toContain("2 transaksi");
       expect(result.body).toContain("Recap Test Coffee");
     });
 

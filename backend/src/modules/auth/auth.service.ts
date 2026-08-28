@@ -86,7 +86,6 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
     throw new AppError(409, "email_exists", "Email sudah terdaftar");
   }
   const [passwordHash] = await Promise.all([bcrypt.hash(input.password, 12)]);
-  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   const slug = buildSlug(input.businessName);
 
   const result = await prisma.$transaction(async (tx) => {
@@ -94,7 +93,7 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
       data: {
         name: input.businessName.trim(), slug, businessType: input.businessType,
         phone: input.phone.trim(), address: input.address?.trim() || null,
-        onboardingCompleted: true, trialEndsAt,
+        onboardingCompleted: true,
       },
     });
     const outlet = await tx.outlet.create({
@@ -103,8 +102,9 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
     const user = await tx.user.create({
       data: { merchantId: merchant.id, outletId: outlet.id, name: input.ownerName.trim(), email, passwordHash, role: "owner" },
     });
+    // Freemium: a fresh account is on the free plan with no trial clock.
     const subscription = await tx.subscription.create({
-      data: { merchantId: merchant.id, planCode: "starter", status: "trialing", trialEndsAt },
+      data: { merchantId: merchant.id, planCode: "free", status: "active" },
     });
     await tx.category.createMany({ data: ["Minuman", "Makanan", "Sembako"].map((name, sortOrder) => ({ merchantId: merchant.id, name, sortOrder })) });
     await tx.ppobBiller.createMany({ data: DEFAULT_BILLERS.map((biller) => ({ merchantId: merchant.id, ...biller })) });
@@ -115,9 +115,9 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
   return {
     token: issueToken({ id: result.user.id, merchantId: result.merchant.id, role: "owner", outletId: result.outlet.id }),
     user: { id: result.user.id, name: result.user.name, email: result.user.email, role: "owner", merchantId: result.merchant.id, outletId: result.outlet.id },
-    merchant: { id: result.merchant.id, name: result.merchant.name, slug, businessType: result.merchant.businessType, trialEndsAt: trialEndsAt.toISOString() },
+    merchant: { id: result.merchant.id, name: result.merchant.name, slug, businessType: result.merchant.businessType, trialEndsAt: null },
     outlet: { id: result.outlet.id, name: result.outlet.name, code: result.outlet.code },
-    subscription: { planCode: "starter", status: "trialing", trialEndsAt: trialEndsAt.toISOString() },
+    subscription: { planCode: "free", status: "active", trialEndsAt: null },
   };
 }
 

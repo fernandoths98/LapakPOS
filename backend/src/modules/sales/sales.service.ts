@@ -22,6 +22,7 @@ function toSaleDto(sale: SaleWithLines): Sale {
   return {
     id: sale.id,
     merchantId: sale.merchantId,
+    outletId: sale.outletId,
     shiftId: sale.shiftId,
     orderNo: sale.orderNo,
     clientId: sale.clientId,
@@ -95,7 +96,12 @@ function assertTenderAmountsConsistent(tenderType: TenderType, cashAmount: numbe
  * unchanged rather than erroring or double-decrementing stock, so a client
  * can safely retry a POST it's unsure landed.
  */
-export async function createSale(merchantId: string, userId: string, body: CreateSaleRequest): Promise<Sale> {
+export async function createSale(
+  merchantId: string,
+  userId: string,
+  outletId: string,
+  body: CreateSaleRequest,
+): Promise<Sale> {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.sale.findUnique({
       where: { clientId: body.clientId },
@@ -113,24 +119,30 @@ export async function createSale(merchantId: string, userId: string, body: Creat
     }
 
     const productIds = [...new Set(body.lineItems.map((li) => li.productId))];
-    const products = await tx.product.findMany({ where: { id: { in: productIds }, merchantId } });
-    const productMap = new Map(products.map((p) => [p.id, p]));
+    // Price and stock are the selling outlet's own — priceOverride wins over
+    // the product's reference sell price, and stock is decremented per outlet.
+    const inventory = await tx.outletProduct.findMany({
+      where: { outletId, deletedAt: null, productId: { in: productIds }, product: { merchantId, deletedAt: null } },
+      include: { product: true },
+    });
+    const invByProduct = new Map(inventory.map((op) => [op.productId, op]));
 
     let subtotal = 0;
     const linePlans = body.lineItems.map((li) => {
       if (!Number.isInteger(li.qty) || li.qty <= 0) {
         throw badRequest("Line item qty must be a positive whole number");
       }
-      const product = productMap.get(li.productId);
-      if (!product) {
-        throw badRequest(`Product ${li.productId} not found`);
+      const op = invByProduct.get(li.productId);
+      if (!op) {
+        throw badRequest(`Product ${li.productId} not found at this outlet`);
       }
-      if (product.stockQty < li.qty) {
-        throw badRequest(`Not enough stock for ${product.name} (${product.stockQty} left)`);
+      if (op.stockQty < li.qty) {
+        throw badRequest(`Not enough stock for ${op.product.name} (${op.stockQty} left)`);
       }
-      const lineTotal = product.sellPrice * li.qty;
+      const unitPrice = op.priceOverride ?? op.product.sellPrice;
+      const lineTotal = unitPrice * li.qty;
       subtotal += lineTotal;
-      return { product, qty: li.qty, lineTotal };
+      return { productId: op.productId, name: op.product.name, unitPrice, qty: li.qty, lineTotal };
     });
 
     const discount = body.discount ?? 0;
@@ -140,12 +152,13 @@ export async function createSale(merchantId: string, userId: string, body: Creat
     const total = subtotal - discount;
     assertTenderAmountsConsistent(body.tenderType, body.cashAmount, body.qrisAmount, total);
 
-    const shift = await getOrOpenCurrentShift(merchantId, userId, tx);
-    const orderNo = String(1000 + (await tx.sale.count({ where: { merchantId } })));
+    const shift = await getOrOpenCurrentShift(merchantId, userId, outletId, tx);
+    const orderNo = String(1000 + (await tx.sale.count({ where: { outletId } })));
 
     const sale = await tx.sale.create({
       data: {
         merchantId,
+        outletId,
         shiftId: shift.id,
         orderNo,
         clientId: body.clientId,
@@ -158,9 +171,9 @@ export async function createSale(merchantId: string, userId: string, body: Creat
         createdOffline: body.createdOffline ?? false,
         lineItems: {
           create: linePlans.map((plan) => ({
-            productId: plan.product.id,
-            productNameSnapshot: plan.product.name,
-            unitPriceSnapshot: plan.product.sellPrice,
+            productId: plan.productId,
+            productNameSnapshot: plan.name,
+            unitPriceSnapshot: plan.unitPrice,
             qty: plan.qty,
             lineTotal: plan.lineTotal,
           })),
@@ -170,8 +183,8 @@ export async function createSale(merchantId: string, userId: string, body: Creat
     });
 
     for (const plan of linePlans) {
-      await tx.product.update({
-        where: { id: plan.product.id },
+      await tx.outletProduct.update({
+        where: { outletId_productId: { outletId, productId: plan.productId } },
         data: { stockQty: { decrement: plan.qty } },
       });
     }
@@ -188,9 +201,9 @@ export async function getSaleById(merchantId: string, id: string): Promise<Sale>
   return toSaleDto(sale);
 }
 
-export async function getRecentSales(merchantId: string, limit = 50): Promise<Sale[]> {
+export async function getRecentSales(merchantId: string, outletId: string | undefined, limit = 50): Promise<Sale[]> {
   const sales = await prisma.sale.findMany({
-    where: { merchantId },
+    where: { merchantId, ...(outletId ? { outletId } : {}) },
     include: { lineItems: true },
     orderBy: { createdAt: "desc" },
     take: Math.min(Math.max(limit, 1), 100),
@@ -215,14 +228,20 @@ export interface DayRevenue {
  * comparator, and recap's weekly bars so every caller computes a day's
  * revenue identically. Exported for reuse outside this module.
  */
-export async function dayRevenueTotal(merchantId: string, start: Date, end: Date): Promise<DayRevenue> {
+export async function dayRevenueTotal(
+  merchantId: string,
+  start: Date,
+  end: Date,
+  outletId?: string,
+): Promise<DayRevenue> {
+  const scope = outletId ? { outletId } : {};
   const [salesAgg, ppobAgg] = await Promise.all([
     prisma.sale.aggregate({
-      where: { merchantId, createdAt: { gte: start, lt: end } },
+      where: { merchantId, ...scope, createdAt: { gte: start, lt: end } },
       _sum: { total: true },
     }),
     prisma.ppobTransaction.aggregate({
-      where: { merchantId, status: "success", createdAt: { gte: start, lt: end } },
+      where: { merchantId, ...scope, status: "success", createdAt: { gte: start, lt: end } },
       _sum: { totalCharged: true },
     }),
   ]);
@@ -244,34 +263,35 @@ export async function dayRevenueTotal(merchantId: string, start: Date, end: Date
  * on a day with debit sales — `total` itself is always the correct,
  * debit-inclusive figure.
  */
-export async function getDaySummary(merchantId: string, at: Date): Promise<TodaySummaryResponse> {
+export async function getDaySummary(merchantId: string, at: Date, outletId?: string): Promise<TodaySummaryResponse> {
   const today = dayBounds(at);
   const yesterdayEnd = today.start;
   const yesterdayStart = new Date(yesterdayEnd);
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  const scope = outletId ? { outletId } : {};
 
   const [cashAgg, qrisAgg, salesTodayAgg, ppobTodayAgg, ppobCountToday, yesterdayTotal] = await Promise.all([
     prisma.sale.aggregate({
-      where: { merchantId, createdAt: { gte: today.start, lt: today.end } },
+      where: { merchantId, ...scope, createdAt: { gte: today.start, lt: today.end } },
       _sum: { cashAmount: true },
     }),
     prisma.sale.aggregate({
-      where: { merchantId, createdAt: { gte: today.start, lt: today.end } },
+      where: { merchantId, ...scope, createdAt: { gte: today.start, lt: today.end } },
       _sum: { qrisAmount: true },
     }),
     prisma.sale.aggregate({
-      where: { merchantId, createdAt: { gte: today.start, lt: today.end } },
+      where: { merchantId, ...scope, createdAt: { gte: today.start, lt: today.end } },
       _sum: { total: true },
       _count: true,
     }),
     prisma.ppobTransaction.aggregate({
-      where: { merchantId, status: "success", createdAt: { gte: today.start, lt: today.end } },
+      where: { merchantId, ...scope, status: "success", createdAt: { gte: today.start, lt: today.end } },
       _sum: { totalCharged: true },
     }),
     prisma.ppobTransaction.count({
-      where: { merchantId, status: "success", createdAt: { gte: today.start, lt: today.end } },
+      where: { merchantId, ...scope, status: "success", createdAt: { gte: today.start, lt: today.end } },
     }),
-    dayRevenueTotal(merchantId, yesterdayStart, yesterdayEnd),
+    dayRevenueTotal(merchantId, yesterdayStart, yesterdayEnd, outletId),
   ]);
 
   const cashToday = cashAgg._sum.cashAmount ?? 0;
@@ -307,6 +327,6 @@ export async function getDaySummary(merchantId: string, at: Date): Promise<Today
  * merchant's own local day would need a stored merchant timezone, which
  * doesn't exist in the schema yet.
  */
-export async function getTodaySummary(merchantId: string): Promise<TodaySummaryResponse> {
-  return getDaySummary(merchantId, new Date());
+export async function getTodaySummary(merchantId: string, outletId?: string): Promise<TodaySummaryResponse> {
+  return getDaySummary(merchantId, new Date(), outletId);
 }

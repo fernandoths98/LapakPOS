@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+mobile
+!mobile/package.json
+*.log
+.git
+.github
+.vscode
+.DS_Store
+backend/.env
+backend/uploads
+deploy/kotdee-stack/*.local.*

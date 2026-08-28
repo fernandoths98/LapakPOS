@@ -21,6 +21,7 @@ process.env.TZ = 'UTC';
 const SAMPLE_SALE: Sale = {
   id: 'sale-1',
   merchantId: 'merchant-1',
+  outletId: 'outlet-1',
   shiftId: 'shift-1',
   orderNo: 'A-0001',
   clientId: 'client-1',
@@ -62,6 +63,7 @@ const SAMPLE_Z_REPORT: ZReportResponse = {
   shift: {
     id: 'shift-1',
     merchantId: 'merchant-1',
+    outletId: 'outlet-1',
     userId: 'user-1',
     userName: 'Sari',
     openedAt: '2026-08-19T00:10:00.000Z',

@@ -4,6 +4,7 @@ import * as shiftsService from "../shifts.service";
 import { explainDiscrepancyWithAi, findDiscrepancyCandidates } from "../discrepancyAi.service";
 
 const TEST_MERCHANT_ID = "00000000-0000-0000-0000-000000000090";
+const TEST_OUTLET_ID = "00000000-0000-0000-0000-000000000290";
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000190";
 
 describe("discrepancyAi.service", () => {
@@ -16,12 +17,18 @@ describe("discrepancyAi.service", () => {
       update: {},
       create: { id: TEST_MERCHANT_ID, name: "Discrepancy AI Test Merchant" },
     });
+    await prisma.outlet.upsert({
+      where: { id: TEST_OUTLET_ID },
+      update: {},
+      create: { id: TEST_OUTLET_ID, merchantId: TEST_MERCHANT_ID, name: "Discrepancy AI Test Outlet", code: "UTAMA", isPrimary: true },
+    });
     await prisma.user.upsert({
       where: { id: TEST_USER_ID },
-      update: { merchantId: TEST_MERCHANT_ID },
+      update: { merchantId: TEST_MERCHANT_ID, outletId: TEST_OUTLET_ID },
       create: {
         id: TEST_USER_ID,
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         name: "Sari",
         email: "discrepancy-ai-test@lapak.test",
         passwordHash: "not-a-real-hash",
@@ -53,8 +60,10 @@ describe("discrepancyAi.service", () => {
     await prisma.sale.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.ppobBiller.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.shift.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.outletProduct.deleteMany({ where: { product: { merchantId: TEST_MERCHANT_ID } } });
     await prisma.product.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.outlet.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });
@@ -64,10 +73,11 @@ describe("discrepancyAi.service", () => {
   });
 
   it("matches a single cash sale whose amount equals the target exactly", async () => {
-    const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 0 });
+    const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 0 });
     await prisma.sale.create({
       data: {
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         shiftId: shift.id,
         orderNo: "3001",
         clientId: uuidv4(),
@@ -90,10 +100,11 @@ describe("discrepancyAi.service", () => {
   });
 
   it("matches a pair of events (a cash sale + a PPOB transaction) whose amounts sum to the target when no single event matches", async () => {
-    const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 0 });
+    const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 0 });
     await prisma.sale.create({
       data: {
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         shiftId: shift.id,
         orderNo: "3002",
         clientId: uuidv4(),
@@ -107,6 +118,7 @@ describe("discrepancyAi.service", () => {
     await prisma.ppobTransaction.create({
       data: {
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         billerId,
         shiftId: shift.id,
         customerNumber: "0812000000",
@@ -131,10 +143,11 @@ describe("discrepancyAi.service", () => {
   });
 
   it("returns no candidates when nothing sums to the target, even approximately — never fabricates a match", async () => {
-    const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, { openingFloat: 0 });
+    const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 0 });
     await prisma.sale.create({
       data: {
         merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
         shiftId: shift.id,
         orderNo: "3003",
         clientId: uuidv4(),

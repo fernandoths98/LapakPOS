@@ -9,6 +9,12 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const BUSINESS_TYPES = ["retail", "restaurant"] as const;
 export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
+export const PLAN_CODES = ["free", "starter", "growth", "pro"] as const;
+export type PlanCode = (typeof PLAN_CODES)[number];
+
+export const SUBSCRIPTION_STATUSES = ["trialing", "active", "past_due", "canceled"] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
 export const PPOB_CATEGORIES = [
   "electricity",
   "mobile",

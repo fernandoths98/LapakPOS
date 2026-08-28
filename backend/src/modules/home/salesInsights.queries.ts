@@ -20,13 +20,33 @@ export interface LowStockWithRate {
 }
 
 /**
- * Every non-deleted product whose stockQty has dropped to or below its own
- * lowStockThreshold, sorted fewest-left-first, each paired with how many
- * units sold over the trailing 14 days (0 if none / no history).
+ * Every non-deleted product low on stock across the business, sorted
+ * fewest-left-first, each paired with how many units sold over the trailing
+ * 14 days (0 if none / no history).
+ *
+ * Stock is now per-outlet (`OutletProduct`), so this consolidates: a
+ * product's `stockQty` here is the sum across all its outlets, and it counts
+ * as low when that total is at or below the highest per-outlet threshold set
+ * for it. The returned `product.stockQty` carries the consolidated number so
+ * callers format "N left" against the whole business.
  */
 export async function getLowStockWithSaleRate(merchantId: string): Promise<LowStockWithRate[]> {
-  const products = await prisma.product.findMany({ where: { merchantId, deletedAt: null } });
-  const low = products.filter((p) => p.stockQty <= p.lowStockThreshold);
+  const rows = await prisma.outletProduct.findMany({
+    where: { deletedAt: null, product: { merchantId, deletedAt: null } },
+    include: { product: true },
+  });
+
+  const byProduct = new Map<string, { product: Product; stock: number; threshold: number }>();
+  for (const op of rows) {
+    const entry = byProduct.get(op.productId) ?? { product: op.product, stock: 0, threshold: 0 };
+    entry.stock += op.stockQty;
+    entry.threshold = Math.max(entry.threshold, op.lowStockThreshold);
+    byProduct.set(op.productId, entry);
+  }
+
+  const low = [...byProduct.values()]
+    .filter((entry) => entry.stock <= entry.threshold)
+    .map((entry) => ({ ...entry.product, stockQty: entry.stock }));
   if (low.length === 0) return [];
 
   const cutoff = new Date();
