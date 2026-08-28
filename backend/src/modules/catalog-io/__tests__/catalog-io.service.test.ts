@@ -64,6 +64,7 @@ describe("catalog-io.service", () => {
     await prisma.productCostHistory.deleteMany({ where: { product: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } } });
     await prisma.outletProduct.deleteMany({ where: { product: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } } });
     await prisma.product.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
+    await prisma.category.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.user.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.subscription.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.outlet.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
@@ -90,9 +91,9 @@ describe("catalog-io.service", () => {
       expect(result.flaggedRowCount).toBe(3);
       expect(result.importableRowCount).toBe(2);
       expect(result.flaggedReasons).toHaveLength(1);
-      expect(result.flaggedReasons[0]).toMatch(/1 row has a missing, zero, or invalid price/);
-      expect(result.flaggedReasons[0]).toMatch(/2 rows have a duplicate barcode/);
-      expect(result.flaggedReasons[0]).toMatch(/held back for review/);
+      expect(result.flaggedReasons[0]).toMatch(/1 baris harganya kosong, nol, atau bukan angka/);
+      expect(result.flaggedReasons[0]).toMatch(/2 baris punya KODE yang sama/);
+      expect(result.flaggedReasons[0]).toMatch(/ditahan dulu untuk dicek/);
     });
 
     it("maps an unrecognized column to 'ignored'", async () => {
@@ -215,9 +216,41 @@ describe("catalog-io.service", () => {
       await catalogIoService.commitImport(TEST_MERCHANT_ID, preview.previewId);
       await expect(catalogIoService.commitImport(TEST_MERCHANT_ID, preview.previewId)).rejects.toThrow(AppError);
     });
+
+    it("files rows under their KATEGORI, creating the category if it doesn't exist", async () => {
+      const preview = await catalogIoService.previewImport(TEST_MERCHANT_ID, {
+        fileName: "with-category.xlsx",
+        headers: ["NAMA BARANG", "HRG JUAL", "HRG BELI", "QTY", "KODE", "KATEGORI"],
+        rows: [
+          { "NAMA BARANG": "Kopi Kap", "HRG JUAL": "3000", "HRG BELI": "2000", QTY: "10", KODE: "8991000000200", KATEGORI: "Kopi Sachet" },
+          { "NAMA BARANG": "Kopi Kap Besar", "HRG JUAL": "5000", "HRG BELI": "3500", QTY: "8", KODE: "8991000000201", KATEGORI: "kopi sachet" },
+        ],
+      });
+      const mapped = preview.mapping.find((m) => m.column === "KATEGORI");
+      expect(mapped?.field).toBe("category");
+
+      const result = await catalogIoService.commitImport(TEST_MERCHANT_ID, preview.previewId);
+      expect(result.createdCount).toBe(2);
+
+      const cats = await prisma.category.findMany({ where: { merchantId: TEST_MERCHANT_ID, name: { equals: "Kopi Sachet", mode: "insensitive" } } });
+      expect(cats).toHaveLength(1); // "Kopi Sachet" and "kopi sachet" collapse to one
+      const products = await prisma.product.findMany({ where: { merchantId: TEST_MERCHANT_ID, barcode: { in: ["8991000000200", "8991000000201"] } } });
+      expect(products.every((p) => p.categoryId === cats[0].id)).toBe(true);
+    });
   });
 
   describe("exports", () => {
+    it("builds a blank import template with the canonical headers, example rows and a guide sheet", () => {
+      const workbook = catalogIoService.buildImportTemplateWorkbook();
+      const produk = workbook.getWorksheet("Produk");
+      expect(produk).toBeDefined();
+      expect(produk!.getRow(1).values).toEqual(
+        expect.arrayContaining(["NAMA BARANG", "HRG JUAL", "HRG BELI", "QTY", "KODE", "KATEGORI"]),
+      );
+      expect(produk!.rowCount).toBeGreaterThan(1); // header + example rows
+      expect(workbook.getWorksheet("Petunjuk")).toBeDefined();
+    });
+
     it("builds a stock valuation workbook with one row per active product", async () => {
       await prisma.outletProduct.deleteMany({ where: { product: { merchantId: OTHER_MERCHANT_ID } } });
       await prisma.product.deleteMany({ where: { merchantId: OTHER_MERCHANT_ID } });
