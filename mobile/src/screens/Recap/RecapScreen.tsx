@@ -1,14 +1,25 @@
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { RouteProp, useRoute } from "@react-navigation/native";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { AiChatMessage, formatRupiah, RecapInsight, TopSeller, WeeklyBar } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
+import { PlanUpsell } from "../../components/PlanUpsell";
+import { isPlanLimitError } from "../../state/api/apiClient";
 import { colors, radius, space } from "../../theme/tokens";
 import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWeeklyReports } from "../../state/api/recap";
 import { RecapStackParamList } from "../../app/stacks/RecapStack";
+
+/** Jump from the Recap tab to the Subscription screen (which lives in the Home tab's stack). */
+function useGoToSubscription() {
+  const navigation = useNavigation();
+  return () => {
+    const parent = navigation.getParent() as unknown as { navigate: (n: string, p: object) => void } | undefined;
+    parent?.navigate("HomeTab", { screen: "Subscription" });
+  };
+}
 
 export type RecapTabName = "Story" | "Ask" | "Reports";
 const AI_UNAVAILABLE_MESSAGE =
@@ -57,9 +68,19 @@ export function RecapScreen() {
 function StoryTab() {
   const recapQuery = useDailyRecap();
   const regenerate = useRegenerateRecap();
+  const goToSubscription = useGoToSubscription();
 
   if (recapQuery.isLoading) {
     return <ActivityIndicator style={styles.loading} color={colors.accent} />;
+  }
+  if (isPlanLimitError(recapQuery.error)) {
+    return (
+      <PlanUpsell
+        title="Insight AI ada di paket Growth"
+        message="Ringkasan harian otomatis yang menyoroti omzet, produk terlaris, stok menipis, dan jam sepi. Angka penjualan biasa tetap gratis."
+        onUpgrade={goToSubscription}
+      />
+    );
   }
   if (recapQuery.isError || !recapQuery.data) {
     return (

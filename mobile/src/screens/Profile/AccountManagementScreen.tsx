@@ -89,6 +89,13 @@ export function AccountManagementScreen({ navigation }: Props) {
               <ChevronRight size={16} color={colors.accent2} />
             </View>
           </Pressable>
+          <Pressable style={[styles.planRow, styles.planRowLast]} onPress={() => navigation.navigate("Franchise")}>
+            <View>
+              <Text variant="body">Franchise</Text>
+              <Text variant="caption" color={colors.neutral600}>Perjanjian &amp; royalti cabang</Text>
+            </View>
+            <ChevronRight size={16} color={colors.accent2} />
+          </Pressable>
         </View>
 
         <SectionHeader title="OUTLET" action={outletCapReached ? "Upgrade" : "Tambah"} onPress={outletCapReached ? () => navigation.navigate("Subscription") : showOutletForm} />
@@ -120,7 +127,7 @@ function ErrorText({ text }: { text: string }) { return <Text variant="caption" 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg }, loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
   header: { minHeight: 64, flexDirection: "row", alignItems: "center", paddingHorizontal: space[3], gap: space[2], borderBottomWidth: 1, borderBottomColor: colors.divider }, backButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  content: { padding: space[4], paddingBottom: space[8] }, accountCard: { padding: space[4], backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md }, accountTop: { flexDirection: "row", justifyContent: "space-between" }, slug: { marginTop: 4 }, planRow: { marginTop: space[3], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.divider, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, planRowRight: { flexDirection: "row", alignItems: "center", gap: 4 }, capNote: { marginTop: space[1], marginBottom: space[2] },
+  content: { padding: space[4], paddingBottom: space[8] }, accountCard: { padding: space[4], backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md }, accountTop: { flexDirection: "row", justifyContent: "space-between" }, slug: { marginTop: 4 }, planRow: { marginTop: space[3], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.divider, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, planRowRight: { flexDirection: "row", alignItems: "center", gap: 4 }, planRowLast: { paddingBottom: 0 }, capNote: { marginTop: space[1], marginBottom: space[2] },
   sectionHeader: { marginTop: space[6], marginBottom: space[2], flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, addButton: { flexDirection: "row", alignItems: "center", gap: 4, padding: 6 },
   rowCard: { minHeight: 64, padding: space[3], backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider, flexDirection: "row", alignItems: "center" }, rowIcon: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.neutral200, alignItems: "center", justifyContent: "center" }, rowCopy: { flex: 1, marginLeft: space[3] }, nameRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, rowName: { fontWeight: "600" },
   formCard: { padding: space[4], marginBottom: space[3], borderWidth: 1, borderColor: colors.accent2200, borderRadius: radius.md, backgroundColor: colors.surface }, fields: { marginTop: space[3], gap: space[3] }, formActions: { flexDirection: "row", gap: space[2], marginTop: space[4] }, flexButton: { flex: 1 }, error: { marginTop: space[3] }, inputLabel: { marginTop: space[4], marginBottom: space[2] }, choiceRow: { flexDirection: "row", flexWrap: "wrap", gap: space[2] }, choice: { minHeight: 36, paddingHorizontal: space[3], borderRadius: radius.sm, borderWidth: 1, borderColor: colors.divider, alignItems: "center", justifyContent: "center" }, choiceActive: { borderColor: colors.accent2, backgroundColor: colors.accent2100 },

@@ -42,6 +42,12 @@ export function StockScreen() {
               <Text variant="h2">Stock</Text>
               <View style={styles.headerButtons}>
                 <Button
+                  title="Stok outlet"
+                  variant="secondary"
+                  onPress={() => navigation.navigate("OutletInventory")}
+                  style={styles.headerButton}
+                />
+                <Button
                   title="Excel"
                   variant="secondary"
                   onPress={() => navigation.navigate("Sheet")}
