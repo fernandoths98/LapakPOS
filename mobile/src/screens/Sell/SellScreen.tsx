@@ -400,6 +400,11 @@ function CategoryPill({ label, active, onPress }: { label: string; active: boole
 function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = false }: { product: Product; qtyInCart: number; onPress: () => void; compact?: boolean; portrait?: boolean }) {
   const isLow = product.stockQty <= product.lowStockThreshold;
   const soldOut = product.stockQty <= 0;
+  // On phones a warung's catalog is almost all photo-less; the big monogram
+  // band just wastes vertical space and cuts the visible product count. Show
+  // a photo band only when there's a real image; otherwise a dense text card.
+  const showPhoto = !portrait || !!product.imageUrl;
+
   return (
     <Pressable
       onPress={onPress}
@@ -407,17 +412,22 @@ function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = 
       style={({ pressed }) => [styles.tile, compact && styles.tileCompact, portrait && styles.tilePortrait, pressed && styles.tilePressed, soldOut && styles.tileDisabled]}
       accessibilityRole="button"
     >
-      <View style={[styles.tilePhoto, compact && styles.tilePhotoCompact, portrait && styles.tilePhotoPortrait]}>
-        {product.imageUrl ? (
-          <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
-        ) : (
-          <Text variant="h2" color={colors.neutral400}>{product.name.charAt(0).toUpperCase()}</Text>
-        )}
-        {qtyInCart > 0 ? (
-          <View style={[styles.qtyBadge, portrait && styles.qtyBadgePortrait]}><Text variant="caption" color={colors.surface}>{portrait ? qtyInCart : `${qtyInCart} di keranjang`}</Text></View>
+      {showPhoto ? (
+        <View style={[styles.tilePhoto, compact && styles.tilePhotoCompact, portrait && styles.tilePhotoPortrait]}>
+          {product.imageUrl ? (
+            <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
+          ) : (
+            <Text variant="h2" color={colors.neutral400}>{product.name.charAt(0).toUpperCase()}</Text>
+          )}
+          {qtyInCart > 0 ? (
+            <View style={[styles.qtyBadge, portrait && styles.qtyBadgePortrait]}><Text variant="caption" color={colors.surface}>{portrait ? qtyInCart : `${qtyInCart} di keranjang`}</Text></View>
+          ) : null}
+        </View>
+      ) : null}
+      <View style={[styles.tileBody, compact && styles.tileBodyCompact, portrait && styles.tileBodyPortrait, !showPhoto && styles.tileBodyNoPhoto]}>
+        {!showPhoto && qtyInCart > 0 ? (
+          <View style={styles.qtyBadgeInline}><Text variant="caption" color={colors.surface}>{qtyInCart}</Text></View>
         ) : null}
-      </View>
-      <View style={[styles.tileBody, compact && styles.tileBodyCompact, portrait && styles.tileBodyPortrait]}>
         <Text variant="body" style={[styles.tileName, compact && styles.tileNameCompact, portrait && styles.tileNamePortrait]} numberOfLines={compact ? 1 : 2}>{product.name}</Text>
         <Text variant="tabular" color={colors.accent2} style={[styles.tilePrice, portrait && styles.tilePricePortrait]}>{formatRupiah(product.sellPrice)}</Text>
         <View style={[styles.stockRow, compact && styles.stockRowCompact, portrait && styles.stockRowPortrait]}>
@@ -475,11 +485,13 @@ const styles = StyleSheet.create({
   tileBody: { padding: 10 },
   tileBodyCompact: { flex: 1, paddingVertical: 7, paddingHorizontal: 10 },
   tileBodyPortrait: { padding: 9 },
+  tileBodyNoPhoto: { paddingTop: 12, paddingBottom: 11, minHeight: 92 },
+  qtyBadgeInline: { position: "absolute", right: 8, top: 8, minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 5, backgroundColor: colors.accent2, alignItems: "center", justifyContent: "center" },
   tileName: { minHeight: 40, fontWeight: "600" },
   tileNameCompact: { minHeight: 0 },
-  tileNamePortrait: { minHeight: 38, fontSize: 13, lineHeight: 18 },
+  tileNamePortrait: { minHeight: 36, fontSize: 13, lineHeight: 18 },
   tilePrice: { marginTop: 4, fontSize: 16 },
-  tilePricePortrait: { marginTop: 2, fontSize: 15 },
+  tilePricePortrait: { marginTop: 3, fontSize: 15 },
   stockRow: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginTop: 6 },
   stockRowCompact: { position: "absolute", right: 10, bottom: 8 },
   stockRowPortrait: { marginTop: 4 },

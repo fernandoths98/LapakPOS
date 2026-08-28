@@ -5,8 +5,13 @@
  */
 
 import React from 'react';
-import {StatusBar, StyleSheet} from 'react-native';
+import {Appearance, StatusBar, StyleSheet} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
+
+// The app has a single light design (src/theme/tokens.ts) — pin the RN
+// appearance to light so a device in system dark mode still gets it, matching
+// the native `forceDarkAllowed=false` theme.
+Appearance.setColorScheme('light');
 import {NavigationContainer} from '@react-navigation/native';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from './src/state/api/queryClient';
