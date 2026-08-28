@@ -3,11 +3,12 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Check } from "lucide-react-native";
 import { CheckBillResponse, formatRupiah, PpobCategory } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
-import { colors, radius, space } from "../../theme/tokens";
+import { colors, radius, shadow, space } from "../../theme/tokens";
 import { PrepaidCategory, useCheckBill, usePayBill, usePrepaidProducts } from "../../state/api/ppob";
 import { BillsStackParamList } from "../../app/stacks/BillsStack";
 
@@ -170,7 +171,7 @@ export function BillFormScreen() {
 
       {quote ? (
         <View style={styles.card}>
-          <View style={styles.foundRow}><View style={styles.checkBadge}><Text color={colors.success}>✓</Text></View><Text variant="kicker" color={colors.success}>{prepaid ? "RINCIAN PEMBELIAN" : "TAGIHAN DITEMUKAN"}</Text></View>
+          <View style={styles.foundRow}><View style={styles.checkBadge}><Check size={13} color={colors.success} strokeWidth={3} /></View><Text variant="kicker" color={colors.success}>{prepaid ? "RINCIAN PEMBELIAN" : "TAGIHAN DITEMUKAN"}</Text></View>
           <Text variant="h3" style={styles.customerName}>
             {quote.customerName}
           </Text>
@@ -198,19 +199,20 @@ export function BillFormScreen() {
           {errorMessage}
         </Text>
       ) : null}
+    </ScrollView>
 
+    <View style={styles.actionBar}>
       <Button
         title={actionLabel}
         onPress={quote ? handleCharge : handleCheck}
         disabled={isBusy}
         loading={isBusy}
         fullWidth
-        style={styles.actionButton}
       />
       <Text variant="caption" color={colors.neutral600} style={styles.printerCaption}>
         Struk otomatis dicetak ke {PRINTER_NAME}
       </Text>
-    </ScrollView>
+    </View>
     </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -231,7 +233,8 @@ function SummaryLine({ label, value, color }: { label: string; value: string; co
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space[4], paddingBottom: space[8] },
+  content: { padding: space[3], paddingBottom: 116 },
+  actionBar: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: space[3], paddingTop: space[3], paddingBottom: space[3], backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.divider, ...shadow.lg },
   stepBadge: { alignSelf: "flex-start", backgroundColor: colors.accent2100, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   title: { marginTop: space[3] },
   intro: { marginTop: space[2], lineHeight: 21 },
@@ -262,7 +265,6 @@ const styles = StyleSheet.create({
   },
   totalValue: { fontSize: 20 },
   errorText: { marginTop: space[3] },
-  actionButton: { marginTop: space[4] },
   printerCaption: { textAlign: "center", marginTop: space[2] },
   modeSwitch: { flexDirection: "row", gap: space[2], marginTop: space[4], padding: 4, borderRadius: radius.md, backgroundColor: colors.neutral200 }, modeButton: { flex: 1, alignItems: "center", paddingVertical: 11, borderRadius: radius.sm }, modeButtonActive: { backgroundColor: colors.accent2 },
   productSection: { marginTop: space[4] }, productHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: space[2] }, productList: { gap: 6 },

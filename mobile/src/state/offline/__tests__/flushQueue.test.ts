@@ -14,6 +14,7 @@ const SALE: Sale = {
   merchantId: 'offline',
   outletId: 'offline',
   shiftId: 'offline',
+  cashierName: 'Kasir',
   orderNo: 'Queued',
   clientId: 'client-1',
   tenderType: 'cash',

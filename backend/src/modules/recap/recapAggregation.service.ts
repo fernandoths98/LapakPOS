@@ -1,6 +1,7 @@
 import { TodaySummaryResponse } from "@lapak/shared";
 import { prisma } from "../../db/prisma";
-import { dayBounds, getDaySummary } from "../sales/sales.service";
+import { dayBounds, dayRevenueTotal, getDaySummary, resolveTimeZone } from "../sales/sales.service";
+import { hourInTz, localDateKey } from "../../utils/time";
 import { getCostIncreases, getLowStockWithSaleRate, SALE_RATE_WINDOW_DAYS } from "../home/salesInsights.queries";
 import { getTopSellersForWindow } from "./topSellers.queries";
 
@@ -36,6 +37,14 @@ export interface AggQuietHour {
   avgRevenue: number;
 }
 
+export interface AggOutletBreakdown {
+  outletName: string;
+  type: "owned" | "franchise";
+  /** Same debit-inclusive day-revenue rule as `today.total`, for this outlet only. */
+  revenue: number;
+  txnCount: number;
+}
+
 /**
  * Compact, non-AI-generated business-intelligence context for one merchant +
  * calendar day. Every number here comes straight from SQL/Prisma — Claude's
@@ -49,6 +58,8 @@ export interface RecapAggregationContext {
   lowStock: AggLowStockItem[];
   costIncreases: AggCostIncrease[];
   quietHour: AggQuietHour | null;
+  /** Per-outlet split of the day — empty for single-outlet merchants (the totals already say it all). */
+  perOutlet: AggOutletBreakdown[];
 }
 
 /** Top-5 products by quantity sold on the given calendar day. */
@@ -99,8 +110,8 @@ async function getRecentCostIncreases(merchantId: string): Promise<AggCostIncrea
  * to compare), or when no opening-hour bucket has any sales (can't tell a
  * genuinely quiet hour from one where the shop simply wasn't recording data).
  */
-async function getQuietHour(merchantId: string): Promise<AggQuietHour | null> {
-  const end = dayBounds(new Date()).end; // through the end of today
+async function getQuietHour(merchantId: string, timeZone: string): Promise<AggQuietHour | null> {
+  const end = dayBounds(new Date(), timeZone).end; // through the end of today
   const start = new Date(end);
   start.setDate(start.getDate() - QUIET_HOUR_WINDOW_DAYS);
 
@@ -113,7 +124,7 @@ async function getQuietHour(merchantId: string): Promise<AggQuietHour | null> {
   const revenueByHour = new Map<number, number>();
   const countByHour = new Map<number, number>();
   for (const sale of sales) {
-    const hour = sale.createdAt.getHours();
+    const hour = hourInTz(sale.createdAt, timeZone);
     revenueByHour.set(hour, (revenueByHour.get(hour) ?? 0) + sale.total);
     countByHour.set(hour, (countByHour.get(hour) ?? 0) + 1);
   }
@@ -132,18 +143,49 @@ async function getQuietHour(merchantId: string): Promise<AggQuietHour | null> {
   return { label, avgRevenue: Math.round(quietest.avgRevenue) };
 }
 
+/**
+ * Per-outlet split of one calendar day's revenue + transaction count, so a
+ * multi-outlet merchant's recap can name which branch drove (or dragged) the
+ * day. Returns `[]` for a single-outlet merchant — the top-level totals are
+ * already the whole story. Revenue uses the same debit-inclusive rule as
+ * `today.total`.
+ */
+async function getPerOutletBreakdown(merchantId: string, start: Date, end: Date): Promise<AggOutletBreakdown[]> {
+  const outlets = await prisma.outlet.findMany({
+    where: { merchantId, isActive: true },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    select: { id: true, name: true, type: true },
+  });
+  if (outlets.length < 2) return [];
+
+  return Promise.all(
+    outlets.map(async (o): Promise<AggOutletBreakdown> => {
+      const [revenue, saleCount, ppobCount] = await Promise.all([
+        dayRevenueTotal(merchantId, start, end, o.id),
+        prisma.sale.count({ where: { merchantId, outletId: o.id, createdAt: { gte: start, lt: end } } }),
+        prisma.ppobTransaction.count({
+          where: { merchantId, outletId: o.id, status: "success", createdAt: { gte: start, lt: end } },
+        }),
+      ]);
+      return { outletName: o.name, type: o.type, revenue: revenue.total, txnCount: saleCount + ppobCount };
+    }),
+  );
+}
+
 /** Builds the full aggregation context for one merchant + calendar day. Pure SQL/Prisma — no AI call in here. */
 export async function buildRecapAggregation(merchantId: string, date: Date): Promise<RecapAggregationContext> {
-  const { start, end } = dayBounds(date);
-  const [today, topSellers, lowStock, costIncreases, quietHour] = await Promise.all([
-    getDaySummary(merchantId, date),
+  const timeZone = await resolveTimeZone(merchantId);
+  const { start, end } = dayBounds(date, timeZone);
+  const [today, topSellers, lowStock, costIncreases, quietHour, perOutlet] = await Promise.all([
+    getDaySummary(merchantId, date, undefined, timeZone),
     getTopSellers(merchantId, start, end),
     getLowStockWithCover(merchantId),
     getRecentCostIncreases(merchantId),
-    getQuietHour(merchantId),
+    getQuietHour(merchantId, timeZone),
+    getPerOutletBreakdown(merchantId, start, end),
   ]);
 
-  const recapDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+  const recapDate = localDateKey(date, timeZone);
 
-  return { recapDate, today, topSellers, lowStock, costIncreases, quietHour };
+  return { recapDate, today, topSellers, lowStock, costIncreases, quietHour, perOutlet };
 }

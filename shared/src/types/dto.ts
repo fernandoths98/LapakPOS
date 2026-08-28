@@ -30,7 +30,7 @@ export interface RegisterResponse extends LoginResponse {
   subscription: { planCode: PlanCode; status: SubscriptionStatus; trialEndsAt: string | null };
 }
 
-export interface OutletDto { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; isActive: boolean; createdAt: string }
+export interface OutletDto { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; timezone: string; isActive: boolean; createdAt: string }
 export interface StaffDto { id: string; name: string; email: string; role: UserRole; outletId: string | null; isActive: boolean; createdAt: string }
 export interface AccountSetupResponse {
   merchant: { id: string; name: string; slug: string | null; businessType: BusinessType; onboardingCompleted: boolean; trialEndsAt: string | null };
@@ -38,7 +38,7 @@ export interface AccountSetupResponse {
   outlets: OutletDto[];
   staff: StaffDto[];
 }
-export interface CreateOutletRequest { name: string; code: string; address?: string; phone?: string; type?: "owned" | "franchise" }
+export interface CreateOutletRequest { name: string; code: string; address?: string; phone?: string; type?: "owned" | "franchise"; timezone?: string }
 export interface CreateStaffRequest { name: string; email?: string; role: Exclude<UserRole, "owner">; outletId: string; pin: string; password?: string }
 export interface PinLoginRequest { businessSlug: string; outletCode: string; pin: string }
 
@@ -81,6 +81,179 @@ export interface SubscriptionInvoiceResponse {
   expiresAt: string;
   paidAt: string | null;
   createdAt: string;
+}
+
+// ── Per-outlet inventory ────────────────────────────────────────────────
+
+export interface OutletInventoryItem {
+  productId: string;
+  name: string;
+  barcode: string | null;
+  categoryName: string | null;
+  /** Merchant-level reference price. */
+  referenceSellPrice: number;
+  costPrice: number;
+  stockQty: number;
+  lowStockThreshold: number;
+  /** null = follows the reference price. */
+  priceOverride: number | null;
+  /** priceOverride ?? referenceSellPrice */
+  effectivePrice: number;
+  isAvailable: boolean;
+}
+
+export interface UpdateInventoryRequest {
+  stockQty?: number;
+  lowStockThreshold?: number;
+  /** null clears the override (back to the reference price). */
+  priceOverride?: number | null;
+  isAvailable?: boolean;
+}
+
+// ── Multi-outlet report ────────────────────────────────────────────────
+
+export interface OutletReportRow {
+  outletId: string;
+  outletName: string;
+  outletCode: string;
+  type: "owned" | "franchise";
+  isActive: boolean;
+  revenue: number;
+  txnCount: number;
+  avgTicket: number;
+  lowStockCount: number;
+  openShift: boolean;
+}
+
+export interface OutletReportsResponse {
+  /** The window actually reported, after clamping to the plan's history limit. */
+  days: number;
+  from: string;
+  to: string;
+  rows: OutletReportRow[];
+  totals: { revenue: number; txnCount: number };
+}
+
+// ── Franchise ──────────────────────────────────────────────────────────
+
+export interface FranchiseAgreementDto {
+  id: string;
+  outletId: string;
+  outletName: string;
+  outletCode: string;
+  royaltyPercent: number;
+  feeMonthly: number;
+  allowPriceOverride: boolean;
+  startDate: string;
+  status: "active" | "ended";
+  notes: string | null;
+}
+
+export interface UpsertFranchiseAgreementRequest {
+  outletId: string;
+  royaltyPercent: number;
+  feeMonthly: number;
+  allowPriceOverride?: boolean;
+  startDate?: string;
+  notes?: string | null;
+}
+
+export interface FranchiseRoyaltyStatementDto {
+  id: string;
+  agreementId: string;
+  outletId: string;
+  outletName: string;
+  periodStart: string;
+  periodEnd: string;
+  grossSales: number;
+  royaltyDue: number;
+  feeDue: number;
+  totalDue: number;
+  status: "draft" | "issued" | "paid";
+  issuedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface GenerateStatementsRequest {
+  /** ISO date (YYYY-MM-DD). Defaults to the first day of last month. */
+  periodStart?: string;
+  /** ISO date, exclusive. Defaults to the first day of this month. */
+  periodEnd?: string;
+}
+
+export interface GenerateStatementsResponse {
+  created: number;
+  updated: number;
+  statements: FranchiseRoyaltyStatementDto[];
+}
+
+// ── Franchise — inter-tenant partners ───────────────────────────────────
+
+export interface FranchiseePartnerDto {
+  id: string;
+  label: string | null;
+  joinCode: string;
+  status: "pending" | "active" | "ended";
+  royaltyPercent: number;
+  feeMonthly: number;
+  franchiseeMerchantId: string | null;
+  franchiseeName: string | null;
+  joinedAt: string | null;
+  lastCatalogSyncAt: string | null;
+  createdAt: string;
+  /** Franchisee's completed-sale revenue this calendar month (0 while pending). */
+  revenueThisMonth: number;
+}
+
+export interface CreatePartnerInviteRequest {
+  label?: string;
+  royaltyPercent: number;
+  feeMonthly: number;
+}
+
+/** Result of a franchisor pushing its catalog to a franchisee tenant. */
+export interface CatalogSyncResult {
+  partnerId: string;
+  franchiseeName: string | null;
+  created: number;
+  updated: number;
+  /** Skipped because the franchisee's plan product cap was reached. */
+  skippedOverCap: number;
+  syncedAt: string;
+}
+
+export interface JoinFranchiseRequest {
+  code: string;
+}
+
+export interface FranchiseePartnerStatementDto {
+  id: string;
+  partnerId: string;
+  franchiseeMerchantId: string;
+  franchiseeName: string | null;
+  periodStart: string;
+  periodEnd: string;
+  grossSales: number;
+  royaltyDue: number;
+  feeDue: number;
+  totalDue: number;
+  status: "draft" | "issued" | "paid";
+  issuedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+/** GET /api/franchise/membership — is this merchant somebody's franchisee? */
+export interface FranchiseMembershipResponse {
+  isFranchisee: boolean;
+  franchisorName: string | null;
+  status: "pending" | "active" | "ended" | null;
+  royaltyPercent: number | null;
+  feeMonthly: number | null;
+  joinedAt: string | null;
+  /** Statements the franchisor has raised against this merchant. */
+  statements: FranchiseePartnerStatementDto[];
 }
 
 // ── Products ──────────────────────────────────────────────────────────────

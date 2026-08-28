@@ -4,7 +4,8 @@ import { prisma } from "../../db/prisma";
 import { aiEnabled } from "../../config/env";
 import { badRequest } from "../../utils/errors";
 import { requireFeature } from "../subscription/entitlements.service";
-import { dayBounds, dayRevenueTotal } from "../sales/sales.service";
+import { dayBounds, dayRevenueTotal, resolveTimeZone } from "../sales/sales.service";
+import { localDateKey } from "../../utils/time";
 import { buildRecapAggregation, RecapAggregationContext } from "./recapAggregation.service";
 import { AiUnavailableError, generateStructured, JsonSchema, RECAP_MODEL } from "./claudeClient";
 import { getTopSellersForWindow } from "./topSellers.queries";
@@ -68,7 +69,10 @@ const SYSTEM_PROMPT =
   "You must ONLY use figures that appear in that JSON — never invent, estimate, or round a number that isn't " +
   "directly present in it. If the data is thin (a quiet day, no notable changes), write a short, honest recap " +
   "rather than padding it with invented detail. Keep the tone calm and specific, like a trusted assistant who " +
-  "actually read the numbers — not hype, not generic encouragement.";
+  "actually read the numbers — not hype, not generic encouragement. " +
+  "When `perOutlet` is present (a merchant with more than one branch), the day's total is split across those " +
+  "outlets — it's worth noting which branch led and which was quiet, and calling out a franchise outlet by its " +
+  "`type` when relevant. When `perOutlet` is empty, the merchant has a single outlet; don't mention branches.";
 
 /** Parses a validated `YYYY-MM-DD` string into a Date at local midnight (used for both querying and cache keys). */
 function parseDateParam(dateStr: string): Date {
@@ -84,9 +88,9 @@ function toRecapDateKey(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00.000Z`);
 }
 
-function todayDateStr(): string {
-  const { start } = dayBounds(new Date());
-  return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+/** Today's `YYYY-MM-DD` in the merchant's own timezone (primary outlet, → WIB). */
+async function merchantTodayDateStr(merchantId: string): Promise<string> {
+  return localDateKey(new Date(), await resolveTimeZone(merchantId));
 }
 
 async function callClaudeForStory(context: RecapAggregationContext): Promise<StoryContent> {
@@ -108,7 +112,7 @@ async function callClaudeForStory(context: RecapAggregationContext): Promise<Sto
  * AI-written — callers set `aiAvailable: false` on the response this feeds.
  */
 function buildDeterministicStory(context: RecapAggregationContext): StoryContent {
-  const { today, topSellers, lowStock, costIncreases } = context;
+  const { today, topSellers, lowStock, costIncreases, perOutlet } = context;
 
   const headline = `Omzet hari ini ${formatRupiah(today.total)}`;
 
@@ -122,6 +126,18 @@ function buildDeterministicStory(context: RecapAggregationContext): StoryContent
       : "Belum ada penjualan yang tercatat hari ini.";
 
   const insights: RecapInsight[] = [];
+
+  if (perOutlet.length >= 2 && today.total > 0) {
+    const ranked = [...perOutlet].sort((a, b) => b.revenue - a.revenue);
+    const busiest = ranked[0];
+    const quietest = ranked[ranked.length - 1];
+    insights.push({
+      title: `${busiest.outletName} paling ramai hari ini`,
+      body: `${formatRupiah(busiest.revenue)} dari ${busiest.txnCount} transaksi di ${busiest.outletName}; paling sepi ${quietest.outletName} (${formatRupiah(quietest.revenue)}).`,
+      action: `Tinjau ${quietest.outletName}`,
+    });
+  }
+
   const lowest = lowStock[0];
   if (lowest) {
     insights.push({
@@ -215,10 +231,11 @@ async function generateFreshDailyRecap(
  * automatically gets a real AI recap without anyone having to call
  * `/regenerate` by hand.
  */
-export async function getDailyRecap(merchantId: string, dateStr = todayDateStr()): Promise<DailyRecapResponse> {
+export async function getDailyRecap(merchantId: string, dateStr?: string): Promise<DailyRecapResponse> {
   await requireFeature(merchantId, "ai");
-  const date = parseDateParam(dateStr);
-  const recapDateKey = toRecapDateKey(dateStr);
+  const effectiveDateStr = dateStr ?? (await merchantTodayDateStr(merchantId));
+  const date = parseDateParam(effectiveDateStr);
+  const recapDateKey = toRecapDateKey(effectiveDateStr);
 
   const cached = await prisma.aiRecapCache.findUnique({
     where: { merchantId_recapDate_kind: { merchantId, recapDate: recapDateKey, kind: DAILY_STORY_KIND } },
@@ -232,10 +249,11 @@ export async function getDailyRecap(merchantId: string, dateStr = todayDateStr()
 }
 
 /** POST /api/recap/daily/regenerate — clears any cached row for the date first, then always generates fresh. */
-export async function regenerateDailyRecap(merchantId: string, dateStr = todayDateStr()): Promise<DailyRecapResponse> {
+export async function regenerateDailyRecap(merchantId: string, dateStr?: string): Promise<DailyRecapResponse> {
   await requireFeature(merchantId, "ai");
-  const date = parseDateParam(dateStr);
-  const recapDateKey = toRecapDateKey(dateStr);
+  const effectiveDateStr = dateStr ?? (await merchantTodayDateStr(merchantId));
+  const date = parseDateParam(effectiveDateStr);
+  const recapDateKey = toRecapDateKey(effectiveDateStr);
 
   await prisma.aiRecapCache.deleteMany({ where: { merchantId, recapDate: recapDateKey, kind: DAILY_STORY_KIND } });
 
@@ -261,7 +279,8 @@ export async function regenerateDailyRecap(merchantId: string, dateStr = todayDa
  * an accounting figure.
  */
 export async function getWeeklyReports(merchantId: string): Promise<WeeklyReportsResponse> {
-  const { end } = dayBounds(new Date());
+  const timeZone = await resolveTimeZone(merchantId);
+  const { end } = dayBounds(new Date(), timeZone);
   const windowStart = new Date(end);
   windowStart.setDate(windowStart.getDate() - WEEKLY_BAR_DAYS);
 
@@ -280,7 +299,7 @@ export async function getWeeklyReports(merchantId: string): Promise<WeeklyReport
   ]);
 
   const bars: WeeklyBar[] = dayRanges.map((r, i) => ({
-    label: new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(r.start),
+    label: new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone }).format(r.start),
     total: dayRevenues[i].total,
     ppobShare: dayRevenues[i].ppobRevenue,
   }));

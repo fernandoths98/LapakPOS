@@ -3,20 +3,38 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { badRequest, notFound } from "../../utils/errors";
 import { getOrOpenCurrentShift } from "../shifts/shifts.service";
+import { resolvePlan } from "../subscription/entitlements.service";
+import { DEFAULT_TIMEZONE, dayBoundsInTz } from "../../utils/time";
 
 /**
- * Midnight-to-midnight boundaries for the calendar day containing `at`, in
- * server-local time. Exported for reuse by other modules (recap aggregation)
- * that need the same day-bucketing rule.
+ * Midnight-to-midnight `[start, end)` boundaries for the calendar day
+ * containing `at`, in `timeZone` (defaults to WIB — never the server's own
+ * local time, which is UTC in prod). Exported for reuse by other modules
+ * (recap aggregation, owner reports) that need the same day-bucketing rule.
  */
-export function dayBounds(at: Date): { start: Date; end: Date } {
-  const start = new Date(at.getFullYear(), at.getMonth(), at.getDate());
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { start, end };
+export function dayBounds(at: Date, timeZone: string = DEFAULT_TIMEZONE): { start: Date; end: Date } {
+  return dayBoundsInTz(at, timeZone);
 }
 
-type SaleWithLines = Prisma.SaleGetPayload<{ include: { lineItems: true } }>;
+/**
+ * The IANA timezone to bucket a merchant's (or one outlet's) calendar days by:
+ * the outlet's stored `timezone`, or the merchant's primary outlet's when no
+ * `outletId` is given (owner "all outlets" view), falling back to WIB.
+ */
+export async function resolveTimeZone(merchantId: string, outletId?: string): Promise<string> {
+  const outlet = outletId
+    ? await prisma.outlet.findFirst({ where: { id: outletId, merchantId }, select: { timezone: true } })
+    : await prisma.outlet.findFirst({
+        where: { merchantId },
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        select: { timezone: true },
+      });
+  return outlet?.timezone ?? DEFAULT_TIMEZONE;
+}
+
+/** Every sale read for a DTO pulls its shift's cashier name for the receipt. */
+const saleInclude = { lineItems: true, shift: { select: { user: { select: { name: true } } } } } as const;
+type SaleWithLines = Prisma.SaleGetPayload<{ include: typeof saleInclude }>;
 
 function toSaleDto(sale: SaleWithLines): Sale {
   return {
@@ -24,6 +42,7 @@ function toSaleDto(sale: SaleWithLines): Sale {
     merchantId: sale.merchantId,
     outletId: sale.outletId,
     shiftId: sale.shiftId,
+    cashierName: sale.shift?.user?.name ?? "",
     orderNo: sale.orderNo,
     clientId: sale.clientId,
     tenderType: sale.tenderType as TenderType,
@@ -105,7 +124,7 @@ export async function createSale(
   return prisma.$transaction(async (tx) => {
     const existing = await tx.sale.findUnique({
       where: { clientId: body.clientId },
-      include: { lineItems: true },
+      include: saleInclude,
     });
     if (existing) {
       if (existing.merchantId !== merchantId) {
@@ -179,7 +198,7 @@ export async function createSale(
           })),
         },
       },
-      include: { lineItems: true },
+      include: saleInclude,
     });
 
     for (const plan of linePlans) {
@@ -194,7 +213,7 @@ export async function createSale(
 }
 
 export async function getSaleById(merchantId: string, id: string): Promise<Sale> {
-  const sale = await prisma.sale.findFirst({ where: { id, merchantId }, include: { lineItems: true } });
+  const sale = await prisma.sale.findFirst({ where: { id, merchantId }, include: saleInclude });
   if (!sale) {
     throw notFound("Sale");
   }
@@ -202,9 +221,14 @@ export async function getSaleById(merchantId: string, id: string): Promise<Sale>
 }
 
 export async function getRecentSales(merchantId: string, outletId: string | undefined, limit = 50): Promise<Sale[]> {
+  // The plan's report-history window caps how far back the list can reach —
+  // a free-plan merchant sees the last 7 days, not the last 50 sales ever.
+  const { entitlements } = await resolvePlan(merchantId);
+  const cutoff = new Date(Date.now() - entitlements.reportHistoryDays * 86_400_000);
+
   const sales = await prisma.sale.findMany({
-    where: { merchantId, ...(outletId ? { outletId } : {}) },
-    include: { lineItems: true },
+    where: { merchantId, ...(outletId ? { outletId } : {}), createdAt: { gte: cutoff } },
+    include: saleInclude,
     orderBy: { createdAt: "desc" },
     take: Math.min(Math.max(limit, 1), 100),
   });
@@ -253,8 +277,9 @@ export async function dayRevenueTotal(
  * The day-summary arithmetic behind GET /api/sales/summary/today, generalized
  * to any calendar day so recap aggregation (Phase 6) can reuse it verbatim
  * for a `?date=` other than today instead of re-deriving the same rules.
- * `at`'s calendar day (server-local, see `getTodaySummary`'s note) is the
- * target day; "yesterday" is always the day immediately before it.
+ * `at`'s calendar day in `timeZone` (resolved from the outlet / merchant
+ * primary outlet when not passed) is the target day; "yesterday" is always
+ * the local day immediately before it.
  *
  * `tenderMix` is a partial view: its Cash/QRIS/PPOB buckets are proportioned
  * against their own 3-bucket subtotal (not against the debit-inclusive
@@ -263,11 +288,18 @@ export async function dayRevenueTotal(
  * on a day with debit sales — `total` itself is always the correct,
  * debit-inclusive figure.
  */
-export async function getDaySummary(merchantId: string, at: Date, outletId?: string): Promise<TodaySummaryResponse> {
-  const today = dayBounds(at);
+export async function getDaySummary(
+  merchantId: string,
+  at: Date,
+  outletId?: string,
+  timeZone?: string,
+): Promise<TodaySummaryResponse> {
+  const tz = timeZone ?? (await resolveTimeZone(merchantId, outletId));
+  const today = dayBounds(at, tz);
   const yesterdayEnd = today.start;
-  const yesterdayStart = new Date(yesterdayEnd);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  // One ms before local midnight lands in the previous local day; its own
+  // bounds give yesterday's start without assuming a fixed 24h offset.
+  const yesterdayStart = dayBounds(new Date(today.start.getTime() - 1), tz).start;
   const scope = outletId ? { outletId } : {};
 
   const [cashAgg, qrisAgg, salesTodayAgg, ppobTodayAgg, ppobCountToday, yesterdayTotal] = await Promise.all([
@@ -322,10 +354,9 @@ export async function getDaySummary(merchantId: string, at: Date, outletId?: str
 }
 
 /**
- * GET /api/sales/summary/today's data. "Today" is the server-local calendar
- * day — an acceptable simplification for now; genuinely honoring the
- * merchant's own local day would need a stored merchant timezone, which
- * doesn't exist in the schema yet.
+ * GET /api/sales/summary/today's data. "Today" is the calendar day in the
+ * outlet's own `timezone` (or the merchant's primary outlet's for the
+ * consolidated view), falling back to WIB — not the server's UTC day.
  */
 export async function getTodaySummary(merchantId: string, outletId?: string): Promise<TodaySummaryResponse> {
   return getDaySummary(merchantId, new Date(), outletId);

@@ -195,6 +195,40 @@ describe("sales.service", () => {
     await expect(salesService.createSale(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, body)).rejects.toMatchObject({ status: 400 });
   });
 
+  it("getRecentSales clamps history to the plan's report window", async () => {
+    const shift = await prisma.shift.findFirstOrThrow({ where: { merchantId: TEST_MERCHANT_ID }, orderBy: { openedAt: "desc" } });
+    const oldSale = await prisma.sale.create({
+      data: {
+        merchantId: TEST_MERCHANT_ID,
+        outletId: TEST_OUTLET_ID,
+        shiftId: shift.id,
+        orderNo: "OLD",
+        clientId: uuidv4(),
+        tenderType: "cash",
+        cashAmount: 5000,
+        qrisAmount: 0,
+        subtotal: 5000,
+        total: 5000,
+        createdAt: new Date(Date.now() - 30 * 86_400_000), // 30 days ago
+      },
+    });
+
+    // No subscription -> free plan -> 7-day window -> the old sale is hidden.
+    const free = await salesService.getRecentSales(TEST_MERCHANT_ID, TEST_OUTLET_ID, 100);
+    expect(free.some((s) => s.id === oldSale.id)).toBe(false);
+
+    // A plan with a long history window includes it.
+    await prisma.subscription.upsert({
+      where: { merchantId: TEST_MERCHANT_ID },
+      update: { planCode: "pro", status: "active" },
+      create: { merchantId: TEST_MERCHANT_ID, planCode: "pro", status: "active" },
+    });
+    const pro = await salesService.getRecentSales(TEST_MERCHANT_ID, TEST_OUTLET_ID, 100);
+    expect(pro.some((s) => s.id === oldSale.id)).toBe(true);
+
+    await prisma.subscription.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+  });
+
   it("fetches a sale by id with its line items", async () => {
     const body: CreateSaleRequest = {
       clientId: uuidv4(),

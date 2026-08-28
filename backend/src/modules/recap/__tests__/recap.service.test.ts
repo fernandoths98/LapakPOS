@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "../../../db/prisma";
 import * as recapService from "../recap.service";
+import { buildRecapAggregation } from "../recapAggregation.service";
 
 const TEST_MERCHANT_ID = "00000000-0000-0000-0000-000000000600";
 const TEST_OUTLET_ID = "00000000-0000-0000-0000-000000000602";
@@ -144,6 +145,66 @@ describe("recap.service", () => {
       expect(coffee?.qty).toBe(5);
       // margin = revenue (90.000) - costPrice(11.000) * qty(5) = 90.000 - 55.000 = 35.000
       expect(coffee?.margin).toBe(35000);
+    });
+  });
+
+  describe("cross-outlet consolidation", () => {
+    const SECOND_OUTLET_ID = "00000000-0000-0000-0000-0000000006a2";
+
+    beforeAll(async () => {
+      await prisma.outlet.create({
+        data: { id: SECOND_OUTLET_ID, merchantId: TEST_MERCHANT_ID, name: "Cabang Franchise", code: "FRAN", type: "franchise" },
+      });
+      const shift = await prisma.shift.create({
+        data: { merchantId: TEST_MERCHANT_ID, outletId: SECOND_OUTLET_ID, userId: TEST_USER_ID, openingFloat: 0 },
+      });
+      await prisma.sale.create({
+        data: {
+          merchantId: TEST_MERCHANT_ID,
+          outletId: SECOND_OUTLET_ID,
+          shiftId: shift.id,
+          orderNo: "9101",
+          clientId: uuidv4(),
+          tenderType: "cash",
+          cashAmount: 20000,
+          qrisAmount: 0,
+          subtotal: 20000,
+          total: 20000,
+          lineItems: {
+            create: [{ productId, productNameSnapshot: "Recap Test Coffee", unitPriceSnapshot: 20000, qty: 1, lineTotal: 20000 }],
+          },
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.saleLineItem.deleteMany({ where: { sale: { outletId: SECOND_OUTLET_ID } } });
+      await prisma.sale.deleteMany({ where: { outletId: SECOND_OUTLET_ID } });
+      await prisma.shift.deleteMany({ where: { outletId: SECOND_OUTLET_ID } });
+      await prisma.outlet.delete({ where: { id: SECOND_OUTLET_ID } });
+      await prisma.aiRecapCache.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    });
+
+    it("breaks the day down per outlet in the aggregation context", async () => {
+      const ctx = await buildRecapAggregation(TEST_MERCHANT_ID, new Date());
+
+      expect(ctx.today.total).toBe(110000); // 90.000 UTAMA + 20.000 FRAN
+      expect(ctx.perOutlet).toHaveLength(2);
+
+      const utama = ctx.perOutlet.find((o) => o.outletName === "Recap Test Outlet");
+      const fran = ctx.perOutlet.find((o) => o.outletName === "Cabang Franchise");
+      expect(utama).toMatchObject({ type: "owned", revenue: 90000, txnCount: 2 });
+      expect(fran).toMatchObject({ type: "franchise", revenue: 20000, txnCount: 1 });
+    });
+
+    it("names the busiest and quietest branch in the deterministic recap", async () => {
+      const result = await recapService.getDailyRecap(TEST_MERCHANT_ID);
+
+      expect(result.aiAvailable).toBe(false);
+      const branchInsight = result.insights.find((i) => i.title.includes("paling ramai"));
+      expect(branchInsight).toBeDefined();
+      expect(branchInsight!.title).toContain("Recap Test Outlet");
+      expect(branchInsight!.body).toContain("Cabang Franchise");
     });
   });
 });

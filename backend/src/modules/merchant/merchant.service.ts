@@ -26,7 +26,7 @@ export async function getMyMerchant(merchantId: string): Promise<MerchantRespons
   };
 }
 
-const outletDto = (outlet: { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; isActive: boolean; createdAt: Date }): OutletDto => ({ ...outlet, createdAt: outlet.createdAt.toISOString() });
+const outletDto = (outlet: { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; timezone: string; isActive: boolean; createdAt: Date }): OutletDto => ({ ...outlet, createdAt: outlet.createdAt.toISOString() });
 const staffDto = (user: { id: string; name: string; email: string; role: "owner" | "manager" | "cashier" | "stocker"; outletId: string | null; isActive: boolean; createdAt: Date }): StaffDto => ({ ...user, createdAt: user.createdAt.toISOString() });
 
 export async function getAccountSetup(merchantId: string): Promise<AccountSetupResponse> {
@@ -56,6 +56,7 @@ export async function createOutlet(merchantId: string, input: CreateOutletReques
       address: input.address?.trim() || null,
       phone: input.phone?.trim() || null,
       type: input.type === "franchise" ? "franchise" : "owned",
+      ...(input.timezone ? { timezone: input.timezone } : {}),
     },
   });
   return outletDto(outlet);

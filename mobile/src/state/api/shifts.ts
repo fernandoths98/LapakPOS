@@ -8,7 +8,9 @@ import {
   ZReportResponse,
 } from "@lapak/shared";
 import { apiClient } from "./apiClient";
+import { useOutletScopeKey } from "../outlet/outletStore";
 
+/** Prefix for the open-shift query; the per-outlet key is `[...CURRENT_SHIFT_KEY, outletKey]`. */
 const CURRENT_SHIFT_KEY = ["shifts", "current"];
 
 /**
@@ -19,8 +21,9 @@ const CURRENT_SHIFT_KEY = ["shifts", "current"];
  * counted-cash figure at all.
  */
 export function useCurrentShift() {
+  const outletKey = useOutletScopeKey();
   return useQuery({
-    queryKey: CURRENT_SHIFT_KEY,
+    queryKey: [...CURRENT_SHIFT_KEY, outletKey],
     queryFn: async () => {
       const { data } = await apiClient.get<GetCurrentShiftResponse>("/api/shifts/current");
       return data;

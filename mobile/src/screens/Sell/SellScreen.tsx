@@ -6,6 +6,7 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -237,6 +238,8 @@ export function SellScreen() {
       {!isRegisterLayout && hasCart ? (
         <>
         {isPortraitPhone && cartPreviewOpen ? (
+          <>
+          <Pressable style={styles.cartScrim} onPress={() => setCartPreviewOpen(false)} accessibilityLabel="Tutup keranjang" />
           <View style={styles.cartPreview}>
             <View style={styles.cartPreviewHeader}>
               <View>
@@ -247,28 +250,26 @@ export function SellScreen() {
                 <Text variant="caption" color={colors.accent700}>Kosongkan</Text>
               </Pressable>
             </View>
-            {Object.values(lines).slice(0, 4).map((line) => (
-              <View key={line.productId} style={styles.previewLine}>
-                <View style={styles.previewLineInfo}>
-                  <Text variant="body" numberOfLines={1} style={styles.previewLineName}>{line.name}</Text>
-                  <Text variant="caption">{formatRupiah(line.unitPrice)} / item</Text>
+            <ScrollView style={styles.previewList} contentContainerStyle={styles.previewListContent} showsVerticalScrollIndicator={false} bounces={false}>
+              {Object.values(lines).map((line) => (
+                <View key={line.productId} style={styles.previewLine}>
+                  <View style={styles.previewLineInfo}>
+                    <Text variant="body" numberOfLines={1} style={styles.previewLineName}>{line.name}</Text>
+                    <Text variant="caption">{formatRupiah(line.unitPrice)} / item</Text>
+                  </View>
+                  <View style={styles.previewStepper}>
+                    <Pressable onPress={() => useCartStore.getState().bump(line.productId, -1)} style={styles.previewStepButton} hitSlop={6}><Text variant="h3">−</Text></Pressable>
+                    <Text variant="tabular" style={styles.previewQty}>{line.qty}</Text>
+                    <Pressable onPress={() => useCartStore.getState().bump(line.productId, 1)} style={styles.previewStepButton} hitSlop={6}><Text variant="h3">+</Text></Pressable>
+                  </View>
+                  <Text variant="tabular" style={styles.previewTotal}>{formatRupiah(line.unitPrice * line.qty)}</Text>
                 </View>
-                <View style={styles.previewStepper}>
-                  <Pressable onPress={() => useCartStore.getState().bump(line.productId, -1)} style={styles.previewStepButton}><Text variant="h3">−</Text></Pressable>
-                  <Text variant="tabular" style={styles.previewQty}>{line.qty}</Text>
-                  <Pressable onPress={() => useCartStore.getState().bump(line.productId, 1)} style={styles.previewStepButton}><Text variant="h3">+</Text></Pressable>
-                </View>
-                <Text variant="tabular" style={styles.previewTotal}>{formatRupiah(line.unitPrice * line.qty)}</Text>
-              </View>
-            ))}
-            {Object.keys(lines).length > 4 ? (
-              <Pressable onPress={() => navigation.navigate("Cart")} style={styles.previewMoreButton}>
-                <Text variant="caption" color={colors.accent2}>Lihat {Object.keys(lines).length - 4} produk lainnya</Text>
-              </Pressable>
-            ) : null}
+              ))}
+            </ScrollView>
           </View>
+          </>
         ) : null}
-        <View style={styles.cartBar}>
+        <View style={[styles.cartBar, cartPreviewOpen && styles.cartBarAttached]}>
           <View style={styles.cartCountBadge}>
             <ShoppingBasket size={19} color={colors.surface} />
             <View style={styles.cartCountBubble}><Text variant="kicker" color={colors.surface}>{count}</Text></View>
@@ -400,6 +401,11 @@ function CategoryPill({ label, active, onPress }: { label: string; active: boole
 function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = false }: { product: Product; qtyInCart: number; onPress: () => void; compact?: boolean; portrait?: boolean }) {
   const isLow = product.stockQty <= product.lowStockThreshold;
   const soldOut = product.stockQty <= 0;
+  // On phones a warung's catalog is almost all photo-less; the big monogram
+  // band just wastes vertical space and cuts the visible product count. Show
+  // a photo band only when there's a real image; otherwise a dense text card.
+  const showPhoto = !portrait || !!product.imageUrl;
+
   return (
     <Pressable
       onPress={onPress}
@@ -407,17 +413,22 @@ function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = 
       style={({ pressed }) => [styles.tile, compact && styles.tileCompact, portrait && styles.tilePortrait, pressed && styles.tilePressed, soldOut && styles.tileDisabled]}
       accessibilityRole="button"
     >
-      <View style={[styles.tilePhoto, compact && styles.tilePhotoCompact, portrait && styles.tilePhotoPortrait]}>
-        {product.imageUrl ? (
-          <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
-        ) : (
-          <Text variant="h2" color={colors.neutral400}>{product.name.charAt(0).toUpperCase()}</Text>
-        )}
-        {qtyInCart > 0 ? (
-          <View style={[styles.qtyBadge, portrait && styles.qtyBadgePortrait]}><Text variant="caption" color={colors.surface}>{portrait ? qtyInCart : `${qtyInCart} di keranjang`}</Text></View>
+      {showPhoto ? (
+        <View style={[styles.tilePhoto, compact && styles.tilePhotoCompact, portrait && styles.tilePhotoPortrait]}>
+          {product.imageUrl ? (
+            <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
+          ) : (
+            <Text variant="h2" color={colors.neutral400}>{product.name.charAt(0).toUpperCase()}</Text>
+          )}
+          {qtyInCart > 0 ? (
+            <View style={[styles.qtyBadge, portrait && styles.qtyBadgePortrait]}><Text variant="caption" color={colors.surface}>{portrait ? qtyInCart : `${qtyInCart} di keranjang`}</Text></View>
+          ) : null}
+        </View>
+      ) : null}
+      <View style={[styles.tileBody, compact && styles.tileBodyCompact, portrait && styles.tileBodyPortrait, !showPhoto && styles.tileBodyNoPhoto]}>
+        {!showPhoto && qtyInCart > 0 ? (
+          <View style={styles.qtyBadgeInline}><Text variant="caption" color={colors.surface}>{qtyInCart}</Text></View>
         ) : null}
-      </View>
-      <View style={[styles.tileBody, compact && styles.tileBodyCompact, portrait && styles.tileBodyPortrait]}>
         <Text variant="body" style={[styles.tileName, compact && styles.tileNameCompact, portrait && styles.tileNamePortrait]} numberOfLines={compact ? 1 : 2}>{product.name}</Text>
         <Text variant="tabular" color={colors.accent2} style={[styles.tilePrice, portrait && styles.tilePricePortrait]}>{formatRupiah(product.sellPrice)}</Text>
         <View style={[styles.stockRow, compact && styles.stockRowCompact, portrait && styles.stockRowPortrait]}>
@@ -437,7 +448,7 @@ const styles = StyleSheet.create({
   catalogPane: { flex: 1 },
   catalogPaneWide: { flex: 0, width: "37%", borderRightWidth: 1, borderRightColor: colors.divider },
   listContent: { paddingHorizontal: space[3], paddingTop: 0, paddingBottom: space[8] },
-  listContentWithCart: { paddingBottom: 100 },
+  listContentWithCart: { paddingBottom: 116 },
   header: { paddingTop: 0, paddingBottom: space[2] },
   headerPortrait: { paddingTop: 0 },
   titlePortrait: { fontSize: 21, lineHeight: 26 },
@@ -475,32 +486,37 @@ const styles = StyleSheet.create({
   tileBody: { padding: 10 },
   tileBodyCompact: { flex: 1, paddingVertical: 7, paddingHorizontal: 10 },
   tileBodyPortrait: { padding: 9 },
+  tileBodyNoPhoto: { paddingTop: 12, paddingBottom: 11, minHeight: 92 },
+  qtyBadgeInline: { position: "absolute", right: 8, top: 8, minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 5, backgroundColor: colors.accent2, alignItems: "center", justifyContent: "center" },
   tileName: { minHeight: 40, fontWeight: "600" },
   tileNameCompact: { minHeight: 0 },
-  tileNamePortrait: { minHeight: 38, fontSize: 13, lineHeight: 18 },
+  tileNamePortrait: { minHeight: 36, fontSize: 13, lineHeight: 18 },
   tilePrice: { marginTop: 4, fontSize: 16 },
-  tilePricePortrait: { marginTop: 2, fontSize: 15 },
+  tilePricePortrait: { marginTop: 3, fontSize: 15 },
   stockRow: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginTop: 6 },
   stockRowCompact: { position: "absolute", right: 10, bottom: 8 },
   stockRowPortrait: { marginTop: 4 },
   emptyState: { alignItems: "center", paddingVertical: space[8] },
   emptyCaption: { marginTop: space[1] },
+  cartScrim: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(15, 23, 42, 0.32)" },
   cartBar: { position: "absolute", left: space[3], right: space[3], bottom: space[2], minHeight: 64, flexDirection: "row", alignItems: "center", gap: space[3], backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.lg, paddingHorizontal: space[3], paddingVertical: 8, ...shadow.lg },
+  cartBarAttached: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   cartCountBadge: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.accent2, alignItems: "center", justifyContent: "center" },
   cartCountBubble: { position: "absolute", right: -6, top: -6, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.surface, alignItems: "center", justifyContent: "center" },
   cartBarInfo: { flex: 1 },
   cartTotalRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  cartPreview: { position: "absolute", left: space[3], right: space[3], bottom: 78, maxHeight: 330, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.lg, paddingHorizontal: space[3], paddingTop: space[3], paddingBottom: space[2], ...shadow.lg },
+  cartPreview: { position: "absolute", left: space[3], right: space[3], bottom: 72, maxHeight: 380, backgroundColor: colors.surface, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.divider, borderRadius: radius.lg, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingHorizontal: space[3], paddingTop: space[3], ...shadow.lg },
   cartPreviewHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: space[2], borderBottomWidth: 1, borderBottomColor: colors.divider },
   previewClearButton: { paddingHorizontal: 8, paddingVertical: 6 },
-  previewLine: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  previewList: { flexGrow: 0 },
+  previewListContent: { paddingBottom: space[2] },
+  previewLine: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: space[2], borderBottomWidth: 1, borderBottomColor: colors.divider },
   previewLineInfo: { flex: 1, minWidth: 0 },
   previewLineName: { fontWeight: "600", fontSize: 13 },
   previewStepper: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.divider, borderRadius: radius.sm },
-  previewStepButton: { width: 28, height: 30, alignItems: "center", justifyContent: "center" },
-  previewQty: { width: 22, textAlign: "center", fontSize: 13 },
-  previewTotal: { width: 72, textAlign: "right", fontSize: 12 },
-  previewMoreButton: { minHeight: 38, alignItems: "center", justifyContent: "center" },
+  previewStepButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  previewQty: { width: 24, textAlign: "center", fontSize: 13 },
+  previewTotal: { width: 88, textAlign: "right", fontSize: 13 },
   payAction: { height: 44, minWidth: 100, paddingHorizontal: space[3], borderRadius: radius.sm, backgroundColor: colors.text, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   payActionPressed: { backgroundColor: colors.neutral800, transform: [{ scale: 0.98 }] },
   payActionLabel: { letterSpacing: 1.1 },

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +17,7 @@ import { Text } from '../../theme/Text';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
 import { Slider } from '../../components/Slider';
-import { colors, radius, space } from '../../theme/tokens';
+import { colors, radius, shadow, space } from '../../theme/tokens';
 import {
   CartLine,
   cartLinesArray,
@@ -167,8 +168,9 @@ export function CartScreen() {
           style={styles.backButton}
           accessibilityRole="button"
           accessibilityLabel="Kembali ke kasir"
+          hitSlop={6}
         >
-          <Text variant="h2" color={colors.neutral700} style={styles.backGlyph}>‹</Text>
+          <ChevronLeft size={22} color={colors.neutral700} strokeWidth={2.4} />
         </Pressable>
         <View style={styles.headerCopy}>
           <Text variant="h2">Keranjang</Text>
@@ -188,8 +190,11 @@ export function CartScreen() {
           </View>
         ) : null}
         <View style={styles.lines}>
-          {cartLines.map(line => (
-            <View key={line.productId} style={styles.line}>
+          {cartLines.map((line, index) => (
+            <View
+              key={line.productId}
+              style={[styles.line, index === cartLines.length - 1 && styles.lineLast]}
+            >
               <View style={styles.lineInfo}>
                 <Text variant="body">{line.name}</Text>
                 <Text variant="caption">
@@ -200,8 +205,9 @@ export function CartScreen() {
                 <Pressable
                   onPress={() => bump(line.productId, -1)}
                   style={styles.stepperButton}
+                  hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel={`Decrease ${line.name}`}
+                  accessibilityLabel={`Kurangi jumlah ${line.name}`}
                 >
                   <Text variant="h3">−</Text>
                 </Pressable>
@@ -211,8 +217,9 @@ export function CartScreen() {
                 <Pressable
                   onPress={() => bump(line.productId, 1)}
                   style={styles.stepperButton}
+                  hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel={`Increase ${line.name}`}
+                  accessibilityLabel={`Tambah jumlah ${line.name}`}
                 >
                   <Text variant="h3">+</Text>
                 </Pressable>
@@ -343,20 +350,21 @@ export function CartScreen() {
             {submitError}
           </Text>
         ) : null}
+      </ScrollView>
 
+      <View style={styles.payBar}>
+        <View style={styles.payBarInfo}>
+          <Text variant="caption" color={colors.neutral600}>TOTAL TAGIHAN</Text>
+          <Text variant="h2" style={styles.payBarTotal}>{formatRupiah(total)}</Text>
+        </View>
         <Button
-          title={
-            createSale.isPending
-              ? 'Memproses pembayaran…'
-              : `Proses pembayaran · ${formatRupiah(total)}`
-          }
+          title={createSale.isPending ? 'Memproses…' : 'Bayar'}
           onPress={handlePay}
           disabled={!canPay}
           loading={createSale.isPending}
-          fullWidth
-          style={styles.payButton}
+          style={styles.payBarButton}
         />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -412,6 +420,7 @@ function buildOfflineSale({
     merchantId: shift?.merchantId ?? 'offline',
     outletId: shift?.outletId ?? 'offline',
     shiftId: shift?.id ?? 'offline',
+    cashierName: shift?.userName ?? 'Kasir',
     orderNo: 'Queued',
     clientId,
     tenderType,
@@ -555,9 +564,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   screenHeader: { height: 56, flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3], backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider },
   backButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, borderWidth: 1, borderColor: colors.divider },
-  backGlyph: { lineHeight: 28, marginTop: -2 },
   headerCopy: { flex: 1 },
-  content: { padding: space[3], paddingBottom: space[8] },
+  content: { padding: space[3], paddingBottom: 104 },
   shiftWarning: { marginBottom: space[3], padding: space[3], borderRadius: radius.md, borderWidth: 1, borderColor: colors.accent300, backgroundColor: colors.accent100 },
   shiftWarningText: { marginTop: 3, lineHeight: 18 },
   lines: {
@@ -575,6 +583,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
+  lineLast: { borderBottomWidth: 0 },
   lineInfo: { flex: 1 },
   stepper: {
     flexDirection: 'row',
@@ -628,7 +637,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'baseline',
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.text,
     marginTop: space[2],
     paddingTop: space[2],
   },
@@ -696,5 +705,23 @@ const styles = StyleSheet.create({
     paddingTop: space[3],
   },
   error: { marginTop: space[3] },
-  payButton: { marginTop: space[6] },
+  payBar: {
+    position: 'absolute',
+    left: space[3],
+    right: space[3],
+    bottom: space[2],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.lg,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    ...shadow.lg,
+  },
+  payBarInfo: { flex: 1 },
+  payBarTotal: { fontSize: 22, marginTop: 1 },
+  payBarButton: { minWidth: 128 },
 });

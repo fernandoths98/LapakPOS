@@ -11,6 +11,7 @@ import { prisma } from "../../db/prisma";
 import { assertWithinQuota, requireFeature } from "../subscription/entitlements.service";
 import { badRequest, notFound } from "../../utils/errors";
 import { recordCostChangeIfNeeded } from "../products/products.service";
+import { DEFAULT_TIMEZONE, localDateKey, monthBoundsForKey } from "../../utils/time";
 
 // ── Column matching ─────────────────────────────────────────────────────
 
@@ -312,39 +313,78 @@ export async function commitImport(merchantId: string, previewId: string): Promi
 
 // ── Exports ──────────────────────────────────────────────────────────────
 
-function resolveMonthRange(month?: string): { start: Date; end: Date; label: string } {
-  const now = new Date();
-  let year: number;
-  let monthIndex: number; // 0-based
+interface ExportOutlet {
+  id: string;
+  code: string;
+  name: string;
+  timezone: string;
+}
 
+/**
+ * Validates an optional `outletId` against the merchant and returns the outlet
+ * to scope an export to (404 if it isn't the merchant's), plus the timezone
+ * accounting months should be bucketed in — the outlet's own, or the
+ * merchant's primary outlet's for a consolidated (all-outlets) export.
+ */
+async function resolveExportScope(
+  merchantId: string,
+  outletId?: string,
+): Promise<{ outlet: ExportOutlet | null; timeZone: string }> {
+  if (outletId) {
+    const outlet = await prisma.outlet.findFirst({
+      where: { id: outletId, merchantId },
+      select: { id: true, code: true, name: true, timezone: true },
+    });
+    if (!outlet) throw notFound("Outlet");
+    return { outlet, timeZone: outlet.timezone };
+  }
+  const primary = await prisma.outlet.findFirst({
+    where: { merchantId },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    select: { timezone: true },
+  });
+  return { outlet: null, timeZone: primary?.timezone ?? DEFAULT_TIMEZONE };
+}
+
+function resolveMonthRange(month: string | undefined, timeZone: string): { start: Date; end: Date; label: string } {
+  let label: string;
   if (month) {
-    const match = /^(\d{4})-(\d{2})$/.exec(month);
-    if (!match) {
+    if (!/^\d{4}-\d{2}$/.test(month)) {
       throw badRequest("month must be in YYYY-MM format");
     }
-    year = Number(match[1]);
-    monthIndex = Number(match[2]) - 1;
+    label = month;
   } else {
-    year = now.getUTCFullYear();
-    monthIndex = now.getUTCMonth();
+    label = localDateKey(new Date(), timeZone).slice(0, 7); // current month in the export's timezone
   }
-
-  const start = new Date(Date.UTC(year, monthIndex, 1));
-  const end = new Date(Date.UTC(year, monthIndex + 1, 1));
-  const label = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  const { start, end } = monthBoundsForKey(label, timeZone);
   return { start, end, label };
 }
 
-/** One row per sale line item within the given month (current month if omitted). Only completed sales. */
-export async function buildSalesLedgerWorkbook(merchantId: string, month?: string): Promise<{ workbook: Workbook; label: string }> {
+/**
+ * One row per sale line item within the given month (current month if
+ * omitted), only completed sales. `outletId` scopes it to one outlet; without
+ * it every outlet is included and the `Outlet` column tells them apart. The
+ * month window and each row's `Date` are in the relevant outlet's timezone.
+ */
+export async function buildSalesLedgerWorkbook(
+  merchantId: string,
+  month?: string,
+  outletId?: string,
+): Promise<{ workbook: Workbook; label: string; outlet: ExportOutlet | null }> {
   await requireFeature(merchantId, "excelIO");
-  const { start, end, label } = resolveMonthRange(month);
+  const { outlet, timeZone } = await resolveExportScope(merchantId, outletId);
+  const { start, end, label } = resolveMonthRange(month, timeZone);
 
   const lineItems = await prisma.saleLineItem.findMany({
     where: {
-      sale: { merchantId, status: "completed", createdAt: { gte: start, lt: end } },
+      sale: {
+        merchantId,
+        status: "completed",
+        createdAt: { gte: start, lt: end },
+        ...(outlet ? { outletId: outlet.id } : {}),
+      },
     },
-    include: { sale: true },
+    include: { sale: { include: { outlet: { select: { name: true, timezone: true } } } } },
     orderBy: [{ sale: { createdAt: "asc" } }],
   });
 
@@ -352,6 +392,7 @@ export async function buildSalesLedgerWorkbook(merchantId: string, month?: strin
   const sheet = workbook.addWorksheet("Sales ledger");
   sheet.columns = [
     { header: "Date", key: "date", width: 12 },
+    { header: "Outlet", key: "outlet", width: 24 },
     { header: "Order No", key: "orderNo", width: 12 },
     { header: "Product", key: "product", width: 32 },
     { header: "Qty", key: "qty", width: 8 },
@@ -362,7 +403,8 @@ export async function buildSalesLedgerWorkbook(merchantId: string, month?: strin
 
   for (const li of lineItems) {
     sheet.addRow({
-      date: li.sale.createdAt.toISOString().slice(0, 10),
+      date: localDateKey(li.sale.createdAt, li.sale.outlet.timezone),
+      outlet: li.sale.outlet.name,
       orderNo: li.sale.orderNo,
       product: li.productNameSnapshot,
       qty: li.qty,
@@ -372,20 +414,37 @@ export async function buildSalesLedgerWorkbook(merchantId: string, month?: strin
     });
   }
 
-  return { workbook, label };
+  return { workbook, label, outlet };
 }
 
 /**
  * One row per active (non-deleted) product: cost, sell price, stock value and
- * potential margin. `Stock Qty` is the total across every outlet that carries
- * the product (stock is per-outlet now); the per-outlet breakdown is a
- * separate export added when the app becomes outlet-aware.
+ * potential margin. Without `outletId`, `Stock Qty` is the total across every
+ * outlet that carries the product and `Sell Price` is the catalog price. With
+ * `outletId`, only products that outlet carries are listed, `Stock Qty` is
+ * that outlet's stock, and `Sell Price` is its effective price
+ * (`priceOverride ?? sellPrice`).
  */
-export async function buildStockValuationWorkbook(merchantId: string): Promise<Workbook> {
+export async function buildStockValuationWorkbook(
+  merchantId: string,
+  outletId?: string,
+): Promise<{ workbook: Workbook; outlet: ExportOutlet | null }> {
   await requireFeature(merchantId, "excelIO");
+  const { outlet } = await resolveExportScope(merchantId, outletId);
+
   const products = await prisma.product.findMany({
-    where: { merchantId, deletedAt: null },
-    include: { category: true, outletProducts: { where: { deletedAt: null }, select: { stockQty: true } } },
+    where: {
+      merchantId,
+      deletedAt: null,
+      ...(outlet ? { outletProducts: { some: { outletId: outlet.id, deletedAt: null } } } : {}),
+    },
+    include: {
+      category: true,
+      outletProducts: {
+        where: { deletedAt: null, ...(outlet ? { outletId: outlet.id } : {}) },
+        select: { stockQty: true, priceOverride: true },
+      },
+    },
     orderBy: { name: "asc" },
   });
 
@@ -404,17 +463,18 @@ export async function buildStockValuationWorkbook(merchantId: string): Promise<W
 
   for (const p of products) {
     const stockQty = p.outletProducts.reduce((sum, op) => sum + op.stockQty, 0);
+    const sellPrice = outlet ? p.outletProducts[0]?.priceOverride ?? p.sellPrice : p.sellPrice;
     sheet.addRow({
       name: p.name,
       barcode: p.barcode ?? "",
       category: p.category?.name ?? "",
       stockQty,
       costPrice: p.costPrice,
-      sellPrice: p.sellPrice,
+      sellPrice,
       stockValue: p.costPrice * stockQty,
-      potentialMargin: (p.sellPrice - p.costPrice) * stockQty,
+      potentialMargin: (sellPrice - p.costPrice) * stockQty,
     });
   }
 
-  return workbook;
+  return { workbook, outlet };
 }

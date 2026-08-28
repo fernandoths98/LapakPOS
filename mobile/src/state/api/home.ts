@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { HomeAlertsResponse, TodaySummaryResponse } from "@lapak/shared";
 import { apiClient } from "./apiClient";
+import { useOutletScopeKey } from "../outlet/outletStore";
 
-/** GET /api/sales/summary/today — today's takings total, tender mix, and change vs yesterday. */
+/** GET /api/sales/summary/today — the active outlet's takings today, tender mix, and change vs yesterday. */
 export function useTodaySummary() {
+  const outletKey = useOutletScopeKey();
   return useQuery({
-    queryKey: ["home", "today-summary"],
+    queryKey: ["home", "today-summary", outletKey],
     queryFn: async () => {
       const { data } = await apiClient.get<TodaySummaryResponse>("/api/sales/summary/today");
       return data;

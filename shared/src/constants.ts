@@ -9,6 +9,11 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const BUSINESS_TYPES = ["retail", "restaurant"] as const;
 export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
+/** The three Indonesian timezones an outlet may keep its calendar days in. WIB is the default. */
+export const OUTLET_TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
+export type OutletTimezone = (typeof OUTLET_TIMEZONES)[number];
+export const DEFAULT_OUTLET_TIMEZONE: OutletTimezone = "Asia/Jakarta";
+
 export const PLAN_CODES = ["free", "starter", "growth", "pro"] as const;
 export type PlanCode = (typeof PLAN_CODES)[number];
 

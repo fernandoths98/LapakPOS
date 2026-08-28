@@ -3,16 +3,20 @@ import { Alert, Platform, ScrollView, StyleSheet, useWindowDimensions, View } fr
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Check } from "lucide-react-native";
 import { formatRupiah, TenderType } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { colors, space } from "../../theme/tokens";
 import { useCartStore } from "../../state/cart/cartStore";
 import { useMerchant } from "../../state/api/merchant";
+import { useAccountSetup } from "../../state/api/account";
 import { SellStackParamList } from "../../app/stacks/SellStack";
 import { PrintSheetScreen } from "../Print/PrintSheetScreen";
 import { IOS_UNAVAILABLE_MESSAGE, ReceiptLine } from "../../lib/bluetoothPrinter";
 import { buildSaleReceiptLines } from "../../lib/bluetoothPrinter/receiptFormatting";
+
+const RECEIPT_MONO = Platform.select({ ios: "Menlo", default: "monospace" });
 
 const TENDER_LABEL: Record<TenderType, string> = {
   cash: "Tunai",
@@ -27,18 +31,27 @@ export function PaidScreen() {
   const { sale, cashReceived, change } = route.params;
   const clearCart = useCartStore((s) => s.clear);
   const merchantQuery = useMerchant();
+  const accountQuery = useAccountSetup();
   const merchantName = merchantQuery.data?.name ?? "Kotdee POS";
-  const merchantAddressLine = [merchantQuery.data?.address, merchantQuery.data?.phone].filter(Boolean).join(" · ");
 
-  const time = new Date(sale.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const outlets = accountQuery.data?.outlets ?? [];
+  const saleOutlet = outlets.find((o) => o.id === sale.outletId);
+  // Only worth a dedicated line once the merchant actually runs more than one outlet.
+  const receiptOutlet = outlets.length > 1 && saleOutlet ? { name: saleOutlet.name, address: saleOutlet.address } : null;
+
+  const time = new Date(sale.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const tenderLabel = TENDER_LABEL[sale.tenderType];
   const [printSheetVisible, setPrintSheetVisible] = useState(false);
   const { width, height } = useWindowDimensions();
   const isLandscape = width >= 800 && width > height;
 
-  const receiptLines: ReceiptLine[] = buildSaleReceiptLines(sale, tenderLabel, {
-    name: merchantName,
-    addressLine: merchantAddressLine,
+  const receiptLines: ReceiptLine[] = buildSaleReceiptLines(sale, {
+    tenderLabel,
+    cashierName: sale.cashierName || "Kasir",
+    merchant: { name: merchantName, address: merchantQuery.data?.address ?? null, phone: merchantQuery.data?.phone ?? null },
+    outlet: receiptOutlet,
+    cashReceived,
+    change,
   });
 
   const handlePrint = () => {
@@ -59,9 +72,7 @@ export function PaidScreen() {
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, isLandscape && styles.contentLandscape]}>
       <View style={[styles.hero, isLandscape && styles.heroLandscape]}>
         <View style={styles.check}>
-          <Text variant="h1" color={colors.accent700} style={styles.checkGlyph}>
-            ✓
-          </Text>
+          <Check size={34} color={colors.accent700} strokeWidth={2.5} />
         </View>
         <Text variant="h1" style={styles.paidTitle}>
           Pembayaran berhasil
@@ -74,54 +85,17 @@ export function PaidScreen() {
       <View style={[styles.receiptColumn, isLandscape && styles.receiptColumnLandscape]}>
       <Text variant="kicker" style={styles.receiptLabel}>PREVIEW STRUK</Text>
       <View style={styles.receipt}>
-        <Text variant="h3" style={styles.receiptMerchant}>
-          {merchantName}
-        </Text>
-        <Text variant="caption" style={styles.receiptAddress}>
-          {merchantAddressLine}
-        </Text>
-        <View style={styles.dashedRule} />
-        {sale.lineItems.map((line) => (
-          <View key={line.id} style={styles.receiptItem}>
-            <Text variant="caption" style={styles.receiptProduct} numberOfLines={1}>{line.productName}</Text>
-            <View style={styles.receiptRow}>
-              <Text variant="caption" style={styles.receiptUnit}>{line.qty} × {formatRupiah(line.unitPrice)}</Text>
-              <Text variant="caption" style={styles.receiptRight}>{formatRupiah(line.lineTotal)}</Text>
-            </View>
-          </View>
-        ))}
-        <View style={styles.receiptRow}>
-          <Text variant="caption" style={styles.receiptLeft}>
-            Pembayaran
-          </Text>
-          <Text variant="caption" style={styles.receiptRight}>
-            {tenderLabel}
-          </Text>
+        <View style={styles.receiptBlock}>
+          {receiptLines.map((line, index) => (
+            <Text
+              key={index}
+              style={[styles.receiptMono, { textAlign: line.align ?? "left" }, line.bold && styles.receiptMonoBold]}
+              numberOfLines={1}
+            >
+              {line.text.length > 0 ? line.text : " "}
+            </Text>
+          ))}
         </View>
-        {cashReceived !== undefined ? (
-          <>
-            <View style={styles.receiptRow}>
-              <Text variant="caption" style={styles.receiptLeft}>Tunai</Text>
-              <Text variant="caption" style={styles.receiptRight}>{formatRupiah(cashReceived)}</Text>
-            </View>
-            <View style={styles.receiptRow}>
-              <Text variant="caption" style={styles.receiptLeft}>Kembalian</Text>
-              <Text variant="caption" style={styles.receiptRight}>{formatRupiah(change ?? 0)}</Text>
-            </View>
-          </>
-        ) : null}
-        <View style={styles.dashedRule} />
-        <View style={styles.receiptRow}>
-          <Text variant="caption" style={styles.receiptTotalLabel}>
-            TOTAL
-          </Text>
-          <Text variant="caption" style={styles.receiptTotalValue}>
-            {formatRupiah(sale.total)}
-          </Text>
-        </View>
-        <Text variant="caption" style={styles.receiptFooter}>
-          Terima kasih · powered by Kotdee POS
-        </Text>
       </View>
 
       <View style={styles.actions}>
@@ -156,7 +130,6 @@ const styles = StyleSheet.create({
   },
   heroLandscape: { width: 300, borderBottomWidth: 0, paddingTop: space[8] },
   check: { alignItems: "center", justifyContent: "center" },
-  checkGlyph: { fontSize: 34, lineHeight: 38 },
   paidTitle: { marginTop: space[2] },
   receiptColumn: { width: "100%" },
   receiptColumnLandscape: { width: 430 },
@@ -164,23 +137,22 @@ const styles = StyleSheet.create({
   receipt: {
     borderWidth: 1,
     borderColor: colors.divider,
-    backgroundColor: colors.neutral100,
-    paddingHorizontal: space[3],
-    paddingTop: space[3],
-    paddingBottom: space[4],
+    backgroundColor: colors.surface,
+    paddingVertical: space[4],
+    paddingHorizontal: space[2],
+    alignItems: "center",
   },
-  receiptMerchant: { textAlign: "center", letterSpacing: 1 },
-  receiptAddress: { textAlign: "center", marginTop: 2 },
-  dashedRule: { borderTopWidth: 1, borderTopColor: colors.neutral400, borderStyle: "dashed", marginVertical: space[2] },
-  receiptRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  receiptItem: { marginBottom: 3 },
-  receiptProduct: { fontWeight: "600" },
-  receiptUnit: { flex: 1, paddingLeft: 8, color: colors.neutral700 },
-  receiptLeft: { flex: 1 },
-  receiptRight: { flexShrink: 0 },
-  receiptTotalLabel: { fontSize: 12.5 },
-  receiptTotalValue: { fontSize: 12.5 },
-  receiptFooter: { textAlign: "center", marginTop: space[2] },
+  // Auto-widths to the 32-char dashed rule, so short lines left-align to the
+  // same edge instead of each centering itself in the card.
+  receiptBlock: { alignSelf: "center" },
+  receiptMono: {
+    fontFamily: RECEIPT_MONO,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.text,
+    includeFontPadding: false,
+  },
+  receiptMonoBold: { fontWeight: "700" },
   actions: { flexDirection: "row", gap: space[2], marginTop: space[4] },
   actionButton: { flex: 1 },
   shareCaption: { textAlign: "center", marginTop: space[3] },

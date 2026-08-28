@@ -34,3 +34,12 @@ export const useOutletStore = create<OutletState>()(
 
 /** Non-hook accessor for the axios interceptor. */
 export const getActiveOutletId = (): string | null => useOutletStore.getState().activeOutletId;
+
+/**
+ * A stable value to append to an outlet-scoped React Query key so switching
+ * outlets keeps each outlet's cache separate (instant switch-back, no flash
+ * of the previous outlet's data). `"token"` = "whatever the JWT outlet is".
+ */
+export function useOutletScopeKey(): string {
+  return useOutletStore((s) => s.activeOutletId) ?? "token";
+}

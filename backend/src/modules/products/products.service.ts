@@ -2,7 +2,7 @@ import { CreateProductRequest, Category, Product, UpdateProductRequest } from "@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { assertWithinQuota } from "../subscription/entitlements.service";
-import { badRequest, notFound } from "../../utils/errors";
+import { badRequest, forbidden, notFound } from "../../utils/errors";
 
 type ProductWithCategory = Prisma.ProductGetPayload<{ include: { category: true } }>;
 type Tx = Prisma.TransactionClient;
@@ -265,6 +265,19 @@ export async function updateProduct(
   }
   if (body.barcode) {
     await assertBarcodeAvailable(merchantId, body.barcode, id);
+  }
+
+  // A franchise outlet cannot change the merchant-level reference price or
+  // reassign the master product — those are set by head office. Per-outlet
+  // price is set via `priceOverride` on inventory (subject to the agreement).
+  if (body.sellPrice !== undefined || body.categoryId !== undefined || body.barcode !== undefined) {
+    const agreement = await prisma.franchiseAgreement.findFirst({
+      where: { outletId, status: "active" },
+      select: { id: true },
+    });
+    if (agreement) {
+      throw forbidden("Produk & harga acuan diatur oleh pusat (franchise). Ubah harga lewat Stok outlet.");
+    }
   }
 
   const { product, op } = await prisma.$transaction(async (tx) => {

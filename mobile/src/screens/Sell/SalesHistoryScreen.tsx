@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatRupiah, Sale } from '@lapak/shared';
 import { SellStackParamList } from '../../app/stacks/SellStack';
 import { useRecentSales } from '../../state/api/sales';
+import { useEntitlements } from '../../state/api/subscription';
 import { Text } from '../../theme/Text';
 import { colors, radius, space } from '../../theme/tokens';
 
@@ -14,11 +15,18 @@ const TENDER_LABEL = { cash: 'Tunai', qris: 'QRIS', debit: 'Debit', split: 'Spli
 export function SalesHistoryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<SellStackParamList>>();
   const sales = useRecentSales();
+  const entitlements = useEntitlements();
+  const historyDays = entitlements.data?.entitlements.reportHistoryDays;
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.back}><Text variant="h2">‹</Text></Pressable>
-        <View><Text variant="h2">Riwayat transaksi</Text><Text variant="caption">Ketuk transaksi untuk melihat dan mencetak ulang struk</Text></View>
+        <View>
+          <Text variant="h2">Riwayat transaksi</Text>
+          <Text variant="caption">
+            {historyDays ? `${historyDays} hari terakhir · ` : ''}Ketuk transaksi untuk cetak ulang struk
+          </Text>
+        </View>
       </View>
       {sales.isLoading ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : (
         <FlatList
