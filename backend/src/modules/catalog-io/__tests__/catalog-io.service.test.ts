@@ -234,7 +234,7 @@ describe("catalog-io.service", () => {
         });
       }
 
-      const workbook = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID);
+      const { workbook } = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID);
       const sheet = workbook.getWorksheet("Stock & valuation");
       expect(sheet).toBeDefined();
       // header row + 2 data rows
@@ -243,6 +243,41 @@ describe("catalog-io.service", () => {
       const beras = sheet!.getRow(2);
       expect(beras.getCell(1).value).toBe("Beras 5kg");
       expect(beras.getCell(7).value).toBe(58000 * 10); // stock value
+    });
+
+    it("scopes a stock valuation workbook to one outlet's own stock and effective price", async () => {
+      await prisma.outletProduct.deleteMany({ where: { product: { merchantId: OTHER_MERCHANT_ID } } });
+      await prisma.product.deleteMany({ where: { merchantId: OTHER_MERCHANT_ID } });
+      const second = await prisma.outlet.create({
+        data: { merchantId: OTHER_MERCHANT_ID, name: "Cabang Dua", code: "DUA" },
+      });
+      // Carried at OTHER_OUTLET_ID (qty 10, price override 70000); absent from "DUA".
+      await prisma.product.create({
+        data: {
+          merchantId: OTHER_MERCHANT_ID,
+          name: "Beras 5kg",
+          sellPrice: 65000,
+          costPrice: 58000,
+          stockQty: 10,
+          outletProducts: { create: { outletId: OTHER_OUTLET_ID, stockQty: 10, priceOverride: 70000 } },
+        },
+      });
+
+      const scoped = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID, OTHER_OUTLET_ID);
+      const scopedSheet = scoped.workbook.getWorksheet("Stock & valuation")!;
+      expect(scoped.outlet?.code).toBe("UTAMA");
+      expect(scopedSheet.rowCount).toBe(2); // header + Beras only
+      expect(scopedSheet.getRow(2).getCell(4).value).toBe(10); // that outlet's stock
+      expect(scopedSheet.getRow(2).getCell(6).value).toBe(70000); // priceOverride wins
+
+      const emptyOutlet = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID, second.id);
+      expect(emptyOutlet.workbook.getWorksheet("Stock & valuation")!.rowCount).toBe(1); // header only
+
+      await expect(
+        catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID, "00000000-0000-0000-0000-0000000009ff"),
+      ).rejects.toThrow(AppError);
+
+      await prisma.outlet.delete({ where: { id: second.id } });
     });
 
     it("builds a sales ledger workbook with one row per line item in the target month", async () => {
@@ -284,11 +319,18 @@ describe("catalog-io.service", () => {
       expect(label).toBe("2026-05");
       const sheet = workbook.getWorksheet("Sales ledger");
       expect(sheet!.rowCount).toBe(2); // header + 1 line item
-      expect(sheet!.getRow(2).getCell(2).value).toBe("9001");
+      expect(sheet!.getRow(2).getCell(2).value).toBe("Catalog IO Other Outlet"); // Outlet column
+      expect(sheet!.getRow(2).getCell(3).value).toBe("9001"); // Order No, shifted right by the Outlet column
 
       // A different month has no rows.
       const { workbook: emptyWorkbook } = await catalogIoService.buildSalesLedgerWorkbook(OTHER_MERCHANT_ID, "2026-06");
       expect(emptyWorkbook.getWorksheet("Sales ledger")!.rowCount).toBe(1); // header only
+
+      // Scoping to a different outlet excludes this sale.
+      const other = await prisma.outlet.create({ data: { merchantId: OTHER_MERCHANT_ID, name: "Cabang Lain", code: "LAIN" } });
+      const { workbook: scoped } = await catalogIoService.buildSalesLedgerWorkbook(OTHER_MERCHANT_ID, "2026-05", other.id);
+      expect(scoped.getWorksheet("Sales ledger")!.rowCount).toBe(1); // header only
+      await prisma.outlet.delete({ where: { id: other.id } });
 
       await prisma.saleLineItem.deleteMany({ where: { saleId: sale.id } });
       await prisma.sale.delete({ where: { id: sale.id } });

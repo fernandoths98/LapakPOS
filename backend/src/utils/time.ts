@@ -107,3 +107,14 @@ export function dayBoundsForKey(dateKey: string, timeZone: string = DEFAULT_TIME
 export function dayBoundsInTz(at: Date, timeZone: string = DEFAULT_TIMEZONE): { start: Date; end: Date } {
   return dayBoundsForKey(localDateKey(at, timeZone), timeZone);
 }
+
+/** `[start, end)` UTC instants spanning the local calendar month `monthKey` (`"YYYY-MM"`) in `timeZone`. */
+export function monthBoundsForKey(monthKey: string, timeZone: string = DEFAULT_TIMEZONE): { start: Date; end: Date } {
+  const [y, m] = monthKey.split("-").map(Number);
+  const firstOfMonth = `${monthKey}-01`;
+  const firstOfNext = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
+  return {
+    start: dayBoundsForKey(firstOfMonth, timeZone).start,
+    end: dayBoundsForKey(firstOfNext, timeZone).start,
+  };
+}

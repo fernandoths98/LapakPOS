@@ -32,25 +32,31 @@ const exportSalesLedgerQuerySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}$/, "month must be in YYYY-MM format")
     .optional(),
+  outletId: z.string().uuid().optional(),
 });
 
 export async function exportSalesLedgerHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
-  const { month } = exportSalesLedgerQuerySchema.parse(req.query);
-  const { workbook, label } = await catalogIoService.buildSalesLedgerWorkbook(req.user.merchantId, month);
+  const { month, outletId } = exportSalesLedgerQuerySchema.parse(req.query);
+  const { workbook, label, outlet } = await catalogIoService.buildSalesLedgerWorkbook(req.user.merchantId, month, outletId);
 
+  const suffix = outlet ? `-${outlet.code}` : "";
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", `attachment; filename="sales-ledger-${label}.xlsx"`);
+  res.setHeader("Content-Disposition", `attachment; filename="sales-ledger-${label}${suffix}.xlsx"`);
   await workbook.xlsx.write(res);
   res.end();
 }
 
+const exportStockValuationQuerySchema = z.object({ outletId: z.string().uuid().optional() });
+
 export async function exportStockValuationHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
-  const workbook = await catalogIoService.buildStockValuationWorkbook(req.user.merchantId);
+  const { outletId } = exportStockValuationQuerySchema.parse(req.query);
+  const { workbook, outlet } = await catalogIoService.buildStockValuationWorkbook(req.user.merchantId, outletId);
 
+  const suffix = outlet ? `-${outlet.code}` : "";
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", 'attachment; filename="stock-valuation.xlsx"');
+  res.setHeader("Content-Disposition", `attachment; filename="stock-valuation${suffix}.xlsx"`);
   await workbook.xlsx.write(res);
   res.end();
 }
