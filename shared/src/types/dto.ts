@@ -30,7 +30,7 @@ export interface RegisterResponse extends LoginResponse {
   subscription: { planCode: PlanCode; status: SubscriptionStatus; trialEndsAt: string | null };
 }
 
-export interface OutletDto { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; isActive: boolean; createdAt: string }
+export interface OutletDto { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; timezone: string; isActive: boolean; createdAt: string }
 export interface StaffDto { id: string; name: string; email: string; role: UserRole; outletId: string | null; isActive: boolean; createdAt: string }
 export interface AccountSetupResponse {
   merchant: { id: string; name: string; slug: string | null; businessType: BusinessType; onboardingCompleted: boolean; trialEndsAt: string | null };
@@ -38,7 +38,7 @@ export interface AccountSetupResponse {
   outlets: OutletDto[];
   staff: StaffDto[];
 }
-export interface CreateOutletRequest { name: string; code: string; address?: string; phone?: string; type?: "owned" | "franchise" }
+export interface CreateOutletRequest { name: string; code: string; address?: string; phone?: string; type?: "owned" | "franchise"; timezone?: string }
 export interface CreateStaffRequest { name: string; email?: string; role: Exclude<UserRole, "owner">; outletId: string; pin: string; password?: string }
 export interface PinLoginRequest { businessSlug: string; outletCode: string; pin: string }
 

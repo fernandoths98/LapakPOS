@@ -1,26 +1,38 @@
 import { OutletReportRow, OutletReportsResponse } from "@lapak/shared";
 import { prisma } from "../../db/prisma";
 import { resolvePlan } from "../subscription/entitlements.service";
+import { DEFAULT_TIMEZONE, dayBoundsInTz } from "../../utils/time";
 
 /**
  * GET /api/reports/outlets — one row per outlet for the trailing `days`
  * (clamped to the plan's report-history limit): revenue, transaction count,
  * average ticket, low-stock SKU count, and whether a shift is open right now.
  * A single-outlet merchant just sees one row.
+ *
+ * Each outlet's window ends at *its own* local end-of-today (WIB fallback), so
+ * a merchant spanning WIB/WITA/WIT outlets gets each row bucketed by the day
+ * that outlet actually keeps. The response envelope's `from`/`to` report the
+ * primary outlet's window.
  */
 export async function getOutletReports(merchantId: string, requestedDays: number): Promise<OutletReportsResponse> {
   const plan = await resolvePlan(merchantId);
   const days = Math.max(1, Math.min(requestedDays, plan.entitlements.reportHistoryDays));
-  const to = new Date();
-  const from = new Date(to.getTime() - days * 86_400_000);
+  const now = new Date();
+  const outletWindow = (timeZone: string): { from: Date; to: Date } => {
+    const to = dayBoundsInTz(now, timeZone).end;
+    return { from: new Date(to.getTime() - days * 86_400_000), to };
+  };
 
   const outlets = await prisma.outlet.findMany({
     where: { merchantId },
     orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
   });
 
+  const envelope = outletWindow(outlets[0]?.timezone ?? DEFAULT_TIMEZONE);
+
   const rows: OutletReportRow[] = await Promise.all(
     outlets.map(async (outlet): Promise<OutletReportRow> => {
+      const { from, to } = outletWindow(outlet.timezone ?? DEFAULT_TIMEZONE);
       const [sales, lowStock, openShift] = await Promise.all([
         prisma.sale.aggregate({
           where: { merchantId, outletId: outlet.id, createdAt: { gte: from, lt: to } },
@@ -52,8 +64,8 @@ export async function getOutletReports(merchantId: string, requestedDays: number
 
   return {
     days,
-    from: from.toISOString(),
-    to: to.toISOString(),
+    from: envelope.from.toISOString(),
+    to: envelope.to.toISOString(),
     rows,
     totals: {
       revenue: rows.reduce((s, r) => s + r.revenue, 0),

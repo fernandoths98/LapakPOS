@@ -188,7 +188,7 @@ model Outlet {
   phone      String?
   isPrimary  Boolean    @default(false) @map("is_primary")
   type       OutletType @default(owned)
-  timezone   String?
+  timezone   String     @default("Asia/Jakarta")
   isActive   Boolean    @default(true) @map("is_active")
   createdAt  DateTime   @default(now()) @map("created_at")
   users      User[]

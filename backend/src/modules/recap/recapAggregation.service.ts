@@ -1,6 +1,7 @@
 import { TodaySummaryResponse } from "@lapak/shared";
 import { prisma } from "../../db/prisma";
-import { dayBounds, getDaySummary } from "../sales/sales.service";
+import { dayBounds, getDaySummary, resolveTimeZone } from "../sales/sales.service";
+import { hourInTz, localDateKey } from "../../utils/time";
 import { getCostIncreases, getLowStockWithSaleRate, SALE_RATE_WINDOW_DAYS } from "../home/salesInsights.queries";
 import { getTopSellersForWindow } from "./topSellers.queries";
 
@@ -99,8 +100,8 @@ async function getRecentCostIncreases(merchantId: string): Promise<AggCostIncrea
  * to compare), or when no opening-hour bucket has any sales (can't tell a
  * genuinely quiet hour from one where the shop simply wasn't recording data).
  */
-async function getQuietHour(merchantId: string): Promise<AggQuietHour | null> {
-  const end = dayBounds(new Date()).end; // through the end of today
+async function getQuietHour(merchantId: string, timeZone: string): Promise<AggQuietHour | null> {
+  const end = dayBounds(new Date(), timeZone).end; // through the end of today
   const start = new Date(end);
   start.setDate(start.getDate() - QUIET_HOUR_WINDOW_DAYS);
 
@@ -113,7 +114,7 @@ async function getQuietHour(merchantId: string): Promise<AggQuietHour | null> {
   const revenueByHour = new Map<number, number>();
   const countByHour = new Map<number, number>();
   for (const sale of sales) {
-    const hour = sale.createdAt.getHours();
+    const hour = hourInTz(sale.createdAt, timeZone);
     revenueByHour.set(hour, (revenueByHour.get(hour) ?? 0) + sale.total);
     countByHour.set(hour, (countByHour.get(hour) ?? 0) + 1);
   }
@@ -134,16 +135,17 @@ async function getQuietHour(merchantId: string): Promise<AggQuietHour | null> {
 
 /** Builds the full aggregation context for one merchant + calendar day. Pure SQL/Prisma — no AI call in here. */
 export async function buildRecapAggregation(merchantId: string, date: Date): Promise<RecapAggregationContext> {
-  const { start, end } = dayBounds(date);
+  const timeZone = await resolveTimeZone(merchantId);
+  const { start, end } = dayBounds(date, timeZone);
   const [today, topSellers, lowStock, costIncreases, quietHour] = await Promise.all([
-    getDaySummary(merchantId, date),
+    getDaySummary(merchantId, date, undefined, timeZone),
     getTopSellers(merchantId, start, end),
     getLowStockWithCover(merchantId),
     getRecentCostIncreases(merchantId),
-    getQuietHour(merchantId),
+    getQuietHour(merchantId, timeZone),
   ]);
 
-  const recapDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+  const recapDate = localDateKey(date, timeZone);
 
   return { recapDate, today, topSellers, lowStock, costIncreases, quietHour };
 }
