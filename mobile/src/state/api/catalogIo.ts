@@ -47,6 +47,31 @@ const EXPORT_PATHS: Record<CatalogExportKind, string> = {
 };
 
 /**
+ * Downloads the blank import template (`GET /api/catalog/import/template`) to
+ * app cache and hands it to the OS share sheet — same streaming-to-disk +
+ * share flow as the exports, so the owner can open it in Excel / Google
+ * Sheets / WhatsApp it to whoever keeps their spreadsheet.
+ */
+export async function downloadImportTemplate(): Promise<void> {
+  const token = useAuthStore.getState().token;
+  const fileName = "template-import-produk.xlsx";
+  const dest = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${fileName}`;
+
+  const response = await ReactNativeBlobUtil.config({ fileCache: true, path: dest }).fetch(
+    "GET",
+    `${API_BASE_URL}/api/catalog/import/template`,
+    token ? { Authorization: `Bearer ${token}` } : undefined,
+  );
+
+  await Share.open({
+    url: `file://${response.path()}`,
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    filename: fileName,
+    failOnCancel: false,
+  });
+}
+
+/**
  * Downloads one of the two export endpoints straight to a real .xlsx file in
  * app cache storage — react-native-blob-util can stream a binary response to
  * disk and attach the auth header directly to the request, which plain fetch

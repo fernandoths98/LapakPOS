@@ -292,7 +292,7 @@ export interface ImportPreviewRequest {
 
 export interface ImportColumnMapping {
   column: string;
-  field: "name" | "sellPrice" | "costPrice" | "stockQty" | "barcode" | "ignored";
+  field: "name" | "sellPrice" | "costPrice" | "stockQty" | "barcode" | "category" | "ignored";
   needsReview: boolean;
 }
 

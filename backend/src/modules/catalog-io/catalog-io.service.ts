@@ -15,7 +15,7 @@ import { DEFAULT_TIMEZONE, localDateKey, monthBoundsForKey } from "../../utils/t
 
 // ── Column matching ─────────────────────────────────────────────────────
 
-type MappedField = "name" | "sellPrice" | "costPrice" | "stockQty" | "barcode" | "ignored";
+type MappedField = "name" | "sellPrice" | "costPrice" | "stockQty" | "barcode" | "category" | "ignored";
 type KnownField = Exclude<MappedField, "ignored">;
 
 /**
@@ -23,6 +23,9 @@ type KnownField = Exclude<MappedField, "ignored">;
  * demonstrates (NAMA BARANG → Name, HRG JUAL → Sell price, etc). A plain
  * normalized-exact-alias lookup — no fuzzy matching library — matches what
  * the prototype shows and is enough for the real warungs' spreadsheet habits.
+ * `category` is optional: a row with one is filed under it (the category is
+ * created if it doesn't exist yet), which is what keeps freshly-imported
+ * products from vanishing behind the Sell screen's category pills.
  */
 const FIELD_ALIASES: Record<KnownField, string[]> = {
   name: ["NAMA BARANG", "NAMA", "NAME", "PRODUK", "PRODUCT"],
@@ -30,6 +33,7 @@ const FIELD_ALIASES: Record<KnownField, string[]> = {
   costPrice: ["HRG BELI", "HARGA BELI", "COST", "MODAL", "HPP"],
   stockQty: ["QTY", "STOK", "STOCK", "JUMLAH"],
   barcode: ["KODE", "BARCODE", "KODE BARANG", "KODE BATANG"],
+  category: ["KATEGORI", "CATEGORY", "KAT", "JENIS", "GOLONGAN"],
 };
 
 const KNOWN_FIELDS = Object.keys(FIELD_ALIASES) as KnownField[];
@@ -54,6 +58,7 @@ interface StoredPreviewRow {
   costPrice: number | null;
   stockQty: number | null;
   barcode: string | null;
+  category: string | null;
   flagged: boolean;
 }
 
@@ -138,6 +143,7 @@ export async function previewImport(merchantId: string, body: ImportPreviewReque
     const costPriceRaw = readField(raw, "costPrice");
     const stockQtyRaw = readField(raw, "stockQty");
     const barcodeRaw = readField(raw, "barcode")?.trim();
+    const categoryRaw = readField(raw, "category")?.trim();
 
     const name = nameRaw || null;
     // parseRupiah("") and parseRupiah("abc") both settle to 0, which is
@@ -160,6 +166,7 @@ export async function previewImport(merchantId: string, body: ImportPreviewReque
       costPrice,
       stockQty,
       barcode,
+      category: categoryRaw ? categoryRaw.slice(0, 40) : null,
       flagged: priceIssue || duplicateBarcode,
     };
   });
@@ -197,18 +204,14 @@ function buildFlaggedReasons(priceFlagCount: number, duplicateBarcodeFlagCount: 
 
   const parts: string[] = [];
   if (priceFlagCount > 0) {
-    parts.push(
-      `${priceFlagCount} row${priceFlagCount === 1 ? "" : "s"} ${priceFlagCount === 1 ? "has" : "have"} a missing, zero, or invalid price`,
-    );
+    parts.push(`${priceFlagCount} baris harganya kosong, nol, atau bukan angka`);
   }
   if (duplicateBarcodeFlagCount > 0) {
-    parts.push(
-      `${duplicateBarcodeFlagCount} row${duplicateBarcodeFlagCount === 1 ? "" : "s"} ${duplicateBarcodeFlagCount === 1 ? "has" : "have"} a duplicate barcode`,
-    );
+    parts.push(`${duplicateBarcodeFlagCount} baris punya KODE yang sama`);
   }
 
-  const joined = parts.length === 2 ? `${parts[0]} and ${parts[1]}` : parts[0];
-  return [`${joined} — they are held back for review.`];
+  const joined = parts.length === 2 ? `${parts[0]} dan ${parts[1]}` : parts[0];
+  return [`${joined} — baris itu ditahan dulu untuk dicek.`];
 }
 
 // ── Commit ───────────────────────────────────────────────────────────────
@@ -220,9 +223,10 @@ function buildFlaggedReasons(priceFlagCount: number, duplicateBarcodeFlagCount: 
  * reviving it if it was soft-deleted, since re-importing a catalog that
  * includes a previously-removed barcode is a clear signal the merchant wants
  * it active again — and writes cost history the same way a manual edit does.
- * A row with no barcode, or one that matches nothing, creates a new product
- * with no category (the prototype's mapping never shows a category column).
- * Deletes the preview from the in-memory store once committed.
+ * A row with no barcode, or one that matches nothing, creates a new product.
+ * A `KATEGORI` cell files the product under that category, creating it if it
+ * doesn't exist yet. Deletes the preview from the in-memory store once
+ * committed.
  */
 export async function commitImport(merchantId: string, previewId: string): Promise<ImportCommitResponse> {
   await requireFeature(merchantId, "excelIO");
@@ -262,12 +266,37 @@ export async function commitImport(merchantId: string, previewId: string): Promi
       select: { id: true },
     });
 
+    // Resolve a KATEGORI cell to a category id, creating (or reviving) the
+    // category on first sight. Keyed case-insensitively so "Rokok" and
+    // "rokok" file together, matching the `@@unique([merchantId, name])`
+    // dedupe rule.
+    const categoryIdByName = new Map<string, string>(
+      (await tx.category.findMany({ where: { merchantId }, select: { id: true, name: true } })).map((c) => [
+        c.name.trim().toLowerCase(),
+        c.id,
+      ]),
+    );
+    const resolveCategoryId = async (rawName: string): Promise<string> => {
+      const key = rawName.trim().toLowerCase();
+      const cached = categoryIdByName.get(key);
+      if (cached) return cached;
+      const category = await tx.category.upsert({
+        where: { merchantId_name: { merchantId, name: rawName.trim() } },
+        update: {},
+        create: { merchantId, name: rawName.trim() },
+        select: { id: true },
+      });
+      categoryIdByName.set(key, category.id);
+      return category.id;
+    };
+
     for (const row of importableRows) {
       const name = row.name ?? "Imported product";
       const sellPrice = row.sellPrice ?? 0;
       const costPrice = row.costPrice ?? 0;
       const stockQty = row.stockQty ?? 0;
       const barcode = row.barcode;
+      const categoryId = row.category ? await resolveCategoryId(row.category) : null;
 
       // Matched without a deletedAt filter, mirroring products.service's own
       // barcode-availability check — the schema's unique index on
@@ -277,7 +306,10 @@ export async function commitImport(merchantId: string, previewId: string): Promi
       if (existing) {
         await tx.product.update({
           where: { id: existing.id },
-          data: { name, sellPrice, costPrice, stockQty, deletedAt: null },
+          // Only overwrite the category when the sheet actually named one —
+          // an import that omits KATEGORI shouldn't wipe a product's existing
+          // category.
+          data: { name, sellPrice, costPrice, stockQty, deletedAt: null, ...(categoryId ? { categoryId } : {}) },
         });
         await recordCostChangeIfNeeded(tx, existing.id, existing.costPrice, costPrice);
         if (outlets[0]) {
@@ -290,7 +322,7 @@ export async function commitImport(merchantId: string, previewId: string): Promi
         updatedCount++;
       } else {
         const created = await tx.product.create({
-          data: { merchantId, categoryId: null, name, barcode, sellPrice, costPrice, stockQty, lowStockThreshold: 8 },
+          data: { merchantId, categoryId, name, barcode, sellPrice, costPrice, stockQty, lowStockThreshold: 8 },
         });
         if (outlets.length > 0) {
           await tx.outletProduct.createMany({
@@ -477,4 +509,44 @@ export async function buildStockValuationWorkbook(
   }
 
   return { workbook, outlet };
+}
+
+/**
+ * The blank import template: the exact header row the alias matcher expects,
+ * a few filled-in example rows a warung owner can copy, and a second sheet
+ * spelling out the rules in Bahasa Indonesia. Handed to the owner from the
+ * Excel screen so nobody has to guess the column names.
+ */
+export function buildImportTemplateWorkbook(): Workbook {
+  const workbook = new Workbook();
+
+  const sheet = workbook.addWorksheet("Produk");
+  sheet.columns = [
+    { header: "NAMA BARANG", key: "name", width: 32 },
+    { header: "HRG JUAL", key: "sellPrice", width: 12 },
+    { header: "HRG BELI", key: "costPrice", width: 12 },
+    { header: "QTY", key: "stockQty", width: 8 },
+    { header: "KODE", key: "barcode", width: 18 },
+    { header: "KATEGORI", key: "category", width: 16 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+  sheet.addRow({ name: "Indomie Goreng", sellPrice: 3500, costPrice: 2800, stockQty: 40, barcode: "8992388101010", category: "Makanan" });
+  sheet.addRow({ name: "Teh Botol 350ml", sellPrice: 4000, costPrice: 3000, stockQty: 24, barcode: "8993675123456", category: "Minuman" });
+  sheet.addRow({ name: "Beras 5kg", sellPrice: 68000, costPrice: 61000, stockQty: 10, barcode: "", category: "Sembako" });
+
+  const guide = workbook.addWorksheet("Petunjuk");
+  guide.columns = [{ header: "Cara mengisi", key: "line", width: 90 }];
+  guide.getRow(1).font = { bold: true };
+  [
+    "1. Jangan ubah baris judul (NAMA BARANG, HRG JUAL, dst). Nama kolom boleh huruf besar/kecil.",
+    "2. Satu baris = satu produk. Hapus contoh di sheet 'Produk' lalu isi produkmu sendiri.",
+    "3. NAMA BARANG dan HRG JUAL wajib diisi. Harga harus angka lebih dari 0 — baris tanpa harga ditahan.",
+    "4. HRG BELI dan QTY boleh dikosongkan (dianggap 0).",
+    "5. KODE (barcode) opsional. Kalau diisi, harus unik di file ini. KODE yang sudah ada di katalog = produk itu diperbarui, bukan dobel.",
+    "6. KATEGORI opsional. Kategori yang belum ada akan dibuat otomatis. Isi kategori supaya produk langsung muncul di pill kategori layar Kasir.",
+    "7. Simpan sebagai .xlsx, lalu pilih file ini di layar Excel aplikasi. Kamu bisa cek pencocokan kolom sebelum menyimpan.",
+    "8. Angka boleh pakai titik ribuan (mis. 68.000) — tetap terbaca.",
+  ].forEach((line) => guide.addRow({ line }));
+
+  return workbook;
 }

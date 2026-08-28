@@ -47,6 +47,16 @@ export async function exportSalesLedgerHandler(req: Request, res: Response): Pro
   res.end();
 }
 
+export async function exportImportTemplateHandler(req: Request, res: Response): Promise<void> {
+  if (!req.user) throw unauthorized();
+  const workbook = catalogIoService.buildImportTemplateWorkbook();
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", 'attachment; filename="template-import-produk.xlsx"');
+  await workbook.xlsx.write(res);
+  res.end();
+}
+
 const exportStockValuationQuerySchema = z.object({ outletId: z.string().uuid().optional() });
 
 export async function exportStockValuationHandler(req: Request, res: Response): Promise<void> {

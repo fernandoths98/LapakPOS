@@ -11,27 +11,30 @@ import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { Divider } from "../../components/Divider";
 import { colors, radius, space } from "../../theme/tokens";
-import { downloadAndShareExport, useImportCommit, useImportPreview } from "../../state/api/catalogIo";
+import { downloadAndShareExport, downloadImportTemplate, useImportCommit, useImportPreview } from "../../state/api/catalogIo";
 import { StockStackParamList } from "../../app/stacks/StockStack";
 
 const FIELD_LABELS: Record<ImportPreviewResponse["mapping"][number]["field"], string> = {
-  name: "Name",
-  sellPrice: "Sell price",
-  costPrice: "Cost",
-  stockQty: "Stock",
-  barcode: "Barcode",
-  ignored: "Ignored",
+  name: "Nama barang",
+  sellPrice: "Harga jual",
+  costPrice: "Harga beli",
+  stockQty: "Stok",
+  barcode: "Barcode (KODE)",
+  category: "Kategori",
+  ignored: "Diabaikan",
 };
 
-/**
- * Two real exports, not the prototype's mocked three: PPOB doesn't exist
- * yet (that lands in Phase 4), so a "PPOB commission" export would have
- * nothing behind it. Listing only what actually works is the honest scope
- * trim, not a gap.
- */
+const IMPORT_STEPS = [
+  "Unduh template di bawah, buka di Excel atau Google Sheet.",
+  "Hapus baris contoh, isi produkmu — satu baris satu produk.",
+  "Nama barang & harga jual wajib. Harga beli, stok, KODE, kategori boleh kosong.",
+  "Simpan sebagai .xlsx, lalu pilih file-nya di sini.",
+  "Cek pencocokan kolom, lalu tekan Impor.",
+];
+
 const EXPORTS: { key: "sales-ledger" | "stock-valuation"; name: string; sub: string }[] = [
-  { key: "sales-ledger", name: "Sales ledger", sub: "Per transaction, this month" },
-  { key: "stock-valuation", name: "Stock & valuation", sub: "Every SKU with cost and margin" },
+  { key: "sales-ledger", name: "Buku penjualan", sub: "Per transaksi, bulan ini" },
+  { key: "stock-valuation", name: "Stok & nilai barang", sub: "Semua produk dengan modal & margin" },
 ];
 
 /** Reads a picked spreadsheet file into {headers, rows} for the preview API — client-side parsing via SheetJS. */
@@ -49,7 +52,7 @@ async function parsePickedFile(uri: string, name: string): Promise<{ headers: st
   const workbook = XLSX.read(base64, { type: "base64" });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) {
-    throw new Error("The workbook has no sheets");
+    throw new Error("File tidak punya sheet.");
   }
 
   const sheet = workbook.Sheets[sheetName];
@@ -59,7 +62,7 @@ async function parsePickedFile(uri: string, name: string): Promise<{ headers: st
   const headerRow = (aoa[0] ?? []) as unknown[];
   const headers = headerRow.map((h) => String(h ?? "").trim()).filter((h) => h.length > 0);
   if (headers.length === 0) {
-    throw new Error("Couldn't find a header row in the sheet");
+    throw new Error("Baris judul kolom tidak ditemukan.");
   }
 
   const rows = (aoa.slice(1) as unknown[][])
@@ -72,7 +75,7 @@ async function parsePickedFile(uri: string, name: string): Promise<{ headers: st
       return record;
     });
   if (rows.length === 0) {
-    throw new Error("The sheet has no data rows");
+    throw new Error("Sheet tidak punya baris data.");
   }
 
   return { headers, rows };
@@ -90,6 +93,8 @@ export function SheetScreen() {
   const [commitResult, setCommitResult] = useState<ImportCommitResponse | null>(null);
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
 
   const handleChooseFile = async () => {
     setPickError(null);
@@ -111,7 +116,7 @@ export function SheetScreen() {
         // User backed out of the picker — not an error worth surfacing.
         return;
       }
-      const message = err instanceof Error ? err.message : "Couldn't read that file.";
+      const message = err instanceof Error ? err.message : "File tidak bisa dibaca.";
       setPickError(message);
     } finally {
       setIsPicking(false);
@@ -124,7 +129,19 @@ export function SheetScreen() {
       const result = await importCommit.mutateAsync({ previewId: preview.previewId });
       setCommitResult(result);
     } catch {
-      Alert.alert("Import failed", "Couldn't save these products. Check your connection and try again.");
+      Alert.alert("Impor gagal", "Produk belum tersimpan. Periksa koneksi lalu coba lagi.");
+    }
+  };
+
+  const handleTemplate = async () => {
+    setTemplateError(null);
+    setDownloadingTemplate(true);
+    try {
+      await downloadImportTemplate();
+    } catch {
+      setTemplateError("Template gagal diunduh. Periksa koneksi lalu coba lagi.");
+    } finally {
+      setDownloadingTemplate(false);
     }
   };
 
@@ -134,7 +151,7 @@ export function SheetScreen() {
     try {
       await downloadAndShareExport(key);
     } catch {
-      setExportError("Couldn't prepare that file. Check your connection and try again.");
+      setExportError("File gagal disiapkan. Periksa koneksi lalu coba lagi.");
     } finally {
       setExportingKey(null);
     }
@@ -145,18 +162,40 @@ export function SheetScreen() {
   return (
     <SafeAreaView style={styles.container} edges={[]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text variant="h2">Excel</Text>
+      <Text variant="h2">Impor & Ekspor Excel</Text>
       <Text variant="body" color={colors.neutral700} style={styles.intro}>
-        Bring a whole catalogue in from a spreadsheet, or take the ledger out for your accountant.
+        Masukkan katalog produk dari spreadsheet, atau ambil buku penjualan untuk pembukuan.
       </Text>
 
+      <View style={styles.stepsCard}>
+        <Text variant="kicker" color={colors.accent2700}>CARA IMPOR</Text>
+        {IMPORT_STEPS.map((step, i) => (
+          <View key={step} style={styles.stepRow}>
+            <View style={styles.stepNum}><Text variant="caption" color={colors.surface} style={styles.stepNumText}>{i + 1}</Text></View>
+            <Text variant="caption" color={colors.neutral700} style={styles.stepText}>{step}</Text>
+          </View>
+        ))}
+        <Button
+          title={downloadingTemplate ? "Menyiapkan…" : "Unduh template .xlsx"}
+          variant="secondary"
+          onPress={handleTemplate}
+          loading={downloadingTemplate}
+          disabled={downloadingTemplate}
+          fullWidth
+          style={styles.templateButton}
+        />
+        {templateError ? (
+          <Text variant="caption" color={colors.accent700} style={styles.errorText}>{templateError}</Text>
+        ) : null}
+      </View>
+
       <View style={styles.dropZone}>
-        <Text variant="h3">Drop or choose a .xlsx</Text>
+        <Text variant="h3">Pilih file .xlsx</Text>
         <Text variant="caption" color={colors.neutral600} style={styles.dropZoneHint}>
-          Columns are matched automatically — you confirm before anything saves.
+          Kolom dicocokkan otomatis — kamu konfirmasi dulu sebelum apa pun tersimpan.
         </Text>
         <Button
-          title={isBusy ? "Reading…" : "Choose file"}
+          title={isBusy ? "Membaca…" : "Pilih file"}
           onPress={handleChooseFile}
           loading={isBusy}
           disabled={isBusy}
@@ -178,7 +217,7 @@ export function SheetScreen() {
                 {fileName}
               </Text>
               <Text variant="caption" color={colors.neutral600} style={styles.previewRowCount}>
-                {preview.totalRows} row{preview.totalRows === 1 ? "" : "s"}
+                {preview.totalRows} baris
               </Text>
             </View>
 
@@ -196,7 +235,7 @@ export function SheetScreen() {
                   style={styles.mapField}
                 >
                   {FIELD_LABELS[m.field]}
-                  {m.needsReview ? " — confirm?" : ""}
+                  {m.needsReview ? " — cek?" : ""}
                 </Text>
               </View>
             ))}
@@ -213,7 +252,7 @@ export function SheetScreen() {
           </View>
 
           <Button
-            title={importCommit.isPending ? "Importing…" : `Import ${preview.importableRowCount} product${preview.importableRowCount === 1 ? "" : "s"}`}
+            title={importCommit.isPending ? "Menyimpan…" : `Impor ${preview.importableRowCount} produk`}
             onPress={handleImport}
             loading={importCommit.isPending}
             disabled={importCommit.isPending || preview.importableRowCount === 0}
@@ -225,22 +264,19 @@ export function SheetScreen() {
 
       {commitResult ? (
         <View style={styles.doneCard}>
-          <Text variant="h3">Catalog updated</Text>
+          <Text variant="h3">Katalog diperbarui</Text>
           <Text variant="body" color={colors.neutral700} style={styles.doneBody}>
-            {commitResult.createdCount} new product{commitResult.createdCount === 1 ? "" : "s"}, {commitResult.updatedCount} updated
-            {commitResult.skippedCount > 0
-              ? `, ${commitResult.skippedCount} skipped row${commitResult.skippedCount === 1 ? "" : "s"} held back for review`
-              : ""}
-            .
+            {commitResult.createdCount} produk baru, {commitResult.updatedCount} diperbarui
+            {commitResult.skippedCount > 0 ? `, ${commitResult.skippedCount} baris ditahan untuk dicek` : ""}.
           </Text>
-          <Button title="Back to Stock" onPress={() => navigation.navigate("Stock")} style={styles.doneButton} />
+          <Button title="Kembali ke Stok" onPress={() => navigation.navigate("Stock")} style={styles.doneButton} />
         </View>
       ) : null}
 
       <Divider />
 
       <Text variant="kicker" style={styles.exportKicker}>
-        Export
+        Ekspor
       </Text>
       {exportError ? (
         <Text variant="caption" color={colors.accent700} style={styles.errorText}>
@@ -279,6 +315,28 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: space[4], paddingBottom: space[8] },
   intro: { marginTop: space[2] },
+  stepsCard: {
+    marginTop: space[4],
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    padding: space[3],
+    gap: space[2],
+  },
+  stepRow: { flexDirection: "row", alignItems: "flex-start", gap: space[2] },
+  stepNum: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  stepNumText: { fontSize: 10, lineHeight: 14, fontWeight: "700" },
+  stepText: { flex: 1, lineHeight: 18 },
+  templateButton: { marginTop: space[2] },
   dropZone: {
     marginTop: space[4],
     borderWidth: 1,
