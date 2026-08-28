@@ -24,6 +24,7 @@ const SAMPLE_SALE: Sale = {
   merchantId: 'merchant-1',
   outletId: 'outlet-1',
   shiftId: 'shift-1',
+  cashierName: 'Sheila',
   orderNo: 'A-0001',
   clientId: 'client-1',
   tenderType: 'cash',
@@ -167,14 +168,17 @@ describe('receiptFormatting', () => {
       }
     });
 
-    it('centers the merchant name and wraps the address across lines', () => {
+    it('emits the header as raw centered lines (the printer does the centering)', () => {
       expect(lines[0]).toEqual({
-        text: centerText('WARUNG SARI RASA'),
+        text: 'WARUNG SARI RASA',
         align: 'center',
         bold: true,
       });
+      expect(lines[1]).toMatchObject({
+        text: 'Jl. Dr. Ir. H. Soekarno No.19,',
+        align: 'center',
+      });
       expect(text).toContain('No. Telp 0812345678');
-      expect(text).toContain('Jl. Dr. Ir. H. Soekarno');
       expect(text).toContain('Surabaya');
     });
 
@@ -196,7 +200,9 @@ describe('receiptFormatting', () => {
 
     it('shows Total QTY, a bold Total, and the cash paid / change', () => {
       expect(text).toContain('Total QTY : 2');
-      const totalLine = lines.find(l => l.text.startsWith('Total') && l.text.includes('Rp'));
+      const totalLine = lines.find(
+        l => l.text.startsWith('Total') && l.text.includes('Rp'),
+      );
       expect(totalLine?.bold).toBe(true);
       expect(totalLine?.text.trim().endsWith('Rp 24.000')).toBe(true);
       expect(text).toContain(formatRow('Sub Total', 'Rp 24.000'));
@@ -220,10 +226,10 @@ describe('receiptFormatting', () => {
 
     it('prints the full formatted receipt exactly as expected', () => {
       expect(text).toMatchInlineSnapshot(`
-        "        WARUNG SARI RASA
-         Jl. Dr. Ir. H. Soekarno No.19,
-           Medokan Semampir, Surabaya
-              No. Telp 0812345678
+        "WARUNG SARI RASA
+        Jl. Dr. Ir. H. Soekarno No.19,
+        Medokan Semampir, Surabaya
+        No. Telp 0812345678
         No. Struk 20260819194200-A-0001
         --------------------------------
         2026-08-19                Sheila
@@ -243,7 +249,7 @@ describe('receiptFormatting', () => {
         Bayar (Tunai)          Rp 30.000
         Kembali                 Rp 6.000
 
-          Terimakasih Telah Berbelanja"
+        Terimakasih Telah Berbelanja"
       `);
     });
   });

@@ -11,7 +11,6 @@ import { colors, space } from "../../theme/tokens";
 import { useCartStore } from "../../state/cart/cartStore";
 import { useMerchant } from "../../state/api/merchant";
 import { useAccountSetup } from "../../state/api/account";
-import { useAuthStore } from "../../state/auth/authStore";
 import { SellStackParamList } from "../../app/stacks/SellStack";
 import { PrintSheetScreen } from "../Print/PrintSheetScreen";
 import { IOS_UNAVAILABLE_MESSAGE, ReceiptLine } from "../../lib/bluetoothPrinter";
@@ -33,7 +32,6 @@ export function PaidScreen() {
   const clearCart = useCartStore((s) => s.clear);
   const merchantQuery = useMerchant();
   const accountQuery = useAccountSetup();
-  const cashierName = useAuthStore((s) => s.user?.name) ?? "Kasir";
   const merchantName = merchantQuery.data?.name ?? "Kotdee POS";
 
   const outlets = accountQuery.data?.outlets ?? [];
@@ -49,7 +47,7 @@ export function PaidScreen() {
 
   const receiptLines: ReceiptLine[] = buildSaleReceiptLines(sale, {
     tenderLabel,
-    cashierName,
+    cashierName: sale.cashierName || "Kasir",
     merchant: { name: merchantName, address: merchantQuery.data?.address ?? null, phone: merchantQuery.data?.phone ?? null },
     outlet: receiptOutlet,
     cashReceived,
@@ -91,7 +89,7 @@ export function PaidScreen() {
           {receiptLines.map((line, index) => (
             <Text
               key={index}
-              style={[styles.receiptMono, line.bold && styles.receiptMonoBold]}
+              style={[styles.receiptMono, { textAlign: line.align ?? "left" }, line.bold && styles.receiptMonoBold]}
               numberOfLines={1}
             >
               {line.text.length > 0 ? line.text : " "}

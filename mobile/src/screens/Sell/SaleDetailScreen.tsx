@@ -6,7 +6,6 @@ import { SellStackParamList } from '../../app/stacks/SellStack';
 import { useSale } from '../../state/api/sales';
 import { useMerchant } from '../../state/api/merchant';
 import { useAccountSetup } from '../../state/api/account';
-import { useAuthStore } from '../../state/auth/authStore';
 import { Text } from '../../theme/Text';
 import { Button } from '../../components/Button';
 import { colors, radius, space } from '../../theme/tokens';
@@ -22,7 +21,6 @@ export function SaleDetailScreen() {
   const saleQuery = useSale(params.saleId);
   const merchant = useMerchant();
   const accountQuery = useAccountSetup();
-  const cashierName = useAuthStore((s) => s.user?.name) ?? 'Kasir';
   const [printVisible, setPrintVisible] = useState(false);
   const sale = saleQuery.data;
   if (!sale) return <SafeAreaView style={styles.loading} edges={[]}><ActivityIndicator color={colors.accent} /></SafeAreaView>;
@@ -32,7 +30,7 @@ export function SaleDetailScreen() {
   const receiptOutlet = outlets.length > 1 && saleOutlet ? { name: saleOutlet.name, address: saleOutlet.address } : null;
   const lines = buildSaleReceiptLines(sale, {
     tenderLabel: TENDER_LABEL[sale.tenderType],
-    cashierName,
+    cashierName: sale.cashierName || 'Kasir',
     merchant: { name: merchantName, address: merchant.data?.address ?? null, phone: merchant.data?.phone ?? null },
     outlet: receiptOutlet,
     cashReceived: sale.tenderType === 'cash' ? sale.cashAmount : undefined,
@@ -45,7 +43,11 @@ export function SaleDetailScreen() {
       <View style={styles.receipt}>
         <View style={styles.receiptBlock}>
           {lines.map((line, index) => (
-            <Text key={index} style={[styles.mono, line.bold && styles.monoBold]} numberOfLines={1}>
+            <Text
+              key={index}
+              style={[styles.mono, { textAlign: line.align ?? 'left' }, line.bold && styles.monoBold]}
+              numberOfLines={1}
+            >
               {line.text.length > 0 ? line.text : ' '}
             </Text>
           ))}

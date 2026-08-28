@@ -420,6 +420,7 @@ function buildOfflineSale({
     merchantId: shift?.merchantId ?? 'offline',
     outletId: shift?.outletId ?? 'offline',
     shiftId: shift?.id ?? 'offline',
+    cashierName: shift?.userName ?? 'Kasir',
     orderNo: 'Queued',
     clientId,
     tenderType,

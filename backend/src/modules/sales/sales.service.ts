@@ -32,7 +32,9 @@ export async function resolveTimeZone(merchantId: string, outletId?: string): Pr
   return outlet?.timezone ?? DEFAULT_TIMEZONE;
 }
 
-type SaleWithLines = Prisma.SaleGetPayload<{ include: { lineItems: true } }>;
+/** Every sale read for a DTO pulls its shift's cashier name for the receipt. */
+const saleInclude = { lineItems: true, shift: { select: { user: { select: { name: true } } } } } as const;
+type SaleWithLines = Prisma.SaleGetPayload<{ include: typeof saleInclude }>;
 
 function toSaleDto(sale: SaleWithLines): Sale {
   return {
@@ -40,6 +42,7 @@ function toSaleDto(sale: SaleWithLines): Sale {
     merchantId: sale.merchantId,
     outletId: sale.outletId,
     shiftId: sale.shiftId,
+    cashierName: sale.shift?.user?.name ?? "",
     orderNo: sale.orderNo,
     clientId: sale.clientId,
     tenderType: sale.tenderType as TenderType,
@@ -121,7 +124,7 @@ export async function createSale(
   return prisma.$transaction(async (tx) => {
     const existing = await tx.sale.findUnique({
       where: { clientId: body.clientId },
-      include: { lineItems: true },
+      include: saleInclude,
     });
     if (existing) {
       if (existing.merchantId !== merchantId) {
@@ -195,7 +198,7 @@ export async function createSale(
           })),
         },
       },
-      include: { lineItems: true },
+      include: saleInclude,
     });
 
     for (const plan of linePlans) {
@@ -210,7 +213,7 @@ export async function createSale(
 }
 
 export async function getSaleById(merchantId: string, id: string): Promise<Sale> {
-  const sale = await prisma.sale.findFirst({ where: { id, merchantId }, include: { lineItems: true } });
+  const sale = await prisma.sale.findFirst({ where: { id, merchantId }, include: saleInclude });
   if (!sale) {
     throw notFound("Sale");
   }
@@ -225,7 +228,7 @@ export async function getRecentSales(merchantId: string, outletId: string | unde
 
   const sales = await prisma.sale.findMany({
     where: { merchantId, ...(outletId ? { outletId } : {}), createdAt: { gte: cutoff } },
-    include: { lineItems: true },
+    include: saleInclude,
     orderBy: { createdAt: "desc" },
     take: Math.min(Math.max(limit, 1), 100),
   });

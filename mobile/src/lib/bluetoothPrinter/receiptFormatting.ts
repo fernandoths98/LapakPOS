@@ -20,10 +20,11 @@ export interface ReceiptLine {
   bold?: boolean;
 }
 
-/** Truncates to at most `maxLen` characters — never wraps, matching the prototype's `.slice()` truncation of long product names. */
+/** Truncates to at most `maxLen` characters — never wraps, matching the prototype's `.slice()` truncation of long product names. Coerces nullish/non-string input to "" (an older backend may not send every field yet). */
 export function truncate(text: string, maxLen: number): string {
+  const s = typeof text === "string" ? text : String(text ?? "");
   if (maxLen <= 0) return "";
-  return text.length > maxLen ? text.slice(0, maxLen) : text;
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
 }
 
 /**
@@ -33,7 +34,7 @@ export function truncate(text: string, maxLen: number): string {
  * than being cut off.
  */
 export function wrapText(text: string, width: number = RECEIPT_WIDTH): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
+  const words = String(text ?? "").split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
@@ -141,7 +142,12 @@ export interface SaleReceiptContext {
  */
 export function buildSaleReceiptLines(sale: Sale, ctx: SaleReceiptContext): ReceiptLine[] {
   const lines: ReceiptLine[] = [];
-  const center = (text: string, bold = false): ReceiptLine => ({ text: centerText(text), align: "center", bold });
+  // Raw text + `align: "center"` — the ESC/POS printer does the centering
+  // (via ESC a 1), which is correct whatever the printer's real column count
+  // is. Baking in spaces with centerText() *and* asking the printer to
+  // center double-shifts the text to the right, which is the "header not
+  // centered on the printout" bug.
+  const center = (text: string, bold = false): ReceiptLine => ({ text: truncate(text, RECEIPT_WIDTH), align: "center", bold });
 
   // ── Header ──────────────────────────────────────────────────────────────
   lines.push(center(ctx.merchant.name.toUpperCase(), true));

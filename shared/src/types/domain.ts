@@ -86,6 +86,8 @@ export interface Sale {
   merchantId: string;
   outletId: string;
   shiftId: string;
+  /** Name of the cashier who rang the sale (the shift's user) — printed on the receipt. */
+  cashierName: string;
   orderNo: string;
   clientId: string;
   tenderType: TenderType;

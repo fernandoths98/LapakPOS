@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -182,7 +182,23 @@ function AskChat({ onBack }: { onBack: () => void }) {
   const askChat = useAskChat();
   const [draft, setDraft] = useState("");
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+
+  // Drive the composer's position by the real keyboard height. Neither
+  // KeyboardAvoidingView nor bare adjustResize lifts a bottom bar reliably
+  // inside this bottom-tab + native-stack screen on Android, so track it
+  // directly: the composer sits at `bottom: keyboardHeight`.
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvt, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const handleSend = (rawText: string) => {
     const trimmed = rawText.trim();
@@ -209,93 +225,90 @@ function AskChat({ onBack }: { onBack: () => void }) {
         </View>
       </View>
 
-      <KeyboardAvoidingView style={styles.askFill} behavior="padding" keyboardVerticalOffset={0}>
-        <ScrollView
-          ref={scrollRef}
-          style={styles.askFill}
-          contentContainerStyle={styles.askThread}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          {historyQuery.isLoading ? (
-            <ActivityIndicator style={styles.loading} color={colors.accent} />
-          ) : historyQuery.isError ? (
-            <Text variant="body" color={colors.accent700}>
-              Percakapan gagal dimuat. Coba buka kembali halaman ini.
-            </Text>
-          ) : (
-            <>
-              {threadEmpty ? (
-                <View style={styles.askEmpty}>
-                  <Text variant="kicker" color={colors.accent2700}>TANYA DATA TOKO</Text>
-                  <Text variant="h3" style={styles.featureTitle}>Cari jawaban tanpa membaca tabel</Text>
-                  <Text variant="caption" color={colors.neutral700} style={styles.featureDescription}>
-                    Cocok untuk pertanyaan lanjutan soal penjualan hari ini, produk terlaris, kebutuhan restok,
-                    kenaikan modal, atau jam sepi. Jawaban mengikuti data yang tersedia — kalau datanya belum
-                    cukup, AI akan mengatakannya.
-                  </Text>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.askFill}
+        contentContainerStyle={[styles.askThread, { paddingBottom: 84 + keyboardHeight }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+      >
+        {historyQuery.isLoading ? (
+          <ActivityIndicator style={styles.loading} color={colors.accent} />
+        ) : historyQuery.isError ? (
+          <Text variant="body" color={colors.accent700}>
+            Percakapan gagal dimuat. Coba buka kembali halaman ini.
+          </Text>
+        ) : (
+          <>
+            {threadEmpty ? (
+              <View style={styles.askEmpty}>
+                <Text variant="kicker" color={colors.accent2700}>TANYA DATA TOKO</Text>
+                <Text variant="h3" style={styles.featureTitle}>Cari jawaban tanpa membaca tabel</Text>
+                <Text variant="caption" color={colors.neutral700} style={styles.featureDescription}>
+                  Cocok untuk pertanyaan lanjutan soal penjualan hari ini, produk terlaris, kebutuhan restok,
+                  kenaikan modal, atau jam sepi. Jawaban mengikuti data yang tersedia — kalau datanya belum
+                  cukup, AI akan mengatakannya.
+                </Text>
+                <View style={styles.suggestionsRow}>
+                  {ASK_SUGGESTIONS.map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      title={suggestion}
+                      variant="secondary"
+                      onPress={() => handleSend(suggestion)}
+                      style={styles.suggestionChip}
+                    />
+                  ))}
                 </View>
-              ) : null}
+              </View>
+            ) : null}
 
-              {showAiUnavailableBanner ? (
-                <View style={styles.aiNotice}>
-                  <Text variant="caption" color={colors.accent700}>{ASK_AI_UNAVAILABLE_MESSAGE}</Text>
-                </View>
-              ) : null}
+            {showAiUnavailableBanner ? (
+              <View style={styles.aiNotice}>
+                <Text variant="caption" color={colors.accent700}>{ASK_AI_UNAVAILABLE_MESSAGE}</Text>
+              </View>
+            ) : null}
 
-              {messages.map((message) => (
-                <ChatBubble key={message.id} role={message.role} text={message.content} />
-              ))}
-              {pendingMessage ? <ChatBubble role="user" text={pendingMessage} /> : null}
-              {askChat.isPending ? <ChatBubble role="assistant" text="Sedang menganalisis…" muted /> : null}
-            </>
-          )}
-        </ScrollView>
-
-        {threadEmpty ? (
-          <View style={styles.suggestionsRow}>
-            {ASK_SUGGESTIONS.map((suggestion) => (
-              <Button
-                key={suggestion}
-                title={suggestion}
-                variant="secondary"
-                onPress={() => handleSend(suggestion)}
-                style={styles.suggestionChip}
-              />
+            {messages.map((message) => (
+              <ChatBubble key={message.id} role={message.role} text={message.content} />
             ))}
-          </View>
-        ) : null}
+            {pendingMessage ? <ChatBubble role="user" text={pendingMessage} /> : null}
+            {askChat.isPending ? <ChatBubble role="assistant" text="Sedang menganalisis…" muted /> : null}
+          </>
+        )}
+      </ScrollView>
 
-        <View style={styles.composer}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Tulis pertanyaan…"
-            placeholderTextColor={colors.neutral500}
-            multiline
-            maxLength={ASK_MAX_LENGTH}
-            editable={!askChat.isPending}
-            style={styles.composerInput}
-            returnKeyType="send"
-            blurOnSubmit={false}
-            onSubmitEditing={() => handleSend(draft)}
-          />
-          <Pressable
-            onPress={() => handleSend(draft)}
-            disabled={!canSend}
-            style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel="Kirim pertanyaan"
-          >
-            {askChat.isPending ? (
-              <ActivityIndicator size="small" color={colors.surface} />
-            ) : (
-              <ArrowUp size={20} color={colors.surface} strokeWidth={2.6} />
-            )}
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+      {/* Pinned composer, lifted to sit exactly on top of the keyboard via
+          the tracked keyboardHeight (see the effect above). */}
+      <View style={[styles.composer, { bottom: keyboardHeight }]}>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Tulis pertanyaan…"
+          placeholderTextColor={colors.neutral500}
+          multiline
+          maxLength={ASK_MAX_LENGTH}
+          editable={!askChat.isPending}
+          style={styles.composerInput}
+          returnKeyType="send"
+          blurOnSubmit={false}
+          onSubmitEditing={() => handleSend(draft)}
+        />
+        <Pressable
+          onPress={() => handleSend(draft)}
+          disabled={!canSend}
+          style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel="Kirim pertanyaan"
+        >
+          {askChat.isPending ? (
+            <ActivityIndicator size="small" color={colors.surface} />
+          ) : (
+            <ArrowUp size={20} color={colors.surface} strokeWidth={2.6} />
+          )}
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -539,8 +552,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   askHeaderCopy: { flex: 1 },
-  askThread: { padding: space[3], gap: space[2] + 3, flexGrow: 1 },
-  askEmpty: { paddingVertical: space[2] },
+  askThread: { padding: space[3], paddingBottom: 84, gap: space[2] + 3, flexGrow: 1 },
+  askEmpty: { paddingVertical: space[2], gap: space[2] + 3 },
   bubble: {
     maxWidth: "86%",
     borderWidth: 1,
@@ -562,11 +575,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: space[2] - 2,
-    paddingHorizontal: space[3],
-    paddingBottom: space[2],
+    marginTop: space[2],
   },
   suggestionChip: { paddingHorizontal: space[3], minHeight: 0, paddingVertical: space[2] - 3 },
   composer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: "row",
     alignItems: "flex-end",
     gap: space[2],
