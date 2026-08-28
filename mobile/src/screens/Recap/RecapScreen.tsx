@@ -1,14 +1,23 @@
-import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import React, { useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ArrowUp, ChevronLeft } from "lucide-react-native";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { AiChatMessage, formatRupiah, RecapInsight, TopSeller, WeeklyBar } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
-import { TextField } from "../../components/TextField";
 import { PlanUpsell } from "../../components/PlanUpsell";
 import { isPlanLimitError } from "../../state/api/apiClient";
-import { colors, radius, space } from "../../theme/tokens";
+import { colors, fonts, radius, space } from "../../theme/tokens";
 import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWeeklyReports } from "../../state/api/recap";
 import { RecapStackParamList } from "../../app/stacks/RecapStack";
 
@@ -38,6 +47,12 @@ export function RecapScreen() {
   const initialAssistant = route.params?.tab === "Story" || route.params?.tab === "Ask" ? route.params.tab : null;
   const [assistantView, setAssistantView] = useState<"Story" | "Ask" | null>(initialAssistant);
 
+  // The Ask assistant is a chat surface — it manages its own scrolling and a
+  // pinned composer, so it renders outside the page's ScrollView.
+  if (assistantView === "Ask") {
+    return <AskChat onBack={() => setAssistantView(null)} />;
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={[]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -58,7 +73,6 @@ export function RecapScreen() {
       </View>
 
       {assistantView === "Story" ? <StoryTab /> : null}
-      {assistantView === "Ask" ? <AskTab /> : null}
       {!assistantView ? <ReportsTab onOpenAssistant={setAssistantView} /> : null}
     </ScrollView>
     </SafeAreaView>
@@ -161,11 +175,14 @@ function InsightRow({ insight }: { insight: RecapInsight }) {
   );
 }
 
-function AskTab() {
+const ASK_MAX_LENGTH = 500;
+
+function AskChat({ onBack }: { onBack: () => void }) {
   const historyQuery = useAskChatHistory();
   const askChat = useAskChat();
   const [draft, setDraft] = useState("");
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const handleSend = (rawText: string) => {
     const trimmed = rawText.trim();
@@ -175,85 +192,111 @@ function AskTab() {
     askChat.mutate(trimmed, { onSettled: () => setPendingMessage(null) });
   };
 
-  if (historyQuery.isLoading) {
-    return <ActivityIndicator style={styles.loading} color={colors.accent} />;
-  }
-  if (historyQuery.isError) {
-    return (
-      <Text variant="body" color={colors.accent700} style={styles.loading}>
-        Percakapan gagal dimuat. Coba buka kembali halaman ini.
-      </Text>
-    );
-  }
-
   const messages = historyQuery.data?.messages ?? [];
   const showAiUnavailableBanner = askChat.data ? !askChat.data.aiAvailable : false;
+  const threadEmpty = messages.length === 0 && !pendingMessage && !askChat.isPending;
+  const canSend = draft.trim() !== "" && !askChat.isPending;
 
   return (
-    <View style={styles.askSection}>
-      <View style={styles.featureIntro}>
-        <Text variant="kicker" color={colors.accent2700}>TANYA DATA TOKO</Text>
-        <Text variant="h3" style={styles.featureTitle}>Cari jawaban tanpa membaca tabel</Text>
-        <Text variant="caption" color={colors.neutral700} style={styles.featureDescription}>
-          Gunakan untuk pertanyaan lanjutan tentang penjualan hari ini, produk terlaris, kebutuhan restok, kenaikan modal, atau jam sepi.
-        </Text>
-        <Text variant="caption" color={colors.neutral600} style={styles.readOnlyNote}>
-          Jawaban mengikuti data yang tersedia; jika datanya belum cukup, AI akan mengatakannya.
-        </Text>
-      </View>
-
-      {showAiUnavailableBanner ? (
-        <View style={styles.aiNotice}>
-          <Text variant="caption" color={colors.accent700}>
-            {ASK_AI_UNAVAILABLE_MESSAGE}
-          </Text>
+    <SafeAreaView style={styles.askScreen} edges={[]}>
+      <View style={styles.askHeader}>
+        <Pressable onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel="Kembali ke laporan">
+          <ChevronLeft size={24} color={colors.neutral700} strokeWidth={2.2} />
+        </Pressable>
+        <View style={styles.askHeaderCopy}>
+          <Text variant="h3">Asisten toko</Text>
+          <Text variant="caption" color={colors.neutral600}>Tanya kondisi toko dari data penjualan</Text>
         </View>
-      ) : null}
+      </View>
 
-      <View style={styles.chatThread}>
-        {messages.length === 0 && !pendingMessage ? (
-          <Text variant="body" color={colors.neutral700}>
-            Pilih contoh pertanyaan di bawah atau tulis pertanyaan sendiri.
-          </Text>
+      <KeyboardAvoidingView style={styles.askFill} behavior="padding" keyboardVerticalOffset={0}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.askFill}
+          contentContainerStyle={styles.askThread}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        >
+          {historyQuery.isLoading ? (
+            <ActivityIndicator style={styles.loading} color={colors.accent} />
+          ) : historyQuery.isError ? (
+            <Text variant="body" color={colors.accent700}>
+              Percakapan gagal dimuat. Coba buka kembali halaman ini.
+            </Text>
+          ) : (
+            <>
+              {threadEmpty ? (
+                <View style={styles.askEmpty}>
+                  <Text variant="kicker" color={colors.accent2700}>TANYA DATA TOKO</Text>
+                  <Text variant="h3" style={styles.featureTitle}>Cari jawaban tanpa membaca tabel</Text>
+                  <Text variant="caption" color={colors.neutral700} style={styles.featureDescription}>
+                    Cocok untuk pertanyaan lanjutan soal penjualan hari ini, produk terlaris, kebutuhan restok,
+                    kenaikan modal, atau jam sepi. Jawaban mengikuti data yang tersedia — kalau datanya belum
+                    cukup, AI akan mengatakannya.
+                  </Text>
+                </View>
+              ) : null}
+
+              {showAiUnavailableBanner ? (
+                <View style={styles.aiNotice}>
+                  <Text variant="caption" color={colors.accent700}>{ASK_AI_UNAVAILABLE_MESSAGE}</Text>
+                </View>
+              ) : null}
+
+              {messages.map((message) => (
+                <ChatBubble key={message.id} role={message.role} text={message.content} />
+              ))}
+              {pendingMessage ? <ChatBubble role="user" text={pendingMessage} /> : null}
+              {askChat.isPending ? <ChatBubble role="assistant" text="Sedang menganalisis…" muted /> : null}
+            </>
+          )}
+        </ScrollView>
+
+        {threadEmpty ? (
+          <View style={styles.suggestionsRow}>
+            {ASK_SUGGESTIONS.map((suggestion) => (
+              <Button
+                key={suggestion}
+                title={suggestion}
+                variant="secondary"
+                onPress={() => handleSend(suggestion)}
+                style={styles.suggestionChip}
+              />
+            ))}
+          </View>
         ) : null}
-        {messages.map((message) => (
-          <ChatBubble key={message.id} role={message.role} text={message.content} />
-        ))}
-        {pendingMessage ? <ChatBubble role="user" text={pendingMessage} /> : null}
-        {askChat.isPending ? <ChatBubble role="assistant" text="Sedang menganalisis…" muted /> : null}
-      </View>
 
-      <View style={styles.suggestionsRow}>
-        {ASK_SUGGESTIONS.map((suggestion) => (
-          <Button
-            key={suggestion}
-            title={suggestion}
-            variant="secondary"
-            disabled={askChat.isPending}
-            onPress={() => handleSend(suggestion)}
-            style={styles.suggestionChip}
+        <View style={styles.composer}>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="Tulis pertanyaan…"
+            placeholderTextColor={colors.neutral500}
+            multiline
+            maxLength={ASK_MAX_LENGTH}
+            editable={!askChat.isPending}
+            style={styles.composerInput}
+            returnKeyType="send"
+            blurOnSubmit={false}
+            onSubmitEditing={() => handleSend(draft)}
           />
-        ))}
-      </View>
-
-      <View style={styles.askInputRow}>
-        <TextField
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Contoh: produk apa yang paling laku?"
-          editable={!askChat.isPending}
-          onSubmitEditing={() => handleSend(draft)}
-          style={styles.askInput}
-        />
-        <Button
-          title={askChat.isPending ? "Mengirim…" : "Kirim"}
-          onPress={() => handleSend(draft)}
-          loading={askChat.isPending}
-          disabled={askChat.isPending || draft.trim() === ""}
-          style={styles.askButton}
-        />
-      </View>
-    </View>
+          <Pressable
+            onPress={() => handleSend(draft)}
+            disabled={!canSend}
+            style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+            accessibilityRole="button"
+            accessibilityLabel="Kirim pertanyaan"
+          >
+            {askChat.isPending ? (
+              <ActivityIndicator size="small" color={colors.surface} />
+            ) : (
+              <ArrowUp size={20} color={colors.surface} strokeWidth={2.6} />
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -482,13 +525,24 @@ const styles = StyleSheet.create({
   insightBody: { marginTop: 3, lineHeight: 18 },
   insightAction: { marginTop: space[1] + 2 },
 
-  // Ask tab
-  askSection: {
-    marginTop: space[4],
+  // Ask assistant (chat surface)
+  askScreen: { flex: 1, backgroundColor: colors.bg },
+  askFill: { flex: 1 },
+  askHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[2],
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
-  chatThread: { gap: space[2] + 3 },
+  askHeaderCopy: { flex: 1 },
+  askThread: { padding: space[3], gap: space[2] + 3, flexGrow: 1 },
+  askEmpty: { paddingVertical: space[2] },
   bubble: {
-    maxWidth: "84%",
+    maxWidth: "86%",
     borderWidth: 1,
     borderRadius: radius.md,
     paddingVertical: space[2] + 2,
@@ -504,11 +558,50 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: "transparent",
   },
-  suggestionsRow: { flexDirection: "row", flexWrap: "wrap", gap: space[2] - 2, marginTop: space[4] },
+  suggestionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space[2] - 2,
+    paddingHorizontal: space[3],
+    paddingBottom: space[2],
+  },
   suggestionChip: { paddingHorizontal: space[3], minHeight: 0, paddingVertical: space[2] - 3 },
-  askInputRow: { flexDirection: "row", gap: space[2], marginTop: space[4], alignItems: "flex-start" },
-  askInput: { flex: 1 },
-  askButton: { paddingHorizontal: space[4] },
+  composer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space[2],
+    paddingHorizontal: space[3],
+    paddingTop: space[2],
+    paddingBottom: space[3],
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  composerInput: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 120,
+    paddingTop: Platform.OS === "ios" ? 12 : 8,
+    paddingBottom: Platform.OS === "ios" ? 12 : 8,
+    paddingHorizontal: space[3],
+    fontFamily: fonts.body,
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.text,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.lg,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendButtonDisabled: { backgroundColor: colors.neutral400 },
 
   // Reports tab
   reportsSection: {

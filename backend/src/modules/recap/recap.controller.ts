@@ -40,7 +40,7 @@ export async function getAskHistoryHandler(req: Request, res: Response): Promise
   res.json(result);
 }
 
-const askBodySchema = z.object({ message: z.string().min(1) });
+const askBodySchema = z.object({ message: z.string().trim().min(1).max(500) });
 
 export async function postAskHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
