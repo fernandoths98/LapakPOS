@@ -79,4 +79,32 @@ describe("entitlements.service", () => {
     expect(res.usage.outlets).toBe(1);
     expect(res.usage.staff).toBe(1);
   });
+
+  it("an unexpired Starter trial gets the full Starter entitlements", async () => {
+    await prisma.subscription.update({
+      where: { merchantId: M },
+      data: { planCode: "starter", status: "trialing", trialEndsAt: new Date(Date.now() + 3 * 86_400_000) },
+    });
+    const res = await getEntitlements(M);
+    expect(res.status).toBe("trialing");
+    expect(res.entitlements.excelIO).toBe(true);
+    expect(res.entitlements.maxProducts).toBe(PLAN_ENTITLEMENTS.starter.maxProducts);
+  });
+
+  it("an expired trial is ended lazily on read: entitlements drop to free and the row flips to canceled", async () => {
+    await prisma.subscription.update({
+      where: { merchantId: M },
+      data: { planCode: "starter", status: "trialing", trialEndsAt: new Date(Date.now() - 60_000) },
+    });
+
+    const res = await getEntitlements(M);
+    expect(res.status).toBe("canceled");
+    expect(res.entitlements).toEqual(PLAN_ENTITLEMENTS.free);
+    expect(res.trialEndsAt).not.toBeNull();
+
+    // the read repaired the stored row, so a paid feature is now gated
+    await expect(requireFeature(M, "excelIO")).rejects.toMatchObject({ status: 402 });
+    const row = await prisma.subscription.findUnique({ where: { merchantId: M } });
+    expect(row?.status).toBe("canceled");
+  });
 });

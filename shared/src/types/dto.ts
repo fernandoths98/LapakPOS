@@ -56,6 +56,8 @@ export interface EntitlementsResponse {
   entitlements: Entitlements;
   usage: EntitlementUsage;
   currentPeriodEndsAt: string | null;
+  /** When the starter trial lapses. In the past + status `canceled` means it already did. */
+  trialEndsAt: string | null;
 }
 
 export interface SubscriptionPlansResponse {

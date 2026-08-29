@@ -62,4 +62,45 @@ describe("auth.service", () => {
       status: 401,
     });
   });
+
+  describe("register", () => {
+    const REG_EMAIL = "auth-register-test@lapak.test";
+    let merchantId: string | null = null;
+
+    afterAll(async () => {
+      if (!merchantId) return;
+      await prisma.ppobBiller.deleteMany({ where: { merchantId } });
+      await prisma.category.deleteMany({ where: { merchantId } });
+      await prisma.merchantWallet.deleteMany({ where: { merchantId } });
+      await prisma.subscription.deleteMany({ where: { merchantId } });
+      await prisma.user.deleteMany({ where: { merchantId } });
+      await prisma.outlet.deleteMany({ where: { merchantId } });
+      await prisma.merchant.deleteMany({ where: { id: merchantId } });
+    });
+
+    it("starts a fresh account on a 14-day Starter trial", async () => {
+      const result = await authService.register({
+        ownerName: "Reg Owner",
+        email: REG_EMAIL,
+        password: TEST_PASSWORD,
+        businessName: "Warung Register Test",
+        businessType: "retail",
+        phone: "0800000000",
+      });
+      merchantId = result.merchant.id;
+
+      expect(result.subscription.planCode).toBe("starter");
+      expect(result.subscription.status).toBe("trialing");
+      expect(result.subscription.trialEndsAt).not.toBeNull();
+      expect(result.merchant.trialEndsAt).toBe(result.subscription.trialEndsAt);
+
+      const daysOut = (new Date(result.subscription.trialEndsAt as string).getTime() - Date.now()) / 86_400_000;
+      expect(daysOut).toBeGreaterThan(13);
+      expect(daysOut).toBeLessThanOrEqual(14);
+
+      const row = await prisma.subscription.findUnique({ where: { merchantId: result.merchant.id } });
+      expect(row?.status).toBe("trialing");
+      expect(row?.planCode).toBe("starter");
+    });
+  });
 });

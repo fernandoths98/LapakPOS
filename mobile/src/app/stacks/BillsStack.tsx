@@ -11,7 +11,8 @@ export type BillsStackParamList = {
   Bills: undefined;
   /** The two-step check → charge flow for one biller. */
   BillForm: { billerId: string; billerName: string; category: PpobCategory };
-  BillSuccess: { transaction: PpobTransaction };
+  /** `fromHistory` reuses this screen as a read-only detail view opened from the recent-transactions list. */
+  BillSuccess: { transaction: PpobTransaction; fromHistory?: boolean };
   WalletTopup: undefined;
 };
 

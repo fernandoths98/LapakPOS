@@ -14,21 +14,37 @@ interface ResolvedPlan {
   status: SubscriptionStatus;
   entitlements: Entitlements;
   currentPeriodEndsAt: Date | null;
+  trialEndsAt: Date | null;
 }
 
 /**
  * The merchant's live plan + entitlements. A merchant with no subscription
  * row (shouldn't happen after Phase 2b, but be defensive) is treated as free.
+ *
+ * Expired trials are ended lazily here — on the first entitlement check after
+ * `trialEndsAt` passes, the row flips `trialing -> canceled` (which
+ * `entitlementsFor` reads as the free tier). Same read-repairs-state pattern
+ * as `getInvoices` flipping `pending -> expired`; no scheduler needed, and
+ * every guarded route calls `resolvePlan`, so it always self-heals.
  */
 export async function resolvePlan(merchantId: string): Promise<ResolvedPlan> {
   const sub = await prisma.subscription.findUnique({ where: { merchantId } });
   const planCode = (sub?.planCode ?? "free") as PlanCode;
-  const status = (sub?.status ?? "active") as SubscriptionStatus;
+  let status = (sub?.status ?? "active") as SubscriptionStatus;
+
+  if (sub && status === "trialing" && sub.trialEndsAt && sub.trialEndsAt.getTime() <= Date.now()) {
+    status = "canceled";
+    await prisma.subscription
+      .updateMany({ where: { merchantId, status: "trialing" }, data: { status: "canceled" } })
+      .catch(() => undefined);
+  }
+
   return {
     planCode,
     status,
     entitlements: entitlementsFor(planCode, status),
     currentPeriodEndsAt: sub?.currentPeriodEndsAt ?? null,
+    trialEndsAt: sub?.trialEndsAt ?? null,
   };
 }
 
@@ -46,6 +62,7 @@ export async function getEntitlements(merchantId: string): Promise<EntitlementsR
     entitlements: plan.entitlements,
     usage: { outlets, staff, products },
     currentPeriodEndsAt: plan.currentPeriodEndsAt?.toISOString() ?? null,
+    trialEndsAt: plan.trialEndsAt?.toISOString() ?? null,
   };
 }
 

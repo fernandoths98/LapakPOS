@@ -4,7 +4,7 @@ import { ChevronLeft, Store, UtensilsCrossed } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
-import { BusinessType, RegisterRequest, RegisterResponse } from "@lapak/shared";
+import { BusinessType, RegisterRequest, RegisterResponse, TRIAL_DAYS } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
@@ -66,7 +66,7 @@ export function RegisterScreen({ navigation }: Props) {
           ) : (
             <>
               <Text variant="h2">Informasi usaha</Text>
-              <Text variant="body" color={colors.neutral600} style={styles.intro}>Kami akan membuat outlet utama dan trial Starter selama 14 hari.</Text>
+              <Text variant="body" color={colors.neutral600} style={styles.intro}>Kami akan membuat outlet utama dan masa uji Starter selama {TRIAL_DAYS} hari. Setelah itu otomatis lanjut ke paket Gratis — tanpa tagihan.</Text>
               <Text variant="kicker" style={styles.typeLabel}>JENIS USAHA</Text>
               <View style={styles.typeRow}>
                 <BusinessTypeButton title="Retail / toko" subtitle="Barcode dan stok" icon={Store} active={businessType === "retail"} onPress={() => setBusinessType("retail")} />
@@ -78,7 +78,7 @@ export function RegisterScreen({ navigation }: Props) {
                 <TextField label="Alamat outlet utama" value={address} onChangeText={setAddress} placeholder="Opsional" />
               </View>
               {error ? <Text variant="caption" color={colors.accent700} style={styles.error}>{error}</Text> : null}
-              <Button title={submitting ? "Membuat usaha…" : "Mulai trial 14 hari"} onPress={submit} disabled={!businessValid || submitting} loading={submitting} fullWidth style={styles.action} />
+              <Button title={submitting ? "Membuat usaha…" : `Mulai masa uji ${TRIAL_DAYS} hari`} onPress={submit} disabled={!businessValid || submitting} loading={submitting} fullWidth style={styles.action} />
               <Text variant="caption" color={colors.neutral500} style={styles.terms}>Dengan mendaftar, Anda menyetujui syarat layanan dan kebijakan privasi Kotdee POS.</Text>
             </>
           )}

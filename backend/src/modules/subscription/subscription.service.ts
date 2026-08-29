@@ -54,6 +54,7 @@ export async function getSubscription(merchantId: string) {
     planCode: plan.planCode,
     status: plan.status,
     currentPeriodEndsAt: plan.currentPeriodEndsAt?.toISOString() ?? null,
+    trialEndsAt: plan.trialEndsAt?.toISOString() ?? null,
   };
 }
 

@@ -1,6 +1,7 @@
-import { Sale, ZReportResponse } from '@lapak/shared';
+import { PpobTransaction, Sale, ZReportResponse } from '@lapak/shared';
 import {
   RECEIPT_WIDTH,
+  buildBillReceiptLines,
   buildSaleReceiptLines,
   buildZReportLines,
   centerText,
@@ -92,6 +93,30 @@ const SAMPLE_Z_REPORT: ZReportResponse = {
   },
   discrepancy: -45000,
 };
+
+const SAMPLE_PPOB_TX: PpobTransaction = {
+  id: 'ppob-1',
+  merchantId: 'merchant-1',
+  outletId: 'outlet-1',
+  billerId: 'biller-1',
+  billerName: 'Pulsa Telkomsel 25.000',
+  shiftId: 'shift-1',
+  customerNumber: '081234567890',
+  customerName: '081234567890',
+  billAmount: 25500,
+  adminFee: 0,
+  marginAmount: 2000,
+  totalCharged: 27500,
+  providerRef: 'prepaid|tsel25|9f8c1e2a-4b6d-4a10-9c33-2d7e5f0a1b2c',
+  status: 'success',
+  createdAt: '2026-08-19T12:42:00.000Z',
+};
+
+const SAMPLE_BILL_CTX = {
+  merchant: SAMPLE_CTX.merchant,
+  outlet: SAMPLE_CTX.outlet,
+  cashierName: 'Sheila',
+} as const;
 
 describe('receiptFormatting', () => {
   describe('truncate', () => {
@@ -323,6 +348,59 @@ describe('receiptFormatting', () => {
         --------------------------------
         Terima kasih - Kotdee POS"
       `);
+    });
+  });
+
+  describe('buildBillReceiptLines', () => {
+    const lines = buildBillReceiptLines(SAMPLE_PPOB_TX, SAMPLE_BILL_CTX);
+    const text = receiptLinesToPlainText(lines);
+
+    it('renders every line at or under the receipt width', () => {
+      for (const line of lines) {
+        expect(line.text.length).toBeLessThanOrEqual(RECEIPT_WIDTH);
+      }
+    });
+
+    it('includes the biller, customer number, status and totals', () => {
+      expect(text).toContain('Pulsa Telkomsel 25.000');
+      expect(text).toContain(formatRow('No. Pelanggan', '081234567890'));
+      expect(text).toContain(formatRow('Status', 'BERHASIL'));
+      expect(text).toContain(formatRow('Tagihan', 'Rp 25.500'));
+      const totalLine = lines.find(l => l.text.startsWith('Total dibayar'));
+      expect(totalLine?.bold).toBe(true);
+      expect(totalLine?.text.trim().endsWith('Rp 27.500')).toBe(true);
+    });
+
+    it('prints the provider reference in full across wrapped lines', () => {
+      expect(text).toContain('No. Referensi:');
+      expect(text.replace(/\n/g, '')).toContain(SAMPLE_PPOB_TX.providerRef);
+    });
+
+    it('omits the name row when it only echoes the customer number', () => {
+      expect(text).not.toContain('Nama');
+    });
+
+    it('shows the name row when a real customer name is present', () => {
+      const named = receiptLinesToPlainText(
+        buildBillReceiptLines({ ...SAMPLE_PPOB_TX, customerName: 'Budi Santoso' }, SAMPLE_BILL_CTX),
+      );
+      expect(named).toContain(formatRow('Nama', 'Budi Santoso'));
+    });
+
+    it('labels a pending transaction as DIPROSES', () => {
+      const pending = receiptLinesToPlainText(
+        buildBillReceiptLines({ ...SAMPLE_PPOB_TX, status: 'pending' }, SAMPLE_BILL_CTX),
+      );
+      expect(pending).toContain(formatRow('Status', 'DIPROSES'));
+    });
+
+    it('prints the cashier as "Kasir: <first name>" opposite the date, shortening a full name', () => {
+      expect(text).toContain(formatRow('2026-08-19', 'Kasir: Sheila'));
+      const namedText = receiptLinesToPlainText(
+        buildBillReceiptLines(SAMPLE_PPOB_TX, { ...SAMPLE_BILL_CTX, cashierName: 'Budi Santoso Wijaya' }),
+      );
+      expect(namedText).toContain(formatRow('2026-08-19', 'Kasir: Budi'));
+      expect(namedText).not.toContain('Santoso');
     });
   });
 });
