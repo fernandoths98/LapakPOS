@@ -103,7 +103,8 @@ export const PLAN_BY_CODE: Record<PlanCode, PlanInfo> = Object.fromEntries(
  * The entitlements a merchant actually has right now. A `canceled`
  * subscription drops to the free tier — the business keeps operating, just
  * without the paid caps lifted. `past_due` keeps the plan (a short grace
- * window while a renewal payment is chased).
+ * window while a renewal payment is chased). `trialing` gets the full plan
+ * it's trialing until the backend flips it to `canceled` at `trialEndsAt`.
  */
 export function entitlementsFor(planCode: PlanCode, status: SubscriptionStatus | string): Entitlements {
   if (status === "canceled") return PLAN_ENTITLEMENTS.free;
@@ -112,4 +113,20 @@ export function entitlementsFor(planCode: PlanCode, status: SubscriptionStatus |
 
 export function isUnlimited(cap: number): boolean {
   return cap >= ENTITLEMENT_UNLIMITED;
+}
+
+/** A fresh signup gets this many days of `TRIAL_PLAN_CODE` before dropping to free. */
+export const TRIAL_DAYS = 14;
+export const TRIAL_PLAN_CODE: PlanCode = "starter";
+
+/**
+ * Whole days left on a trial, rounded up, floored at 0. `null`/undefined or
+ * an already-past date both give 0. Shared so the backend, the register
+ * screen's copy, and the Home trial banner all count the same way.
+ */
+export function trialDaysLeft(trialEndsAt: string | Date | null | undefined, now: Date = new Date()): number {
+  if (!trialEndsAt) return 0;
+  const end = typeof trialEndsAt === "string" ? new Date(trialEndsAt) : trialEndsAt;
+  const ms = end.getTime() - now.getTime();
+  return ms <= 0 ? 0 : Math.ceil(ms / 86_400_000);
 }

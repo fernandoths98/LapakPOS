@@ -138,8 +138,12 @@ export function SheetScreen() {
     setDownloadingTemplate(true);
     try {
       await downloadImportTemplate();
-    } catch {
-      setTemplateError("Template gagal diunduh. Periksa koneksi lalu coba lagi.");
+    } catch (err) {
+      setTemplateError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Template gagal diunduh. Periksa koneksi lalu coba lagi.",
+      );
     } finally {
       setDownloadingTemplate(false);
     }
@@ -150,8 +154,12 @@ export function SheetScreen() {
     setExportingKey(key);
     try {
       await downloadAndShareExport(key);
-    } catch {
-      setExportError("File gagal disiapkan. Periksa koneksi lalu coba lagi.");
+    } catch (err) {
+      setExportError(
+        err instanceof Error && err.message
+          ? err.message
+          : "File gagal disiapkan. Periksa koneksi lalu coba lagi.",
+      );
     } finally {
       setExportingKey(null);
     }

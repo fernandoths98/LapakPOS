@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,7 +17,7 @@ import { Text } from '../../theme/Text';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
 import { Slider } from '../../components/Slider';
-import { colors, radius, shadow, space } from '../../theme/tokens';
+import { colors, fonts, radius, shadow, space } from '../../theme/tokens';
 import {
   CartLine,
   cartLinesArray,
@@ -56,6 +56,7 @@ export function CartScreen() {
   const [tender, setTender] = useState<TenderLabel | null>(null);
   const [splitPct, setSplitPct] = useState(60);
   const [discountText, setDiscountText] = useState('');
+  const [discountFocused, setDiscountFocused] = useState(false);
   const [cashReceivedText, setCashReceivedText] = useState('');
   const createSale = useCreateSale();
   const { data: currentShift } = useCurrentShift();
@@ -237,24 +238,39 @@ export function CartScreen() {
             <Text variant="body" color={colors.neutral700}>
               Diskon transaksi
             </Text>
-            <View style={styles.discountInputWrap}>
-              <Text variant="body" color={colors.neutral500}>
+            <View
+              style={[
+                styles.discountField,
+                discountFocused && styles.discountFieldFocused,
+                requestedDiscount > subtotal && styles.discountFieldError,
+              ]}
+            >
+              <Text variant="body" color={colors.neutral500} style={styles.discountPrefix}>
                 Rp
               </Text>
-              <TextField
+              <TextInput
                 value={discountText}
-                onChangeText={value =>
-                  setDiscountText(value.replace(/\D/g, ''))
-                }
+                onChangeText={value => setDiscountText(value.replace(/\D/g, ''))}
+                onFocus={() => setDiscountFocused(true)}
+                onBlur={() => setDiscountFocused(false)}
                 keyboardType="number-pad"
                 placeholder="0"
+                placeholderTextColor={colors.neutral500}
                 style={styles.discountInput}
+                selectTextOnFocus
               />
             </View>
           </View>
+          {discount > 0 ? (
+            <SummaryRow
+              label="Potongan"
+              value={`− ${formatRupiah(discount)}`}
+              valueColor={colors.accent}
+            />
+          ) : null}
           {requestedDiscount > subtotal ? (
-            <Text variant="caption" color={colors.accent}>
-              Diskon maksimal sebesar subtotal.
+            <Text variant="caption" color={colors.accent} style={styles.discountHint}>
+              Diskon dibatasi sebesar subtotal.
             </Text>
           ) : null}
           <View style={styles.totalRow}>
@@ -617,19 +633,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
-  discountInputWrap: {
-    width: 132,
+  discountField: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    width: 140,
+    height: 40,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
+  discountFieldFocused: { borderColor: colors.accent },
+  discountFieldError: { borderColor: colors.accent, backgroundColor: colors.accent100 },
+  discountPrefix: { fontSize: 14 },
   discountInput: {
-    minHeight: 38,
-    paddingVertical: 6,
-    textAlign: 'right',
     flex: 1,
+    height: '100%',
+    padding: 0,
+    textAlign: 'right',
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.text,
+  },
+  discountHint: {
+    textAlign: 'right',
+    marginTop: 2,
   },
   tabularText: { fontVariant: ['tabular-nums'] },
   totalRow: {

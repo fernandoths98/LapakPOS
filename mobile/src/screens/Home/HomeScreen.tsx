@@ -26,6 +26,7 @@ import { formatRupiah } from '@lapak/shared';
 import { Text } from '../../theme/Text';
 import { OutletSwitcher } from '../../components/OutletSwitcher';
 import { OutletsSummaryCard } from '../../components/OutletsSummaryCard';
+import { TrialBanner } from '../../components/TrialBanner';
 import { colors, radius, space } from '../../theme/tokens';
 import { useTodaySummary, useHomeAlerts } from '../../state/api/home';
 import { useMerchant } from '../../state/api/merchant';
@@ -169,6 +170,8 @@ export function HomeScreen() {
             <UserRound size={21} color={colors.text} />
           </Pressable>
         </View>
+
+        <TrialBanner />
 
         <Pressable
           onPress={() =>

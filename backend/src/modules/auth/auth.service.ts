@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt, { SignOptions } from "jsonwebtoken";
-import { LoginResponse, PinLoginRequest, RegisterRequest, RegisterResponse, UserRole } from "@lapak/shared";
+import { LoginResponse, PinLoginRequest, RegisterRequest, RegisterResponse, TRIAL_DAYS, TRIAL_PLAN_CODE, UserRole } from "@lapak/shared";
 import { env } from "../../config/env";
 import { prisma } from "../../db/prisma";
 import { AppError, unauthorized } from "../../utils/errors";
@@ -79,7 +79,7 @@ function buildSlug(name: string): string {
   return `${base}-${uuidv4().slice(0, 6)}`;
 }
 
-/** Creates an isolated tenant, its primary outlet, owner and 14-day starter trial atomically. */
+/** Creates an isolated tenant, its primary outlet, owner and 14-day Starter trial atomically. */
 export async function register(input: RegisterRequest): Promise<RegisterResponse> {
   const email = input.email.trim().toLowerCase();
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) {
@@ -87,13 +87,14 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
   }
   const [passwordHash] = await Promise.all([bcrypt.hash(input.password, 12)]);
   const slug = buildSlug(input.businessName);
+  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000);
 
   const result = await prisma.$transaction(async (tx) => {
     const merchant = await tx.merchant.create({
       data: {
         name: input.businessName.trim(), slug, businessType: input.businessType,
         phone: input.phone.trim(), address: input.address?.trim() || null,
-        onboardingCompleted: true,
+        onboardingCompleted: true, trialEndsAt,
       },
     });
     const outlet = await tx.outlet.create({
@@ -102,9 +103,11 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
     const user = await tx.user.create({
       data: { merchantId: merchant.id, outletId: outlet.id, name: input.ownerName.trim(), email, passwordHash, role: "owner" },
     });
-    // Freemium: a fresh account is on the free plan with no trial clock.
+    // Freemium: a fresh account gets a 14-day Starter trial, then resolvePlan
+    // lazily flips it to `canceled` at trialEndsAt, which drops entitlements
+    // to the free tier (existing data kept, new creates blocked at the cap).
     const subscription = await tx.subscription.create({
-      data: { merchantId: merchant.id, planCode: "free", status: "active" },
+      data: { merchantId: merchant.id, planCode: TRIAL_PLAN_CODE, status: "trialing", trialEndsAt },
     });
     await tx.category.createMany({ data: ["Minuman", "Makanan", "Sembako"].map((name, sortOrder) => ({ merchantId: merchant.id, name, sortOrder })) });
     await tx.ppobBiller.createMany({ data: DEFAULT_BILLERS.map((biller) => ({ merchantId: merchant.id, ...biller })) });
@@ -115,9 +118,9 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
   return {
     token: issueToken({ id: result.user.id, merchantId: result.merchant.id, role: "owner", outletId: result.outlet.id }),
     user: { id: result.user.id, name: result.user.name, email: result.user.email, role: "owner", merchantId: result.merchant.id, outletId: result.outlet.id },
-    merchant: { id: result.merchant.id, name: result.merchant.name, slug, businessType: result.merchant.businessType, trialEndsAt: null },
+    merchant: { id: result.merchant.id, name: result.merchant.name, slug, businessType: result.merchant.businessType, trialEndsAt: trialEndsAt.toISOString() },
     outlet: { id: result.outlet.id, name: result.outlet.name, code: result.outlet.code },
-    subscription: { planCode: "free", status: "active", trialEndsAt: null },
+    subscription: { planCode: TRIAL_PLAN_CODE, status: "trialing", trialEndsAt: trialEndsAt.toISOString() },
   };
 }
 

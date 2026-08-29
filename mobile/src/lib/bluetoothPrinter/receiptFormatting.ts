@@ -9,7 +9,7 @@
  * PaidScreen.tsx renders the exact same `ReceiptLine[]` in a monospace font,
  * so what the cashier sees is what prints.
  */
-import { Sale, ZReportResponse, formatRupiah } from "@lapak/shared";
+import { PpobTransaction, Sale, ZReportResponse, formatRupiah } from "@lapak/shared";
 
 export const RECEIPT_WIDTH = 32;
 
@@ -191,6 +191,77 @@ export function buildSaleReceiptLines(sale: Sale, ctx: SaleReceiptContext): Rece
   // ── Footer ──────────────────────────────────────────────────────────────
   lines.push({ text: "" });
   lines.push(center("Terimakasih Telah Berbelanja"));
+  return lines;
+}
+
+export interface BillReceiptContext {
+  merchant: ReceiptMerchantInfo;
+  /** The outlet the transaction was rung at — printed as its own line when the merchant has more than the one. */
+  outlet: ReceiptOutletInfo | null;
+  /** Name of the cashier who rang the transaction — printed as `Kasir: <first name>` opposite the date. */
+  cashierName: string;
+}
+
+/** First word only — the receipt shows `Kasir: Budi`, not the full legal name. */
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name.trim();
+}
+
+const PPOB_STATUS_LABEL: Record<PpobTransaction["status"], string> = {
+  success: "BERHASIL",
+  pending: "DIPROSES",
+  failed: "GAGAL",
+};
+
+/**
+ * Builds the printable slip for a PPOB / digital-biller transaction (pulsa,
+ * token PLN, e-wallet, tagihan…) in the same warung layout as the sale
+ * receipt: centered merchant block, date/cashier meta, then the biller +
+ * customer details, the provider reference (its own wrapped line — refs are
+ * long and must print in full to be a valid proof of payment), and the
+ * Tagihan / Biaya admin / **Total dibayar** totals.
+ */
+export function buildBillReceiptLines(tx: PpobTransaction, ctx: BillReceiptContext): ReceiptLine[] {
+  const lines: ReceiptLine[] = [];
+  const center = (text: string, bold = false): ReceiptLine => ({ text: truncate(text, RECEIPT_WIDTH), align: "center", bold });
+
+  // ── Header ──────────────────────────────────────────────────────────────
+  lines.push(center(ctx.merchant.name.toUpperCase(), true));
+  if (ctx.merchant.address) {
+    for (const addressLine of wrapText(ctx.merchant.address)) lines.push(center(addressLine));
+  }
+  if (ctx.merchant.phone) lines.push(center(`No. Telp ${ctx.merchant.phone}`));
+  lines.push(center(`No. Struk ${formatDate(tx.createdAt).replace(/-/g, "")}${formatClock(tx.createdAt).replace(/:/g, "")}`));
+
+  // ── Transaction meta ────────────────────────────────────────────────────
+  lines.push({ text: dashedRule() });
+  lines.push({ text: formatRow(formatDate(tx.createdAt), `Kasir: ${firstName(ctx.cashierName)}`) });
+  lines.push({ text: formatClock(tx.createdAt) });
+  if (ctx.outlet && (ctx.outlet.address || ctx.outlet.name)) {
+    lines.push({ text: formatRow("", ctx.outlet.address ?? ctx.outlet.name) });
+  }
+
+  // ── Biller / customer ───────────────────────────────────────────────────
+  lines.push({ text: dashedRule() });
+  lines.push({ text: truncate(tx.billerName, RECEIPT_WIDTH), bold: true });
+  lines.push({ text: formatRow("No. Pelanggan", tx.customerNumber) });
+  if (tx.customerName && tx.customerName !== tx.customerNumber) {
+    lines.push({ text: formatRow("Nama", tx.customerName) });
+  }
+  lines.push({ text: formatRow("Status", PPOB_STATUS_LABEL[tx.status]) });
+  lines.push({ text: "No. Referensi:" });
+  for (const refLine of wrapText(tx.providerRef)) lines.push({ text: refLine });
+
+  // ── Totals ──────────────────────────────────────────────────────────────
+  lines.push({ text: dashedRule() });
+  lines.push({ text: formatRow("Tagihan", formatRupiah(tx.billAmount)) });
+  lines.push({ text: formatRow("Biaya admin", formatRupiah(tx.adminFee)) });
+  lines.push({ text: formatRow("Total dibayar", formatRupiah(tx.totalCharged)), bold: true });
+
+  // ── Footer ──────────────────────────────────────────────────────────────
+  lines.push({ text: "" });
+  lines.push(center("Simpan struk ini sebagai"));
+  lines.push(center("bukti pembayaran yang sah"));
   return lines;
 }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -249,7 +249,16 @@ export function ProductScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <Text variant="h2">{isEditing ? "Edit product" : "New product"}</Text>
 
       <View style={styles.photoRow}>
@@ -390,6 +399,7 @@ export function ProductScreen() {
 
       <BarcodeScanner visible={scannerOpen} onScanned={handleScanned} onClose={() => setScannerOpen(false)} />
     </ScrollView>
+    </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -454,7 +464,9 @@ function CategoryChip({ label, active, onPress }: { label: string; active: boole
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   loadingContainer: { flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
-  content: { padding: space[4], paddingBottom: space[8] },
+  // Generous bottom room so Android can scroll the lowest fields (Cost, Stock,
+  // Barcode) and the Save button clear of the soft keyboard once it opens.
+  content: { padding: space[4], paddingBottom: 320 },
   photoRow: { flexDirection: "row", gap: space[3], marginTop: space[4] },
   photoBox: {
     width: 104,

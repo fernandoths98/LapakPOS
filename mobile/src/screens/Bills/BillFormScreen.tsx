@@ -12,21 +12,6 @@ import { colors, radius, shadow, space } from "../../theme/tokens";
 import { PrepaidCategory, useCheckBill, usePayBill, usePrepaidProducts } from "../../state/api/ppob";
 import { BillsStackParamList } from "../../app/stacks/BillsStack";
 
-/**
- * Bluetooth printing is Phase 7 — there's no printer-pairing flow yet, and
- * no merchant-settings endpoint either. This renders the seeded merchant's
- * known default printer name as static text, the same known-simplification
- * precedent Phase 2's receipt screen used for the merchant header.
- */
-const PRINTER_NAME = "RPP02N";
-
-const DEVELOPMENT_TEST_NUMBER: Partial<Record<PpobCategory, string>> = {
-  electricity: "530000000001",
-  water: "1013226",
-  health_insurance: "8801234560001",
-  internet_tv: "6391601001",
-};
-
 interface FormCopy {
   title: string;
   intro: string;
@@ -60,7 +45,6 @@ export function BillFormScreen() {
   const route = useRoute<RouteProp<BillsStackParamList, "BillForm">>();
   const { billerId, category } = route.params;
   const formCopy = FORM_COPY[category];
-  const testNumber = DEVELOPMENT_TEST_NUMBER[category];
   const [electricityMode, setElectricityMode] = useState<"postpaid" | "token">("postpaid");
   const prepaid = ["mobile", "ewallet", "games", "tv_voucher", "gas"].includes(category) || (category === "electricity" && electricityMode === "token");
   const prepaidCategory: PrepaidCategory = category === "electricity" ? "electricity" : category as PrepaidCategory;
@@ -141,11 +125,6 @@ export function BillFormScreen() {
         <Pressable onPress={() => { setElectricityMode("postpaid"); setCustomerNumber(""); setSelectedSku(null); setQuote(null); setErrorMessage(null); }} style={[styles.modeButton, electricityMode === "postpaid" && styles.modeButtonActive]}><Text variant="body" color={electricityMode === "postpaid" ? colors.surface : colors.neutral700}>Tagihan bulanan</Text></Pressable>
         <Pressable onPress={() => { setElectricityMode("token"); setCustomerNumber(""); setSelectedSku(null); setQuote(null); setErrorMessage(null); }} style={[styles.modeButton, electricityMode === "token" && styles.modeButtonActive]}><Text variant="body" color={electricityMode === "token" ? colors.surface : colors.neutral700}>Token listrik</Text></Pressable>
       </View> : null}
-      {testNumber && !prepaid ? <Pressable style={styles.testCard} onPress={() => handleChangeNumber(testNumber)}>
-        <View><Text variant="kicker" color={colors.accent2}>MODE UJI DIGIFLAZZ</Text><Text variant="caption" color={colors.neutral600} style={styles.testCaption}>Gunakan nomor sukses: {testNumber}</Text></View>
-        <Text variant="caption" color={colors.accent2}>PAKAI</Text>
-      </Pressable> : null}
-
       <TextField
         label={category === "electricity" && prepaid ? "Nomor meter / ID pelanggan" : formCopy.fieldLabel}
         value={customerNumber}
@@ -157,7 +136,7 @@ export function BillFormScreen() {
 
       {prepaid ? <View style={styles.productSection}>
         <View style={styles.productHeading}><Text variant="h3">{formCopy.productTitle}</Text><Text variant="caption" color={colors.neutral600}>{visibleProducts.length} produk</Text></View>
-        {productQuery.isLoading ? <Text variant="caption" color={colors.neutral600}>Memuat produk Digiflazz…</Text> : null}
+        {productQuery.isLoading ? <Text variant="caption" color={colors.neutral600}>Memuat produk…</Text> : null}
         {productQuery.isError ? <Pressable onPress={() => productQuery.refetch()}><Text variant="caption" color={colors.accent}>Produk gagal dimuat · ketuk untuk mencoba lagi</Text></Pressable> : null}
         <View style={styles.productList}>{visibleProducts.map(product => {
           const selected = selectedSku === product.skuCode;
@@ -210,7 +189,7 @@ export function BillFormScreen() {
         fullWidth
       />
       <Text variant="caption" color={colors.neutral600} style={styles.printerCaption}>
-        Struk otomatis dicetak ke {PRINTER_NAME}
+        Struk bisa dicetak setelah pembayaran berhasil
       </Text>
     </View>
     </KeyboardAvoidingView>
@@ -238,8 +217,6 @@ const styles = StyleSheet.create({
   stepBadge: { alignSelf: "flex-start", backgroundColor: colors.accent2100, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   title: { marginTop: space[3] },
   intro: { marginTop: space[2], lineHeight: 21 },
-  testCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: colors.accent2100, borderRadius: radius.md, padding: space[3], marginTop: space[3] },
-  testCaption: { marginTop: 3 },
   field: { marginTop: space[4] },
   card: {
     marginTop: space[4],
