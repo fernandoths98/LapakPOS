@@ -10,14 +10,28 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowUp, ChevronLeft } from "lucide-react-native";
+import {
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  Clock,
+  Lightbulb,
+  Package,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Tag,
+  TrendingUp,
+  TriangleAlert,
+} from "lucide-react-native";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { AiChatMessage, formatRupiah, RecapInsight, TopSeller, WeeklyBar } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { PlanUpsell } from "../../components/PlanUpsell";
 import { isPlanLimitError } from "../../state/api/apiClient";
-import { colors, fonts, radius, space } from "../../theme/tokens";
+import { colors, fonts, radius, shadow, space } from "../../theme/tokens";
 import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWeeklyReports } from "../../state/api/recap";
 import { RecapStackParamList } from "../../app/stacks/RecapStack";
 
@@ -105,71 +119,137 @@ function StoryTab() {
   }
 
   const recap = recapQuery.data;
+  const updatedAt = formatUpdatedAt(recap.generatedAt);
 
   return (
     <View style={styles.storySection}>
-      <View style={styles.featureIntro}>
-        <Text variant="kicker" color={colors.accent2700}>INSIGHT OTOMATIS</Text>
-        <Text variant="h3" style={styles.featureTitle}>Prioritas toko hari ini</Text>
-        <Text variant="caption" color={colors.neutral700} style={styles.featureDescription}>
-          AI memeriksa omzet, produk terlaris, stok menipis, perubahan harga modal, dan pola jam sepi lalu merangkum hal yang perlu ditindaklanjuti.
+      <View style={styles.storyCard}>
+        <View style={styles.storyCardHead}>
+          <View style={styles.storyBadge}>
+            <Sparkles size={15} color={colors.accent2600} strokeWidth={2.2} />
+          </View>
+          <Text variant="kicker" color={colors.accent2700} style={styles.storyKicker}>
+            INSIGHT OTOMATIS
+          </Text>
+          {updatedAt ? (
+            <Text variant="caption" color={colors.neutral500}>
+              {updatedAt}
+            </Text>
+          ) : null}
+        </View>
+
+        <Text style={styles.headline}>{recap.headline}</Text>
+        <Text variant="body" color={colors.neutral800} style={styles.storyBody}>
+          {recap.body}
         </Text>
-        <Text variant="caption" color={colors.neutral600} style={styles.readOnlyNote}>
-          Hanya membaca data toko · tidak mengubah transaksi, stok, atau harga
-        </Text>
+
+        <View style={styles.storyCardFoot}>
+          <View style={styles.readOnlyNote}>
+            <ShieldCheck size={13} color={colors.neutral500} strokeWidth={2} />
+            <Text variant="caption" color={colors.neutral600} style={styles.readOnlyNoteText}>
+              Hanya membaca data · tak mengubah transaksi, stok, atau harga
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => regenerate.mutate()}
+            disabled={regenerate.isPending}
+            style={({ pressed }) => [
+              styles.regenButton,
+              pressed && !regenerate.isPending && styles.regenButtonPressed,
+              regenerate.isPending && styles.regenButtonDisabled,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Perbarui ringkasan"
+          >
+            {regenerate.isPending ? (
+              <ActivityIndicator size="small" color={colors.accent2600} />
+            ) : (
+              <RefreshCw size={13} color={colors.accent2600} strokeWidth={2.2} />
+            )}
+            <Text variant="caption" color={colors.accent2600} style={styles.regenButtonText}>
+              {regenerate.isPending ? "Memperbarui…" : "Perbarui"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {!recap.aiAvailable ? (
-        <View style={styles.aiNotice}>
-          <Text variant="caption" color={colors.accent700}>
+        <View style={styles.storyBanner}>
+          <TriangleAlert size={16} color={colors.accent600} strokeWidth={2} />
+          <Text variant="caption" color={colors.accent700} style={styles.storyBannerText}>
             {AI_UNAVAILABLE_MESSAGE}
           </Text>
         </View>
       ) : null}
 
-      <Text variant="h3" style={styles.headline}>
-        {recap.headline}
-      </Text>
-      <Text variant="body" color={colors.neutral800} style={styles.storyBody}>
-        {recap.body}
-      </Text>
-
-      <View style={styles.regenerateRow}>
-        <Button
-          title={regenerate.isPending ? "Memperbarui…" : "Perbarui ringkasan"}
-          variant="ghost"
-          loading={regenerate.isPending}
-          onPress={() => regenerate.mutate()}
-        />
+      <View style={styles.insightsHead}>
+        <Text variant="h3">Yang perlu diperhatikan</Text>
+        {recap.insights.length > 0 ? (
+          <View style={styles.countPill}>
+            <Text variant="caption" color={colors.neutral700} style={styles.countPillText}>
+              {recap.insights.length}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
-      <Text variant="kicker" style={styles.sectionLabel}>
-        YANG PERLU DIPERHATIKAN
-      </Text>
       {recap.insights.length === 0 ? (
-        <Text variant="body" color={colors.neutral600} style={styles.emptyInsights}>
-          Belum ada hal penting yang perlu ditindaklanjuti hari ini.
-        </Text>
+        <View style={styles.insightsEmpty}>
+          <CircleCheck size={18} color={colors.success} strokeWidth={2} />
+          <Text variant="caption" color={colors.neutral600} style={styles.insightsEmptyText}>
+            Belum ada hal penting yang perlu ditindaklanjuti hari ini.
+          </Text>
+        </View>
       ) : (
-        recap.insights.map((insight, index) => <InsightRow key={`${insight.title}-${index}`} insight={insight} />)
+        recap.insights.map((insight, index) => (
+          <InsightCard key={`${insight.title}-${index}`} insight={insight} />
+        ))
       )}
     </View>
   );
 }
 
-function InsightRow({ insight }: { insight: RecapInsight }) {
+/** Local HH:MM for the "last generated" stamp; empty string if the timestamp is unusable. */
+function formatUpdatedAt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `Diperbarui ${hh}:${mm}`;
+}
+
+/** The insight payload carries no category, so pick a leading icon + tint from keywords in the title. */
+function insightVisual(title: string): { Icon: typeof Lightbulb; bg: string; fg: string } {
+  const t = title.toLowerCase();
+  if (/stok|restok|habis|menipis|kosong|beli/.test(t)) return { Icon: Package, bg: colors.accent100, fg: colors.accent600 };
+  if (/sepi|ramai|jam|pukul|waktu|siang|malam|pagi/.test(t)) return { Icon: Clock, bg: colors.accent2100, fg: colors.accent2600 };
+  if (/modal|harga|margin|laba|untung|rugi/.test(t)) return { Icon: Tag, bg: colors.accent2100, fg: colors.accent2600 };
+  if (/omzet|laris|terjual|penjualan|naik|turun|tren/.test(t)) return { Icon: TrendingUp, bg: colors.accent2100, fg: colors.accent2600 };
+  return { Icon: Lightbulb, bg: colors.neutral200, fg: colors.neutral700 };
+}
+
+function InsightCard({ insight }: { insight: RecapInsight }) {
+  const { Icon, bg, fg } = insightVisual(insight.title);
   return (
-    <View style={styles.insightRow}>
-      <Text variant="h3" style={styles.insightTitle}>
-        {insight.title}
-      </Text>
-      <Text variant="caption" color={colors.neutral700} style={styles.insightBody}>
-        {insight.body}
-      </Text>
+    <View style={styles.insightCard}>
+      <View style={styles.insightBodyRow}>
+        <View style={[styles.insightIcon, { backgroundColor: bg }]}>
+          <Icon size={17} color={fg} strokeWidth={2.1} />
+        </View>
+        <View style={styles.insightText}>
+          <Text style={styles.insightTitle}>{insight.title}</Text>
+          <Text variant="caption" color={colors.neutral700} style={styles.insightBody}>
+            {insight.body}
+          </Text>
+        </View>
+      </View>
       {insight.action ? (
-        <Text variant="caption" color={colors.accent700} style={styles.insightAction}>
-          {insight.action}
-        </Text>
+        <View style={styles.insightAction}>
+          <ChevronRight size={14} color={colors.accent2600} strokeWidth={2.4} />
+          <Text variant="caption" color={colors.accent2600} style={styles.insightActionText}>
+            {insight.action}
+          </Text>
+        </View>
       ) : null}
     </View>
   );
@@ -511,10 +591,8 @@ const styles = StyleSheet.create({
   storySection: {
     marginTop: space[4],
   },
-  featureIntro: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.sm, padding: space[4], marginBottom: space[4] },
   featureTitle: { marginTop: space[1] },
   featureDescription: { marginTop: space[2], lineHeight: 19 },
-  readOnlyNote: { marginTop: space[3], paddingTop: space[2], borderTopWidth: 1, borderTopColor: colors.divider, lineHeight: 17 },
   aiNotice: {
     borderWidth: 1,
     borderColor: colors.accent,
@@ -522,21 +600,139 @@ const styles = StyleSheet.create({
     padding: space[3],
     marginBottom: space[3],
   },
-  headline: { fontWeight: "400", lineHeight: 26 },
-  storyBody: { marginTop: space[2], lineHeight: 22 },
-  regenerateRow: { alignItems: "flex-start", marginTop: space[2] },
-  sectionLabel: { marginTop: space[6], marginBottom: space[2] },
-  emptyInsights: { paddingVertical: space[2] },
-  insightRow: {
-    borderLeftWidth: 2,
-    borderLeftColor: colors.accent300,
-    paddingLeft: space[3],
-    paddingVertical: space[2],
-    marginBottom: space[2],
+
+  // Story tab — summary card
+  storyCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    padding: space[4],
+    ...shadow.sm,
   },
-  insightTitle: { fontSize: 14.5 },
+  storyCardHead: { flexDirection: "row", alignItems: "center", gap: space[2], marginBottom: space[3] },
+  storyBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accent2100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  storyKicker: { flex: 1 },
+  headline: {
+    fontFamily: fonts.heading,
+    fontWeight: "600",
+    fontSize: 19,
+    lineHeight: 26,
+    color: colors.text,
+  },
+  storyBody: { marginTop: space[2], lineHeight: 22 },
+  storyCardFoot: {
+    marginTop: space[4],
+    paddingTop: space[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+  },
+  readOnlyNote: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  readOnlyNoteText: { flex: 1, lineHeight: 16 },
+  regenButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.accent2300,
+    backgroundColor: colors.accent2100,
+  },
+  regenButtonPressed: { backgroundColor: colors.accent2200 },
+  regenButtonDisabled: { opacity: 0.6 },
+  regenButtonText: { fontWeight: "600" },
+
+  // Story tab — AI-unavailable banner
+  storyBanner: {
+    marginTop: space[3],
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: space[2],
+    padding: space[3],
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.accent200,
+    backgroundColor: colors.accent100,
+  },
+  storyBannerText: { flex: 1, lineHeight: 17 },
+
+  // Story tab — insights
+  insightsHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[2],
+    marginTop: space[6],
+    marginBottom: space[3],
+  },
+  countPill: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 7,
+    borderRadius: 11,
+    backgroundColor: colors.neutral200,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countPillText: { fontWeight: "600", lineHeight: 16 },
+  insightsEmpty: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[2],
+    padding: space[3],
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  insightsEmptyText: { flex: 1, lineHeight: 17 },
+  insightCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    padding: space[3],
+    marginBottom: space[2] + 2,
+    ...shadow.sm,
+  },
+  insightBodyRow: { flexDirection: "row", alignItems: "flex-start", gap: space[3] },
+  insightIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  insightText: { flex: 1 },
+  insightTitle: {
+    fontFamily: fonts.heading,
+    fontWeight: "600",
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.text,
+  },
   insightBody: { marginTop: 3, lineHeight: 18 },
-  insightAction: { marginTop: space[1] + 2 },
+  insightAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: space[2] + 2,
+    paddingTop: space[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  insightActionText: { flex: 1, fontWeight: "600", lineHeight: 17 },
 
   // Ask assistant (chat surface)
   askScreen: { flex: 1, backgroundColor: colors.bg },
@@ -680,6 +876,7 @@ const styles = StyleSheet.create({
   },
   topSellerName: { flex: 1, marginRight: space[2] },
   topSellerRight: { fontSize: 13.5 },
+  emptyInsights: { paddingVertical: space[2] },
   marginNote: { marginTop: space[3], lineHeight: 16 },
   assistantSection: { marginTop: space[6], paddingTop: space[4], borderTopWidth: 1, borderTopColor: colors.text },
   assistantActions: { flexDirection: "row", gap: space[2], marginTop: space[3] },
