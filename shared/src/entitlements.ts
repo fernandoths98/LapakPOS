@@ -21,6 +21,27 @@ export interface Entitlements {
   excelIO: boolean;
   /** AI daily recap, AI "ask", and snap-to-fill. */
   ai: boolean;
+  /**
+   * Claude calls allowed per merchant per day, counted separately for each AI
+   * surface (recap, ask, photo-fill) rather than as one shared pool — so a
+   * busy afternoon on the assistant can never leave the merchant unable to
+   * scan a product label.
+   *
+   * `ai` says whether the feature exists on the plan at all; this says how
+   * hard it can be leaned on. Without it a plan with `ai: true` is unmetered
+   * Claude spend — one merchant looping the assistant can cost more in a day
+   * than their subscription brings in a month. Set well above ordinary use:
+   * this is a ceiling on runaway cost, not a budget a warung should ever feel.
+   * Zero wherever `ai` is false, so the two never disagree.
+   */
+  aiDailyCalls: number;
+  /**
+   * The fraction of their own PPOB markup the merchant keeps, 0..1. The rest
+   * is Lapak's platform fee, written to the commission ledger beside the
+   * merchant's share rather than quietly netted off — a merchant can always
+   * see exactly what was taken, and it rises as they move up plans.
+   */
+  ppobMerchantShare: number;
   /** More than one outlet, and the outlet switcher UI. */
   multiOutlet: boolean;
   /** Franchise agreements + royalty statements. */
@@ -44,6 +65,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, Entitlements> = {
     excelIO: false,
     ai: false,
     multiOutlet: false,
+    aiDailyCalls: 0,
+    ppobMerchantShare: 0.7,
     franchise: false,
   },
   starter: {
@@ -54,6 +77,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, Entitlements> = {
     excelIO: true,
     ai: false,
     multiOutlet: false,
+    aiDailyCalls: 0,
+    ppobMerchantShare: 0.8,
     franchise: false,
   },
   growth: {
@@ -64,6 +89,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, Entitlements> = {
     excelIO: true,
     ai: true,
     multiOutlet: true,
+    aiDailyCalls: 50,
+    ppobMerchantShare: 0.9,
     franchise: false,
   },
   pro: {
@@ -74,6 +101,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, Entitlements> = {
     excelIO: true,
     ai: true,
     multiOutlet: true,
+    aiDailyCalls: 200,
+    ppobMerchantShare: 1,
     franchise: true,
   },
 };
@@ -129,4 +158,18 @@ export function trialDaysLeft(trialEndsAt: string | Date | null | undefined, now
   const end = typeof trialEndsAt === "string" ? new Date(trialEndsAt) : trialEndsAt;
   const ms = end.getTime() - now.getTime();
   return ms <= 0 ? 0 : Math.ceil(ms / 86_400_000);
+}
+
+/**
+ * Splits a PPOB markup into what the merchant banks and what Lapak keeps.
+ * The merchant's share rounds down to the whole rupiah so the two parts always
+ * sum back to the original margin — no half-rupiah can appear or vanish
+ * between the ledger and the drawer.
+ */
+export function splitPpobMargin(
+  marginAmount: number,
+  planCode: PlanCode,
+): { merchantCommission: number; platformFee: number } {
+  const merchantCommission = Math.floor(marginAmount * PLAN_ENTITLEMENTS[planCode].ppobMerchantShare);
+  return { merchantCommission, platformFee: marginAmount - merchantCommission };
 }

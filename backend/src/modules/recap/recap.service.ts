@@ -4,6 +4,7 @@ import { prisma } from "../../db/prisma";
 import { aiEnabled } from "../../config/env";
 import { badRequest } from "../../utils/errors";
 import { requireFeature } from "../subscription/entitlements.service";
+import { consumeAiQuota } from "../subscription/aiQuota.service";
 import { dayBounds, dayRevenueTotal, resolveTimeZone } from "../sales/sales.service";
 import { localDateKey } from "../../utils/time";
 import { buildRecapAggregation, RecapAggregationContext } from "./recapAggregation.service";
@@ -190,6 +191,12 @@ async function generateFreshDailyRecap(
   if (!aiEnabled) {
     return toDailyRecapResponse(context, buildDeterministicStory(context), false);
   }
+
+  // Claimed here rather than at the route, because this is the only path that
+  // actually calls Claude: a cache hit in getDailyRecap never reaches this
+  // function, so reopening Home all day costs the merchant nothing. The
+  // deterministic fallback above is free for the same reason.
+  await consumeAiQuota(merchantId, "recap");
 
   try {
     const story = await callClaudeForStory(context);

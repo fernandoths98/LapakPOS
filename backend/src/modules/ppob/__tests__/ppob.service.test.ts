@@ -1,3 +1,4 @@
+import { splitPpobMargin } from "@lapak/shared";
 import { prisma } from "../../../db/prisma";
 import { AppError } from "../../../utils/errors";
 import { CheckBillResult, PayBillResult, PpobProvider } from "../providers/PpobProvider";
@@ -165,7 +166,14 @@ describe("ppob.service", () => {
       const ledgerEntry = await prisma.ppobCommissionLedgerEntry.findUnique({
         where: { ppobTransactionId: transaction.id },
       });
-      expect(ledgerEntry?.commissionAmount).toBe(3000);
+      // The customer still pays the merchant's full 3.000 markup; the plan only
+      // decides how it is divided afterwards. This merchant has no subscription
+      // row, so it resolves to free — and both halves are recorded rather than
+      // one being silently netted off.
+      const { merchantCommission, platformFee } = splitPpobMargin(3000, "free");
+      expect(ledgerEntry?.commissionAmount).toBe(merchantCommission);
+      expect(ledgerEntry?.platformFeeAmount).toBe(platformFee);
+      expect(merchantCommission + platformFee).toBe(transaction.marginAmount);
       // depositDelta is a legacy column left at 0 since the wallet feature
       // (migration 20260821150000_ppob_wallet) took over float tracking.
       expect(ledgerEntry?.depositDelta).toBe(0);

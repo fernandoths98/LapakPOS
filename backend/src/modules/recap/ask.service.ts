@@ -5,6 +5,7 @@ import { prisma } from "../../db/prisma";
 import { aiEnabled } from "../../config/env";
 import { badRequest } from "../../utils/errors";
 import { requireFeature } from "../subscription/entitlements.service";
+import { consumeAiQuota } from "../subscription/aiQuota.service";
 import { buildRecapAggregation, RecapAggregationContext } from "./recapAggregation.service";
 import { AiUnavailableError, generateStructured, JsonSchema } from "./claudeClient";
 
@@ -124,6 +125,15 @@ export async function postAsk(merchantId: string, userId: string, message: strin
   const trimmed = message.trim();
   if (!trimmed) {
     throw badRequest("message is required");
+  }
+
+  // After validation and before anything is persisted: a rejected message
+  // must not spend the allowance, and a 402 raised later — once the question
+  // row exists — would strand it with no reply, which is exactly the orphaned
+  // turn the note above says this flow avoids. Skipped when AI is off, since
+  // no Claude call happens on that path either.
+  if (aiEnabled) {
+    await consumeAiQuota(merchantId, "ask");
   }
 
   // Fetched BEFORE persisting the new question, so it naturally excludes it —
