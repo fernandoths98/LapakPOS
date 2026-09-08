@@ -13,7 +13,7 @@ import { fetchProductByBarcode, useCategories, useProducts } from "../../state/a
 import { cartCount, cartTotal, useCartStore } from "../../state/cart/cartStore";
 import { SellStackParamList } from "../../app/stacks/SellStack";
 
-const ALL_CATEGORY = "All";
+const ALL_CATEGORY = "Semua";
 
 export function SellScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<SellStackParamList>>();
@@ -46,10 +46,10 @@ export function SellScreen() {
       if (product) {
         addItem(product);
       } else {
-        Alert.alert("Not found", `No product with barcode ${code}.`);
+        Alert.alert("Tidak ketemu", `Nggak ada produk dengan barcode ${code}.`);
       }
     } catch {
-      Alert.alert("Lookup failed", "Couldn't look up that barcode. Check your connection and try again.");
+      Alert.alert("Gagal cari", "Barcode itu gagal dicari. Cek koneksi lalu coba lagi.");
     }
   };
 
@@ -71,7 +71,7 @@ export function SellScreen() {
             <TextField
               value={query}
               onChangeText={setQuery}
-              placeholder="Search or type a barcode"
+              placeholder="Cari barang atau scan barcode"
               autoCapitalize="none"
               autoCorrect={false}
               style={styles.search}
@@ -107,7 +107,7 @@ export function SellScreen() {
               {formatRupiah(total)}
             </Text>
           </View>
-          <Button title="Charge" onPress={() => navigation.navigate("Cart")} />
+          <Button title="Bayar" onPress={() => navigation.navigate("Cart")} />
         </View>
       ) : null}
 
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
   },
-  pillActive: { backgroundColor: "rgba(182, 130, 53, 0.14)", borderColor: colors.accent },
+  pillActive: { backgroundColor: colors.accent100, borderColor: colors.accent },
   pillInactive: { backgroundColor: "transparent", borderColor: colors.divider },
   pillLabel: { textTransform: "none", letterSpacing: 0.2 },
   loading: { marginTop: space[3] },

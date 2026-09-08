@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { formatRupiah, TenderType } from "@lapak/shared";
+import { formatRupiah, formatTimeOfDay, TenderType } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { colors, space } from "../../theme/tokens";
@@ -13,10 +13,10 @@ import { IOS_UNAVAILABLE_MESSAGE, ReceiptLine } from "../../lib/bluetoothPrinter
 import { buildSaleReceiptLines } from "../../lib/bluetoothPrinter/receiptFormatting";
 
 const TENDER_LABEL: Record<TenderType, string> = {
-  cash: "Cash",
+  cash: "Tunai",
   qris: "QRIS",
-  debit: "Debit card",
-  split: "Split",
+  debit: "Kartu debit",
+  split: "Gabungan",
 };
 
 // Merchant header for the receipt. A real merchant-settings screen (address
@@ -32,7 +32,7 @@ export function PaidScreen() {
   const { sale } = route.params;
   const clearCart = useCartStore((s) => s.clear);
 
-  const time = new Date(sale.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const time = formatTimeOfDay(sale.createdAt);
   const tenderLabel = TENDER_LABEL[sale.tenderType];
   const [printSheetVisible, setPrintSheetVisible] = useState(false);
 
@@ -43,7 +43,7 @@ export function PaidScreen() {
 
   const handlePrint = () => {
     if (Platform.OS !== "android") {
-      Alert.alert("Print receipt", IOS_UNAVAILABLE_MESSAGE);
+      Alert.alert("Cetak struk", IOS_UNAVAILABLE_MESSAGE);
       return;
     }
     setPrintSheetVisible(true);
@@ -58,12 +58,12 @@ export function PaidScreen() {
     <View style={styles.container}>
       <View style={styles.hero}>
         <View style={styles.check}>
-          <Text variant="h1" color={colors.accent700} style={styles.checkGlyph}>
+          <Text variant="h1" color={colors.success} style={styles.checkGlyph}>
             ✓
           </Text>
         </View>
         <Text variant="h1" style={styles.paidTitle}>
-          Paid
+          Lunas
         </Text>
         <Text variant="tabular" color={colors.neutral700}>
           {tenderLabel} · {formatRupiah(sale.total)} · {time}
@@ -90,7 +90,7 @@ export function PaidScreen() {
         ))}
         <View style={styles.receiptRow}>
           <Text variant="caption" style={styles.receiptLeft}>
-            Tender
+            Bayar pakai
           </Text>
           <Text variant="caption" style={styles.receiptRight}>
             {tenderLabel}
@@ -111,11 +111,11 @@ export function PaidScreen() {
       </View>
 
       <View style={styles.actions}>
-        <Button title="Print receipt" onPress={handlePrint} style={styles.actionButton} />
-        <Button title="New sale" variant="secondary" onPress={handleNewSale} style={styles.actionButton} />
+        <Button title="Cetak struk" onPress={handlePrint} style={styles.actionButton} />
+        <Button title="Transaksi baru" variant="secondary" onPress={handleNewSale} style={styles.actionButton} />
       </View>
       <Text variant="caption" color={colors.neutral600} style={styles.shareCaption}>
-        Share by WhatsApp · Email · Copy link
+        Kirim via WhatsApp · Email · Salin tautan
       </Text>
 
       <PrintSheetScreen

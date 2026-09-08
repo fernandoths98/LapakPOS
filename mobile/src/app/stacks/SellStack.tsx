@@ -18,9 +18,9 @@ const Stack = createNativeStackNavigator<SellStackParamList>();
 export function SellStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="Sell" component={SellScreen} options={{ title: "Sell" }} />
-      <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Cart", headerBackTitle: "Sell" }} />
-      <Stack.Screen name="Paid" component={PaidScreen} options={{ title: "Paid", headerBackVisible: false }} />
+      <Stack.Screen name="Sell" component={SellScreen} options={{ title: "Jual" }} />
+      <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Keranjang", headerBackTitle: "Jual" }} />
+      <Stack.Screen name="Paid" component={PaidScreen} options={{ title: "Lunas", headerBackVisible: false }} />
     </Stack.Navigator>
   );
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View, ViewProps } from "react-native";
 import { Text } from "../theme/Text";
-import { colors } from "../theme/tokens";
+import { colors, radius } from "../theme/tokens";
 
 export type TagVariant = "accent" | "neutral" | "outline";
 
@@ -37,9 +37,9 @@ export function Tag({ label, variant = "neutral", style, ...rest }: TagProps) {
 const styles = StyleSheet.create({
   base: {
     alignSelf: "flex-start",
-    paddingVertical: 3,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 3,
+    borderRadius: radius.pill,
   },
   text: {
     fontSize: 11,

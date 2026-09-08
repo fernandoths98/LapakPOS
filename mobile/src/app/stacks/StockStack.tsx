@@ -19,13 +19,13 @@ const Stack = createNativeStackNavigator<StockStackParamList>();
 export function StockStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="Stock" component={StockScreen} options={{ title: "Stock" }} />
+      <Stack.Screen name="Stock" component={StockScreen} options={{ title: "Stok" }} />
       <Stack.Screen
         name="Product"
         component={ProductScreen}
-        options={{ title: "Product", headerBackTitle: "Stock" }}
+        options={{ title: "Produk", headerBackTitle: "Stok" }}
       />
-      <Stack.Screen name="Sheet" component={SheetScreen} options={{ title: "Excel", headerBackTitle: "Stock" }} />
+      <Stack.Screen name="Sheet" component={SheetScreen} options={{ title: "Excel", headerBackTitle: "Stok" }} />
     </Stack.Navigator>
   );
 }

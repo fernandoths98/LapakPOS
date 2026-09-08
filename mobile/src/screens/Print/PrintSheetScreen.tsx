@@ -33,7 +33,7 @@ type PrintState = "idle" | "printing" | "done" | "error";
 
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
-  return "Couldn't reach the printer. Check it's on and in range, and try again.";
+  return "Printer nggak bisa dihubungi. Pastikan nyala dan dekat, lalu coba lagi.";
 }
 
 /**
@@ -58,7 +58,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [copies, setCopies] = useState(1);
   const [printState, setPrintState] = useState<PrintState>("idle");
-  const [statusMessage, setStatusMessage] = useState("Ready");
+  const [statusMessage, setStatusMessage] = useState("Siap");
 
   const loadDevices = useCallback(async () => {
     if (Platform.OS !== "android") {
@@ -84,7 +84,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
   useEffect(() => {
     if (!visible) return;
     setPrintState("idle");
-    setStatusMessage("Ready");
+    setStatusMessage("Siap");
     loadDevices();
   }, [visible, loadDevices]);
 
@@ -96,7 +96,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
     if (!selectedDeviceId) return;
 
     setPrintState("printing");
-    setStatusMessage("Printing…");
+    setStatusMessage("Mencetak…");
     try {
       await connect(selectedDeviceId);
       if (jobType === "receipt") {
@@ -119,12 +119,12 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
     onClose();
   };
 
-  const printButtonLabel = printState === "done" ? "Printed · close" : printState === "printing" ? "Printing…" : "Print";
+  const printButtonLabel = printState === "done" ? "Tercetak · tutup" : printState === "printing" ? "Mencetak…" : "Cetak";
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.wrapper}>
-        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityRole="button" accessibilityLabel="Tutup" />
         <View style={styles.sheet}>
           <View style={styles.grabber} />
           <Text variant="h3">Print to thermal printer</Text>
@@ -144,7 +144,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
               <Text variant="body" color={colors.neutral700}>
                 {IOS_UNAVAILABLE_MESSAGE} Bluetooth thermal-printer support in Lapak is Android-only for now.
               </Text>
-              <Button title="Close" variant="secondary" onPress={handleClose} style={styles.emptyStateButton} />
+              <Button title="Tutup" variant="secondary" onPress={handleClose} style={styles.emptyStateButton} />
             </View>
           ) : loadState === "loading" ? (
             <View style={styles.emptyState}>
@@ -153,16 +153,16 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
           ) : loadState === "denied" ? (
             <View style={styles.emptyState}>
               <Text variant="body" color={colors.neutral700} style={styles.emptyStateText}>
-                Lapak needs Bluetooth permission to find your printer. Grant it in your phone's Settings, then try again.
+                Lapak butuh izin Bluetooth buat nemu printer. Aktifkan di Setelan HP, lalu coba lagi.
               </Text>
-              <Button title="Try again" variant="secondary" onPress={loadDevices} style={styles.emptyStateButton} />
+              <Button title="Coba lagi" variant="secondary" onPress={loadDevices} style={styles.emptyStateButton} />
             </View>
           ) : devices.length === 0 ? (
             <View style={styles.emptyState}>
               <Text variant="body" color={colors.neutral700} style={styles.emptyStateText}>
-                No paired printers found. Pair one in Android Bluetooth settings first.
+                Belum ada printer yang dipasangkan. Pasangkan dulu di setelan Bluetooth Android.
               </Text>
-              <Button title="Open Bluetooth settings" variant="secondary" onPress={() => Alert.alert("Bluetooth settings", "Open your phone's Settings → Bluetooth to pair a printer.")} style={styles.emptyStateButton} />
+              <Button title="Buka setelan Bluetooth" variant="secondary" onPress={() => Alert.alert("Setelan Bluetooth", "Buka Setelan HP → Bluetooth buat pasangkan printer.")} style={styles.emptyStateButton} />
             </View>
           ) : (
             <>
@@ -184,7 +184,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
                           Paired · 58mm
                         </Text>
                       </View>
-                      {isDefault ? <Tag label="Default" variant="outline" /> : null}
+                      {isDefault ? <Tag label="Utama" variant="outline" /> : null}
                     </Pressable>
                   );
                 })}
@@ -192,14 +192,14 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
 
               <View style={styles.copiesRow}>
                 <Text variant="body" color={colors.neutral700}>
-                  Copies
+                  Rangkap
                 </Text>
                 <View style={styles.stepper}>
                   <Pressable
                     onPress={() => setCopies((c) => Math.max(1, c - 1))}
                     style={styles.stepperButton}
                     accessibilityRole="button"
-                    accessibilityLabel="Decrease copies"
+                    accessibilityLabel="Kurangi rangkap"
                   >
                     <Text variant="h3">−</Text>
                   </Pressable>
@@ -210,7 +210,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
                     onPress={() => setCopies((c) => Math.min(3, c + 1))}
                     style={styles.stepperButton}
                     accessibilityRole="button"
-                    accessibilityLabel="Increase copies"
+                    accessibilityLabel="Tambah rangkap"
                   >
                     <Text variant="h3">+</Text>
                   </Pressable>

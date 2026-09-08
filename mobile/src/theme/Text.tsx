@@ -4,11 +4,15 @@ import { colors, fonts } from "./tokens";
 
 /**
  * Variant-based text so screens never hardcode fontFamily/fontSize inline.
- * Mirrors styles.css's type scale (h1..h6, body) plus two prototype-specific
- * roles: `kicker` (the small uppercase accent labels above section headers,
- * e.g. "Takings today") and `tabular` (money/figures that must line up like
- * a ledger — sets fontVariant tabular-nums per the design system's rule that
- * every number is tabular).
+ *
+ * The scale is tuned for arm's length rather than reading distance: `h1` is
+ * the money hero (takings, cart total, change due) and carries tabular
+ * numerals so digits stop jittering as they tick up, and `caption` runs a
+ * step heavier than a print-derived scale would because it is read in a hurry.
+ *
+ * `kicker` is deliberately neutral, not accent-coloured: now that the accent
+ * is a saturated orange it has to mean "you can act on this", so labels give
+ * it up.
  */
 export type TextVariant = "h1" | "h2" | "h3" | "body" | "caption" | "kicker" | "tabular";
 
@@ -20,51 +24,53 @@ export interface ThemedTextProps extends RNTextProps {
 const variantStyles = StyleSheet.create({
   h1: {
     fontFamily: fonts.heading,
-    fontWeight: "400",
-    fontSize: 42,
-    lineHeight: 46,
-    letterSpacing: -0.4,
+    fontWeight: "800",
+    fontSize: 40,
+    lineHeight: 44,
+    letterSpacing: -0.8,
     color: colors.text,
+    fontVariant: ["tabular-nums"],
   },
   h2: {
     fontFamily: fonts.heading,
-    fontWeight: "500",
-    fontSize: 27,
-    lineHeight: 31,
+    fontWeight: "700",
+    fontSize: 24,
+    lineHeight: 29,
+    letterSpacing: -0.3,
     color: colors.text,
   },
   h3: {
     fontFamily: fonts.heading,
-    fontWeight: "600",
-    fontSize: 20,
-    lineHeight: 24,
+    fontWeight: "700",
+    fontSize: 18,
+    lineHeight: 23,
     color: colors.text,
   },
   body: {
     fontFamily: fonts.body,
     fontWeight: "400",
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 22,
     color: colors.text,
   },
   caption: {
     fontFamily: fonts.body,
-    fontWeight: "400",
+    fontWeight: "500",
     fontSize: 12,
-    lineHeight: 17,
-    color: colors.neutral700,
+    lineHeight: 16,
+    color: colors.neutral600,
   },
   kicker: {
     fontFamily: fonts.heading,
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: 11,
-    letterSpacing: 1.5,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
-    color: colors.accent700,
+    color: colors.neutral600,
   },
   tabular: {
     fontFamily: fonts.heading,
-    fontWeight: "400",
+    fontWeight: "600",
     fontSize: 17,
     color: colors.text,
     fontVariant: ["tabular-nums"],

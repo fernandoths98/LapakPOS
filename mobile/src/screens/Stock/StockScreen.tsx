@@ -55,15 +55,15 @@ export function StockScreen() {
             </View>
 
             <View style={styles.statStrip}>
-              <StatItem label="SKUs" value={String(stats.skuCount)} />
-              <StatItem label="Low" value={String(stats.lowCount)} color={colors.accent700} />
-              <StatItem label="Value" value={formatRupiah(stats.value)} />
+              <StatItem label="Jenis" value={String(stats.skuCount)} />
+              <StatItem label="Menipis" value={String(stats.lowCount)} color={colors.danger} />
+              <StatItem label="Nilai stok" value={formatRupiah(stats.value)} />
             </View>
 
             <TextField
               value={query}
               onChangeText={setQuery}
-              placeholder="Search the catalog"
+              placeholder="Cari barang"
               autoCapitalize="none"
               autoCorrect={false}
               style={styles.search}
@@ -72,7 +72,7 @@ export function StockScreen() {
             {filteredQuery.isLoading ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : null}
             {filteredQuery.isError ? (
               <Text variant="caption" color={colors.accent700} style={styles.loading}>
-                Couldn't load the catalog. Pull to retry.
+                Gagal memuat katalog. Tarik untuk coba lagi.
               </Text>
             ) : null}
           </View>
@@ -119,7 +119,7 @@ function CatalogRow({ product, onPress }: { product: Product; onPress: () => voi
           {product.name}
         </Text>
         <Text variant="caption" style={styles.rowMeta} numberOfLines={1}>
-          {product.categoryName ?? "Uncategorized"}
+          {product.categoryName ?? "Tanpa kategori"}
           {product.barcode ? ` · ${product.barcode}` : ""}
         </Text>
       </View>

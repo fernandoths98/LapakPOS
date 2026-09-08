@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "reac
 import { CompositeNavigationProp, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import { formatRupiah } from "@lapak/shared";
+import { formatLongDate, formatRupiah, formatTimeOfDay, formatWeekdayShort } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { colors, radius, space } from "../../theme/tokens";
@@ -20,24 +20,19 @@ type HomeNavigationProp = CompositeNavigationProp<
 >;
 
 function formatTodayHeading(): string {
-  return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  return formatLongDate(new Date());
 }
 
 function formatYesterdayShort(): string {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  return new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(yesterday);
+  return formatWeekdayShort(yesterday);
 }
 
-function formatOpenedAt(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}
-
-const RECAP_DISMISSED_LINE = "Recap parked. It will be waiting when you close the shift.";
-const RECAP_AI_UNAVAILABLE_LINE =
-  "AI recap isn't available yet — set ANTHROPIC_API_KEY on the backend to enable it.";
-const RECAP_LOADING_LINE = "Reading today's numbers…";
-const RECAP_ERROR_LINE = "Couldn't load today's recap.";
+const RECAP_DISMISSED_LINE = "Rekap ditunda. Muncul lagi nanti pas tutup shift.";
+const RECAP_AI_UNAVAILABLE_LINE = "Rekap AI belum aktif — set ANTHROPIC_API_KEY di backend dulu.";
+const RECAP_LOADING_LINE = "Lagi baca angka hari ini…";
+const RECAP_ERROR_LINE = "Gagal memuat rekap hari ini.";
 
 export function HomeScreen() {
   const navigation = useNavigation<HomeNavigationProp>();
@@ -67,7 +62,7 @@ export function HomeScreen() {
 
   const change = summary?.pctChangeVsYesterday ?? 0;
   const changeIsUp = change >= 0;
-  const changeColor = changeIsUp ? colors.accent700 : colors.neutral700;
+  const changeColor = changeIsUp ? colors.success : colors.danger;
 
   const recapLine = recapQuery.isLoading
     ? RECAP_LOADING_LINE
@@ -78,16 +73,16 @@ export function HomeScreen() {
         : recapQuery.data.headline;
 
   const shortcuts: { title: string; sub: string; go: () => void }[] = [
-    { title: "Pay a bill", sub: "PLN, pulsa, BPJS", go: () => navigation.navigate("BillsTab", { screen: "Bills" }) },
-    { title: "Snap a note", sub: "Log a cash expense", go: () => navigation.navigate("AddExpense") },
+    { title: "Bayar tagihan", sub: "PLN, pulsa, BPJS", go: () => navigation.navigate("BillsTab", { screen: "Bills" }) },
+    { title: "Catat pengeluaran", sub: "Uang keluar dari laci", go: () => navigation.navigate("AddExpense") },
     {
-      title: "Import Excel",
-      sub: "Bring in a catalog",
+      title: "Impor Excel",
+      sub: "Tarik katalog produk",
       go: () => navigation.navigate("StockTab", { screen: "Sheet" }),
     },
     {
-      title: "Add product",
-      sub: "New catalog item",
+      title: "Tambah produk",
+      sub: "Barang baru",
       go: () => navigation.navigate("StockTab", { screen: "Product", params: undefined }),
     },
   ];
@@ -102,7 +97,7 @@ export function HomeScreen() {
           </Text>
         </View>
         <Button
-          title={shift ? `Shift open · ${formatOpenedAt(shift.openedAt)}` : "Open shift"}
+          title={shift ? `Shift buka · ${formatTimeOfDay(shift.openedAt)}` : "Buka shift"}
           variant="secondary"
           onPress={() => navigation.navigate(shift ? "ShiftClose" : "OpenShift")}
           style={styles.shiftButton}
@@ -110,17 +105,17 @@ export function HomeScreen() {
       </View>
 
       <View style={styles.takings}>
-        <Text variant="kicker">Takings today</Text>
+        <Text variant="kicker">Omzet hari ini</Text>
         <Text variant="h1" style={styles.takingsTotal}>
           {formatRupiah(summary?.total ?? 0)}
         </Text>
         <View style={styles.takingsMetaRow}>
           <Text variant="caption" color={colors.neutral700}>
-            {summary?.count ?? 0} sales
+            {summary?.count ?? 0} transaksi
           </Text>
           <Text color={colors.neutral400}>|</Text>
           <Text variant="caption" color={colors.neutral700}>
-            Avg {formatRupiah(summary?.avgTicket ?? 0)}
+            Rata-rata {formatRupiah(summary?.avgTicket ?? 0)}
           </Text>
           <Text color={colors.neutral400}>|</Text>
           <Text variant="caption" color={changeColor}>
@@ -147,17 +142,17 @@ export function HomeScreen() {
 
       {!recapDismissed ? (
         <View style={styles.recapCard}>
-          <Text variant="kicker">Recap</Text>
+          <Text variant="kicker">Rekap</Text>
           <Text variant="body" style={styles.recapLine}>
             {recapLine}
           </Text>
           <View style={styles.recapButtons}>
             <Button
-              title="Full recap"
-              onPress={() => navigation.navigate("RecapTab", { screen: "Recap", params: { tab: "Story" } })}
+              title="Lihat rekap"
+              onPress={() => navigation.navigate("RecapTab", { screen: "Recap", params: { tab: "Cerita" } })}
               style={styles.recapButtonFlex}
             />
-            <Button title="Later" variant="secondary" onPress={() => setRecapDismissed(true)} />
+            <Button title="Nanti" variant="secondary" onPress={() => setRecapDismissed(true)} />
           </View>
         </View>
       ) : (
@@ -169,7 +164,7 @@ export function HomeScreen() {
       )}
 
       <Text variant="kicker" style={styles.sectionTitle}>
-        Shortcuts
+        Pintasan
       </Text>
       <View style={styles.shortcutsGrid}>
         {shortcuts.map((s) => (
@@ -185,11 +180,11 @@ export function HomeScreen() {
       </View>
 
       <Text variant="kicker" style={styles.sectionTitle}>
-        Needs attention
+        Perlu dicek
       </Text>
       {alerts.length === 0 ? (
         <Text variant="body" color={colors.neutral600} style={styles.alertsEmpty}>
-          Nothing needs attention right now.
+          Aman, nggak ada yang perlu dicek.
         </Text>
       ) : (
         alerts.map((alert, index) => (

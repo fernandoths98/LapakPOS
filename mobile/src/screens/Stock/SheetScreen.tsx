@@ -14,12 +14,12 @@ import { downloadAndShareExport, useImportCommit, useImportPreview } from "../..
 import { StockStackParamList } from "../../app/stacks/StockStack";
 
 const FIELD_LABELS: Record<ImportPreviewResponse["mapping"][number]["field"], string> = {
-  name: "Name",
-  sellPrice: "Sell price",
-  costPrice: "Cost",
-  stockQty: "Stock",
+  name: "Nama",
+  sellPrice: "Harga jual",
+  costPrice: "Harga modal",
+  stockQty: "Stok",
   barcode: "Barcode",
-  ignored: "Ignored",
+  ignored: "Diabaikan",
 };
 
 /**
@@ -29,8 +29,8 @@ const FIELD_LABELS: Record<ImportPreviewResponse["mapping"][number]["field"], st
  * trim, not a gap.
  */
 const EXPORTS: { key: "sales-ledger" | "stock-valuation"; name: string; sub: string }[] = [
-  { key: "sales-ledger", name: "Sales ledger", sub: "Per transaction, this month" },
-  { key: "stock-valuation", name: "Stock & valuation", sub: "Every SKU with cost and margin" },
+  { key: "sales-ledger", name: "Buku penjualan", sub: "Per transaksi, bulan ini" },
+  { key: "stock-valuation", name: "Stok & nilai", sub: "Semua barang dengan modal dan untung" },
 ];
 
 /** Reads a picked spreadsheet file into {headers, rows} for the preview API — client-side parsing via SheetJS. */
@@ -48,7 +48,7 @@ async function parsePickedFile(uri: string, name: string): Promise<{ headers: st
   const workbook = XLSX.read(base64, { type: "base64" });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) {
-    throw new Error("The workbook has no sheets");
+    throw new Error("File ini nggak punya sheet");
   }
 
   const sheet = workbook.Sheets[sheetName];
@@ -58,7 +58,7 @@ async function parsePickedFile(uri: string, name: string): Promise<{ headers: st
   const headerRow = (aoa[0] ?? []) as unknown[];
   const headers = headerRow.map((h) => String(h ?? "").trim()).filter((h) => h.length > 0);
   if (headers.length === 0) {
-    throw new Error("Couldn't find a header row in the sheet");
+    throw new Error("Baris judul kolom nggak ketemu di sheet ini");
   }
 
   const rows = (aoa.slice(1) as unknown[][])
@@ -71,7 +71,7 @@ async function parsePickedFile(uri: string, name: string): Promise<{ headers: st
       return record;
     });
   if (rows.length === 0) {
-    throw new Error("The sheet has no data rows");
+    throw new Error("Sheet ini nggak ada barisnya");
   }
 
   return { headers, rows };
@@ -110,7 +110,7 @@ export function SheetScreen() {
         // User backed out of the picker — not an error worth surfacing.
         return;
       }
-      const message = err instanceof Error ? err.message : "Couldn't read that file.";
+      const message = err instanceof Error ? err.message : "File itu nggak kebaca.";
       setPickError(message);
     } finally {
       setIsPicking(false);
@@ -123,7 +123,7 @@ export function SheetScreen() {
       const result = await importCommit.mutateAsync({ previewId: preview.previewId });
       setCommitResult(result);
     } catch {
-      Alert.alert("Import failed", "Couldn't save these products. Check your connection and try again.");
+      Alert.alert("Impor gagal", "Barang-barang ini gagal disimpan. Cek koneksi lalu coba lagi.");
     }
   };
 
@@ -133,7 +133,7 @@ export function SheetScreen() {
     try {
       await downloadAndShareExport(key);
     } catch {
-      setExportError("Couldn't prepare that file. Check your connection and try again.");
+      setExportError("Gagal menyiapkan file itu. Cek koneksi lalu coba lagi.");
     } finally {
       setExportingKey(null);
     }
@@ -145,16 +145,16 @@ export function SheetScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="h2">Excel</Text>
       <Text variant="body" color={colors.neutral700} style={styles.intro}>
-        Bring a whole catalogue in from a spreadsheet, or take the ledger out for your accountant.
+        Tarik seluruh katalog dari spreadsheet, atau keluarkan bukunya buat yang ngurus pembukuan.
       </Text>
 
       <View style={styles.dropZone}>
         <Text variant="h3">Drop or choose a .xlsx</Text>
         <Text variant="caption" color={colors.neutral600} style={styles.dropZoneHint}>
-          Columns are matched automatically — you confirm before anything saves.
+          Kolomnya dicocokkan otomatis — kamu konfirmasi dulu sebelum tersimpan.
         </Text>
         <Button
-          title={isBusy ? "Reading…" : "Choose file"}
+          title={isBusy ? "Membaca…" : "Pilih file"}
           onPress={handleChooseFile}
           loading={isBusy}
           disabled={isBusy}
@@ -190,7 +190,7 @@ export function SheetScreen() {
                 </Text>
                 <Text
                   variant="caption"
-                  color={m.needsReview ? colors.accent700 : m.field === "ignored" ? colors.neutral500 : colors.neutral800}
+                  color={m.needsReview ? colors.danger : m.field === "ignored" ? colors.neutral500 : colors.neutral800}
                   style={styles.mapField}
                 >
                   {FIELD_LABELS[m.field]}
@@ -211,7 +211,7 @@ export function SheetScreen() {
           </View>
 
           <Button
-            title={importCommit.isPending ? "Importing…" : `Import ${preview.importableRowCount} product${preview.importableRowCount === 1 ? "" : "s"}`}
+            title={importCommit.isPending ? "Mengimpor…" : `Impor ${preview.importableRowCount} barang`}
             onPress={handleImport}
             loading={importCommit.isPending}
             disabled={importCommit.isPending || preview.importableRowCount === 0}
@@ -231,14 +231,14 @@ export function SheetScreen() {
               : ""}
             .
           </Text>
-          <Button title="Back to Stock" onPress={() => navigation.navigate("Stock")} style={styles.doneButton} />
+          <Button title="Kembali ke Stok" onPress={() => navigation.navigate("Stock")} style={styles.doneButton} />
         </View>
       ) : null}
 
       <Divider />
 
       <Text variant="kicker" style={styles.exportKicker}>
-        Export
+        Ekspor
       </Text>
       {exportError ? (
         <Text variant="caption" color={colors.accent700} style={styles.errorText}>

@@ -8,7 +8,7 @@
  * normal (font A, not condensed) size — the same width assumption the
  * prototype's monospace receipt preview uses.
  */
-import { Sale, ZReportResponse, formatRupiah } from "@lapak/shared";
+import { Sale, ZReportResponse, formatRupiah, formatTimeOfDay } from "@lapak/shared";
 
 export const RECEIPT_WIDTH = 32;
 
@@ -53,9 +53,6 @@ export function dashedRule(width: number = RECEIPT_WIDTH): string {
   return "-".repeat(width);
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}
 
 export interface ReceiptMerchantInfo {
   name: string;
@@ -79,7 +76,7 @@ export function buildSaleReceiptLines(sale: Sale, tenderLabel: string, merchant:
     const left = `${item.qty}x ${item.productName.slice(0, 18)}`;
     lines.push({ text: formatRow(left, formatRupiah(item.lineTotal)) });
   }
-  lines.push({ text: formatRow("Tender", tenderLabel) });
+  lines.push({ text: formatRow("Bayar pakai", tenderLabel) });
   lines.push({ text: dashedRule() });
   lines.push({ text: formatRow("TOTAL", formatRupiah(sale.total)), bold: true });
   lines.push({ text: truncate("Terima kasih . powered by Lapak", RECEIPT_WIDTH), align: "center" });
@@ -99,23 +96,23 @@ export function buildZReportLines(report: ZReportResponse, merchantName: string)
   lines.push({ text: truncate(merchantName.toUpperCase(), RECEIPT_WIDTH), align: "center", bold: true });
   lines.push({ text: "Z-REPORT", align: "center" });
   lines.push({ text: dashedRule() });
-  lines.push({ text: formatRow("Opened", formatTime(shift.openedAt)) });
+  lines.push({ text: formatRow("Buka", formatTimeOfDay(shift.openedAt)) });
   if (shift.closedAt) {
-    lines.push({ text: formatRow("Closed", formatTime(shift.closedAt)) });
+    lines.push({ text: formatRow("Tutup", formatTimeOfDay(shift.closedAt)) });
   }
-  lines.push({ text: formatRow("Cashier", shift.userName) });
+  lines.push({ text: formatRow("Kasir", shift.userName) });
   lines.push({ text: dashedRule() });
-  lines.push({ text: formatRow("Opening float", formatRupiah(running.openingFloat)) });
-  lines.push({ text: formatRow("Cash sales", formatRupiah(running.cashSales)) });
-  lines.push({ text: formatRow("PPOB cash in", formatRupiah(running.ppobCashIn)) });
-  lines.push({ text: formatRow("Paid out", `- ${formatRupiah(running.paidOut)}`) });
+  lines.push({ text: formatRow("Modal awal", formatRupiah(running.openingFloat)) });
+  lines.push({ text: formatRow("Penjualan tunai", formatRupiah(running.cashSales)) });
+  lines.push({ text: formatRow("Uang masuk PPOB", formatRupiah(running.ppobCashIn)) });
+  lines.push({ text: formatRow("Uang keluar", `- ${formatRupiah(running.paidOut)}`) });
   lines.push({ text: dashedRule() });
-  lines.push({ text: formatRow("Expected in drawer", formatRupiah(running.expectedCash)), bold: true });
+  lines.push({ text: formatRow("Seharusnya di laci", formatRupiah(running.expectedCash)), bold: true });
   if (shift.countedCash != null) {
-    lines.push({ text: formatRow("Counted in drawer", formatRupiah(shift.countedCash)) });
+    lines.push({ text: formatRow("Hitungan di laci", formatRupiah(shift.countedCash)) });
   }
   if (discrepancy != null) {
-    const label = discrepancy === 0 ? "Balanced" : discrepancy > 0 ? "Over by" : "Short by";
+    const label = discrepancy === 0 ? "Pas" : discrepancy > 0 ? "Lebih" : "Kurang";
     lines.push({ text: formatRow(label, formatRupiah(Math.abs(discrepancy))) });
   }
   lines.push({ text: dashedRule() });

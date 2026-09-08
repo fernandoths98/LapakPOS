@@ -58,7 +58,7 @@ export interface PrinterDevice {
   name: string;
 }
 
-export const IOS_UNAVAILABLE_MESSAGE = "Bluetooth printing isn't available on iOS yet.";
+export const IOS_UNAVAILABLE_MESSAGE = "Cetak lewat Bluetooth belum tersedia di iOS.";
 
 /** True on Android, where the native module is real; false on iOS, where printing is out of scope for this phase. */
 export const isPrintingSupported = Platform.OS === "android";
@@ -130,7 +130,7 @@ async function writeLines(lines: ReceiptLine[], copies: number): Promise<void> {
     throw new Error(IOS_UNAVAILABLE_MESSAGE);
   }
   if (!connectedDevice) {
-    throw new Error("Not connected to a printer.");
+    throw new Error("Belum terhubung ke printer.");
   }
   // `react-native-bluetooth-classic` pins its own nested copy of the
   // `buffer` polyfill package (a different version than the one hoisted to

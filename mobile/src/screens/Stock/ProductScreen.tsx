@@ -75,7 +75,7 @@ export function ProductScreen() {
   const marginHint =
     sellPrice && costPrice && sellPriceNum > 0
       ? `Margin ${Math.round(((sellPriceNum - costPriceNum) / sellPriceNum) * 100)}% at this cost`
-      : "Enter both prices to see the margin";
+      : "Isi kedua harga buat lihat untungnya";
 
   /**
    * Shared image-picker step for both "Add photo" and "Snap to fill" — the
@@ -95,16 +95,16 @@ export function ProductScreen() {
     }
     const asset = result.assets?.[0];
     if (!asset?.base64) {
-      throw new Error("No image data was returned.");
+      throw new Error("Nggak ada data gambar yang kembali.");
     }
     return { imageBase64: asset.base64, mimeType: asset.type ?? "image/jpeg" };
   };
 
   const handlePickPhoto = () => {
-    Alert.alert("Add photo", "Take a new photo or choose one from the gallery.", [
-      { text: "Camera", onPress: () => pickPhoto("camera") },
-      { text: "Gallery", onPress: () => pickPhoto("library") },
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("Tambah foto", "Ambil foto baru atau pilih dari galeri.", [
+      { text: "Kamera", onPress: () => pickPhoto("camera") },
+      { text: "Galeri", onPress: () => pickPhoto("library") },
+      { text: "Batal", style: "cancel" },
     ]);
   };
 
@@ -113,7 +113,7 @@ export function ProductScreen() {
     try {
       picked = await pickImage(source);
     } catch (err) {
-      Alert.alert("Couldn't get photo", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Gagal ambil foto", err instanceof Error ? err.message : "Error nggak dikenal");
       return;
     }
     if (!picked) return;
@@ -122,16 +122,16 @@ export function ProductScreen() {
       const uploaded = await uploadPhoto.mutateAsync(picked);
       setImageUrl(uploaded.imageUrl);
     } catch {
-      Alert.alert("Upload failed", "The photo couldn't be uploaded. Check your connection and try again.");
+      Alert.alert("Upload gagal", "Foto gagal diupload. Cek koneksi lalu coba lagi.");
     }
   };
 
   const handleSnapToFill = () => {
     setSnapToFillError(null);
-    Alert.alert("Snap to fill", "Photograph the packet — name, size and barcode fill themselves.", [
-      { text: "Camera", onPress: () => pickPhotoForFill("camera") },
-      { text: "Gallery", onPress: () => pickPhotoForFill("library") },
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("Foto isi otomatis", "Foto kemasannya — nama, ukuran dan barcode keisi sendiri.", [
+      { text: "Kamera", onPress: () => pickPhotoForFill("camera") },
+      { text: "Galeri", onPress: () => pickPhotoForFill("library") },
+      { text: "Batal", style: "cancel" },
     ]);
   };
 
@@ -140,7 +140,7 @@ export function ProductScreen() {
     try {
       picked = await pickImage(source);
     } catch (err) {
-      setSnapToFillError(err instanceof Error ? err.message : "Couldn't get photo.");
+      setSnapToFillError(err instanceof Error ? err.message : "Gagal ambil foto.");
       return;
     }
     if (!picked) return;
@@ -149,7 +149,7 @@ export function ProductScreen() {
       const filled = await photoFill.mutateAsync(picked);
       applyPhotoFillResult(filled);
     } catch (err) {
-      setSnapToFillError(extractErrorMessage(err, "AI photo-fill isn't available yet."));
+      setSnapToFillError(extractErrorMessage(err, "Isi otomatis via AI belum aktif."));
     }
   };
 
@@ -174,7 +174,7 @@ export function ProductScreen() {
       setBarcodeNote(null);
     }
     if (nameParts.length === 0 && !filled.barcode) {
-      setSnapToFillError("Couldn't confidently read anything from that photo — fill the fields in by hand.");
+      setSnapToFillError("Fotonya nggak kebaca jelas — isi manual aja ya.");
     }
   };
 
@@ -196,10 +196,10 @@ export function ProductScreen() {
 
   const validate = (): FormErrors => {
     const next: FormErrors = {};
-    if (!name.trim()) next.name = "Product name is required";
-    if (sellPrice === "" || sellPriceNum < 0) next.sellPrice = "Enter a sell price of 0 or more";
-    if (costPrice === "" || costPriceNum < 0) next.costPrice = "Enter a cost of 0 or more";
-    if (stockQty === "" || parseRupiah(stockQty) < 0) next.stockQty = "Enter a stock count of 0 or more";
+    if (!name.trim()) next.name = "Nama barang wajib diisi";
+    if (sellPrice === "" || sellPriceNum < 0) next.sellPrice = "Harga jual minimal 0";
+    if (costPrice === "" || costPriceNum < 0) next.costPrice = "Harga modal minimal 0";
+    if (stockQty === "" || parseRupiah(stockQty) < 0) next.stockQty = "Jumlah stok minimal 0";
     return next;
   };
 
@@ -226,7 +226,7 @@ export function ProductScreen() {
       }
       navigation.goBack();
     } catch (err) {
-      setSubmitError(extractErrorMessage(err, "Couldn't save the product. Check your connection and try again."));
+      setSubmitError(extractErrorMessage(err, "Gagal simpan barang. Cek koneksi lalu coba lagi."));
     }
   };
 
@@ -252,10 +252,10 @@ export function ProductScreen() {
           <View style={styles.snapCard}>
             <Text variant="kicker">Snap to fill</Text>
             <Text variant="caption" color={colors.neutral700} style={styles.snapBody}>
-              Photograph the packet — name, size and barcode fill themselves.
+              Foto kemasannya — nama, ukuran dan barcode keisi sendiri.
             </Text>
             <Button
-              title={photoFill.isPending ? "Reading photo…" : "Try it"}
+              title={photoFill.isPending ? "Membaca foto…" : "Coba"}
               variant="ghost"
               loading={photoFill.isPending}
               disabled={photoFill.isPending}
@@ -274,16 +274,16 @@ export function ProductScreen() {
 
       <View style={styles.fields}>
         <TextField
-          label="Name"
+          label="Nama"
           value={name}
           onChangeText={setName}
-          placeholder="Product name"
+          placeholder="Nama barang"
           error={errors.name}
         />
 
         <View>
           <TextField
-            label="Sell price"
+            label="Harga jual"
             value={sellPrice}
             onChangeText={setSellPrice}
             placeholder="0"
@@ -299,7 +299,7 @@ export function ProductScreen() {
 
         <View>
           <TextField
-            label="Cost"
+            label="Harga modal"
             value={costPrice}
             onChangeText={setCostPrice}
             placeholder="0"
@@ -308,14 +308,14 @@ export function ProductScreen() {
           />
           {!errors.costPrice ? (
             <Text variant="caption" color={colors.neutral600} style={styles.hint}>
-              {isEditing ? "Changing this writes to the product's cost history" : "From your last supplier note"}
+              {isEditing ? "Perubahan ini tercatat di riwayat harga modal" : "Dari nota supplier terakhir"}
             </Text>
           ) : null}
         </View>
 
         <View>
           <TextField
-            label="Stock"
+            label="Stok"
             value={stockQty}
             onChangeText={setStockQty}
             placeholder="0"
@@ -337,12 +337,12 @@ export function ProductScreen() {
               setBarcode(v);
               setBarcodeNote(null);
             }}
-            placeholder="Scan or type"
+            placeholder="Scan atau ketik"
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Text variant="caption" color={barcodeNote ? colors.accent700 : colors.neutral600} style={styles.hint}>
-            {barcodeNote ?? "Scan or type"}
+            {barcodeNote ?? "Scan atau ketik"}
           </Text>
         </View>
       </View>
@@ -354,7 +354,7 @@ export function ProductScreen() {
       ) : null}
 
       <Button
-        title={isSaving ? "Saving…" : "Save product"}
+        title={isSaving ? "Menyimpan…" : "Simpan barang"}
         onPress={handleSave}
         disabled={isSaving}
         loading={isSaving}
@@ -388,7 +388,7 @@ function PhotoBox({
       disabled={loading}
       style={styles.photoBox}
       accessibilityRole="button"
-      accessibilityLabel="Add photo"
+      accessibilityLabel="Tambah foto"
     >
       {loading ? (
         <ActivityIndicator color={colors.accent} />
@@ -396,7 +396,7 @@ function PhotoBox({
         <Image source={{ uri: photoUri }} style={styles.photoImage} resizeMode="cover" />
       ) : (
         <Text variant="caption" color={colors.neutral600}>
-          Add photo
+          Tambah foto
         </Text>
       )}
     </Pressable>

@@ -23,21 +23,21 @@ const Stack = createNativeStackNavigator<HomeStackParamList>();
 export function HomeStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="Home" component={HomeScreen} options={{ title: "Home" }} />
+      <Stack.Screen name="Home" component={HomeScreen} options={{ title: "Beranda" }} />
       <Stack.Screen
         name="OpenShift"
         component={OpenShiftScreen}
-        options={{ title: "Open shift", headerBackTitle: "Home" }}
+        options={{ title: "Buka shift", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen
         name="ShiftClose"
         component={ShiftCloseScreen}
-        options={{ title: "Close shift", headerBackTitle: "Home" }}
+        options={{ title: "Tutup shift", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen
         name="AddExpense"
         component={AddExpenseScreen}
-        options={{ title: "Add expense", headerBackTitle: "Home" }}
+        options={{ title: "Catat pengeluaran", headerBackTitle: "Beranda" }}
       />
     </Stack.Navigator>
   );

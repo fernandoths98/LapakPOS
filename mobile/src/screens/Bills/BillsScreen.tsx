@@ -27,7 +27,7 @@ export function BillsScreen() {
       <View style={styles.statRow}>
         <View>
           <Text variant="kicker" style={styles.statLabel}>
-            Commission this month
+            Komisi bulan ini
           </Text>
           <Text variant="h2" style={styles.statPrimary}>
             {summaryQuery.data ? formatRupiah(summaryQuery.data.commissionThisMonth) : "—"}
@@ -35,7 +35,7 @@ export function BillsScreen() {
         </View>
         <View style={styles.statRight}>
           <Text variant="kicker" style={styles.statLabel}>
-            Deposit
+            Saldo
           </Text>
           <Text variant="tabular" color={colors.accent700} style={styles.statSecondary}>
             {summaryQuery.data ? formatRupiah(summaryQuery.data.deposit) : "—"}
@@ -45,12 +45,12 @@ export function BillsScreen() {
       {summaryQuery.isLoading ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : null}
 
       <Text variant="kicker" style={styles.sectionLabel}>
-        Billers
+        Layanan
       </Text>
       {billersQuery.isLoading ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : null}
       {billersQuery.isError ? (
         <Text variant="caption" color={colors.accent700} style={styles.loading}>
-          Couldn't load billers. Pull to retry.
+          Gagal memuat layanan. Tarik untuk coba lagi.
         </Text>
       ) : null}
       <View style={styles.grid}>
@@ -64,12 +64,12 @@ export function BillsScreen() {
       </View>
 
       <Text variant="kicker" style={styles.sectionLabel}>
-        Recent
+        Terakhir
       </Text>
       {transactionsQuery.isLoading ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : null}
       {(transactionsQuery.data ?? []).length === 0 && !transactionsQuery.isLoading ? (
         <Text variant="body" color={colors.neutral600} style={styles.empty}>
-          No bill payments yet.
+          Belum ada pembayaran tagihan.
         </Text>
       ) : null}
       {(transactionsQuery.data ?? []).map((tx) => (
@@ -110,7 +110,7 @@ function RecentRow({ transaction }: { transaction: PpobTransaction }) {
           {formatRupiah(transaction.totalCharged)}
         </Text>
         <Text variant="caption" color={colors.accent700}>
-          {isFailed ? "Failed" : `+${formatRupiah(transaction.marginAmount)}`}
+          {isFailed ? "Gagal" : `+${formatRupiah(transaction.marginAmount)}`}
         </Text>
       </View>
     </View>

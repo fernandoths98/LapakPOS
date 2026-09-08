@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { CloseShiftResponse, formatRupiah, parseRupiah } from "@lapak/shared";
+import { CloseShiftResponse, formatRupiah, formatTimeOfDay, parseRupiah } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
@@ -23,9 +23,6 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return message ?? fallback;
 }
 
-function formatOpenedAt(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}
 
 export function ShiftCloseScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
@@ -40,11 +37,11 @@ export function ShiftCloseScreen() {
 
   const handlePrintZReport = () => {
     if (Platform.OS !== "android") {
-      Alert.alert("Print Z-report", IOS_UNAVAILABLE_MESSAGE);
+      Alert.alert("Cetak laporan Z", IOS_UNAVAILABLE_MESSAGE);
       return;
     }
     if (!zReportQuery.data) {
-      Alert.alert("Z-report not ready", "Couldn't load the Z-report numbers yet. Check your connection and try again.");
+      Alert.alert("Laporan Z belum siap", "Angka laporan Z belum bisa dimuat. Cek koneksi lalu coba lagi.");
       return;
     }
     setPrintSheetVisible(true);
@@ -60,7 +57,7 @@ export function ShiftCloseScreen() {
       const result = await closeShift.mutateAsync({ shiftId: shift.id, body: { countedCash } });
       setCloseResult(result);
     } catch (err) {
-      setErrorMessage(extractErrorMessage(err, "Couldn't close the shift. Check your connection and try again."));
+      setErrorMessage(extractErrorMessage(err, "Gagal tutup shift. Cek koneksi lalu coba lagi."));
     }
   };
 
@@ -83,7 +80,7 @@ export function ShiftCloseScreen() {
     return (
       <View style={styles.loadingContainer}>
         <Text variant="body" color={colors.neutral700}>
-          No shift is currently open.
+          Belum ada shift yang dibuka.
         </Text>
       </View>
     );
@@ -95,16 +92,16 @@ export function ShiftCloseScreen() {
   // running totals rather than guessed at, so they're accurate before the
   // cashier has typed anything.
   const rows = [
-    { label: "Opening float", value: formatRupiah(running.openingFloat) },
-    { label: "Cash sales", value: formatRupiah(running.cashSales) },
-    { label: "PPOB cash in", value: formatRupiah(running.ppobCashIn) },
-    { label: "Paid out (supplier)", value: `− ${formatRupiah(running.paidOut)}` },
+    { label: "Modal awal", value: formatRupiah(running.openingFloat) },
+    { label: "Penjualan tunai", value: formatRupiah(running.cashSales) },
+    { label: "Uang masuk PPOB", value: formatRupiah(running.ppobCashIn) },
+    { label: "Uang keluar (supplier)", value: `− ${formatRupiah(running.paidOut)}` },
   ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="caption" color={colors.neutral600}>
-        Opened {formatOpenedAt(shift.openedAt)} · {shift.userName}
+        Buka {formatTimeOfDay(shift.openedAt)} · {shift.userName}
       </Text>
 
       <View style={styles.rows}>
@@ -116,7 +113,7 @@ export function ShiftCloseScreen() {
         ))}
         <View style={[styles.row, styles.expectedRow]}>
           <Text variant="body" style={styles.expectedLabel}>
-            Expected in drawer
+            Seharusnya di laci
           </Text>
           <Text variant="tabular" style={styles.expectedLabel}>
             {formatRupiah(running.expectedCash)}
@@ -134,7 +131,7 @@ export function ShiftCloseScreen() {
       ) : (
         <>
           <TextField
-            label="Counted in drawer"
+            label="Hitungan di laci"
             value={counted}
             onChangeText={setCounted}
             placeholder="0"
@@ -143,15 +140,15 @@ export function ShiftCloseScreen() {
           />
 
           {errorMessage ? (
-            <Text variant="caption" color={colors.accent700} style={styles.errorText}>
+            <Text variant="caption" color={colors.danger} style={styles.errorText}>
               {errorMessage}
             </Text>
           ) : null}
 
           <View style={styles.buttonRow}>
-            <Button title="Print Z-report" variant="secondary" onPress={handlePrintZReport} style={styles.halfButton} />
+            <Button title="Cetak laporan Z" variant="secondary" onPress={handlePrintZReport} style={styles.halfButton} />
             <Button
-              title={closeShift.isPending ? "Closing…" : "Close shift"}
+              title={closeShift.isPending ? "Menutup…" : "Tutup shift"}
               onPress={handleClose}
               disabled={closeShift.isPending || counted.trim() === ""}
               loading={closeShift.isPending}
@@ -161,7 +158,7 @@ export function ShiftCloseScreen() {
         </>
       )}
 
-      {closeResult ? <Button title="Back to Home" onPress={handleDone} fullWidth style={styles.doneButton} /> : null}
+      {closeResult ? <Button title="Kembali ke Beranda" onPress={handleDone} fullWidth style={styles.doneButton} /> : null}
 
       <PrintSheetScreen
         visible={printSheetVisible}

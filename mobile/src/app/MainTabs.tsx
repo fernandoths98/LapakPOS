@@ -32,18 +32,14 @@ export type MainTabsParamList = {
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 const TAB_LABELS: Record<keyof MainTabsParamList, string> = {
-  HomeTab: "Home",
-  SellTab: "Sell",
-  BillsTab: "Bills",
-  StockTab: "Stock",
-  RecapTab: "Recap",
+  HomeTab: "Beranda",
+  SellTab: "Jual",
+  BillsTab: "Tagihan",
+  StockTab: "Stok",
+  RecapTab: "Rekap",
 };
 
-/**
- * Custom tab bar matching the prototype's `tabs` render logic: a 2px
- * accent-colored bar above the label marks the active group, never a filled
- * pill or icon — color is stroke/mark only, per the design system.
- */
+/** A 2px accent bar above the label marks the active group. */
 function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   return (
@@ -102,8 +98,8 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: colors.text,
-    backgroundColor: colors.bg,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.surface,
     paddingTop: 6,
     paddingBottom: 10,
     paddingHorizontal: 4,

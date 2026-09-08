@@ -9,14 +9,17 @@ import {
   ViewStyle,
 } from "react-native";
 import { Text } from "../theme/Text";
-import { colors, radius, space } from "../theme/tokens";
+import { colors, minTapTarget, radius, space } from "../theme/tokens";
 
 /**
- * All three variants are outlined, never filled — the design system's rule
- * that colour is stroke only ("Do not fill cards or buttons with solid
- * accent color", readme.md). Pressed/hover states approximate styles.css's
- * color-mix() alpha overlays (12%/22% for primary, 7%/14% for secondary,
- * 10%/18% for ghost) since RN has no CSS-style color-mix.
+ * The prototype's design system forbade solid fills ("colour is stroke only"),
+ * which made every button an outline. That is the wrong default at a counter:
+ * the one control that completes a sale has to be findable by a thumb that is
+ * not looking at the screen, and an outline does not carry that far.
+ *
+ * So `primary` is a solid slab. Its label is dark ink rather than the reflexive
+ * white — white on #f0801a measures 2.7:1 and fails WCAG AA outright, while ink
+ * on the same fill measures 6.6:1 and stays legible in glare.
  */
 export type ButtonVariant = "primary" | "secondary" | "ghost";
 
@@ -28,10 +31,10 @@ export interface ButtonProps extends Omit<PressableProps, "style" | "children"> 
   style?: StyleProp<ViewStyle>;
 }
 
-const PRESSED_TINT: Record<ButtonVariant, string> = {
-  primary: "rgba(182, 130, 53, 0.22)",
-  secondary: "rgba(32, 31, 29, 0.14)",
-  ghost: "rgba(182, 130, 53, 0.18)",
+const LABEL_COLOR: Record<ButtonVariant, string> = {
+  primary: colors.text,
+  secondary: colors.text,
+  ghost: colors.accent700,
 };
 
 export function Button({
@@ -54,7 +57,7 @@ export function Button({
         variant === "secondary" && styles.secondary,
         variant === "ghost" && styles.ghost,
         fullWidth && styles.fullWidth,
-        pressed && !disabled && !loading && { backgroundColor: PRESSED_TINT[variant] },
+        pressed && !disabled && !loading && pressedStyles[variant],
         (disabled || loading) && styles.disabled,
         style,
       ]}
@@ -62,13 +65,9 @@ export function Button({
     >
       <View style={styles.content}>
         {loading ? (
-          <ActivityIndicator size="small" color={variant === "secondary" ? colors.text : colors.accent} />
+          <ActivityIndicator size="small" color={LABEL_COLOR[variant]} />
         ) : (
-          <Text
-            variant="h3"
-            style={styles.label}
-            color={variant === "secondary" ? colors.text : colors.accent700}
-          >
+          <Text variant="h3" style={styles.label} color={LABEL_COLOR[variant]}>
             {title}
           </Text>
         )}
@@ -82,7 +81,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
-    minHeight: 46,
+    minHeight: minTapTarget,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -90,24 +89,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: space[2],
   },
   label: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
   },
   primary: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: "transparent",
+    backgroundColor: colors.accent,
   },
   secondary: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "transparent",
+    borderColor: colors.neutral300,
+    backgroundColor: colors.surface,
   },
   ghost: {
-    borderWidth: 0,
     backgroundColor: "transparent",
     paddingHorizontal: space[2],
   },
@@ -117,4 +113,11 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
   },
+});
+
+/** Pressed feedback darkens the fill rather than tinting over it. */
+const pressedStyles = StyleSheet.create({
+  primary: { backgroundColor: colors.accent600 },
+  secondary: { backgroundColor: colors.neutral100 },
+  ghost: { backgroundColor: colors.accent100 },
 });

@@ -39,13 +39,13 @@ export function LoginScreen() {
         if (err.response) {
           const message =
             (err.response.data as { message?: string } | undefined)?.message ??
-            "Invalid email or password.";
+            "Email atau kata sandi salah.";
           setError(message);
         } else {
-          setError("Can't reach the server. Check your connection and try again.");
+          setError("Server nggak bisa dihubungi. Cek koneksi lalu coba lagi.");
         }
       } else {
-        setError("Something went wrong. Please try again.");
+        setError("Ada yang salah. Coba lagi ya.");
       }
     } finally {
       setSubmitting(false);
@@ -63,10 +63,10 @@ export function LoginScreen() {
       >
         <Text variant="kicker">Lapak</Text>
         <Text variant="h1" style={styles.title}>
-          Welcome back
+          Selamat datang
         </Text>
         <Text variant="body" color={colors.neutral700} style={styles.subtitle}>
-          Sign in with the email and password your merchant set up for you.
+          Masuk pakai email dan kata sandi yang dibuatkan pemilik warung.
         </Text>
 
         <Divider />
@@ -85,7 +85,7 @@ export function LoginScreen() {
         </View>
         <View style={styles.field}>
           <TextField
-            label="Password"
+            label="Kata sandi"
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
@@ -101,7 +101,7 @@ export function LoginScreen() {
         ) : null}
 
         <Button
-          title={submitting ? "Signing in…" : "Sign in"}
+          title={submitting ? "Masuk…" : "Masuk"}
           onPress={handleSubmit}
           disabled={!canSubmit}
           loading={submitting}

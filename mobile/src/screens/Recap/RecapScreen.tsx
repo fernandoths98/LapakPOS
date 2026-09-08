@@ -9,23 +9,23 @@ import { colors, radius, space } from "../../theme/tokens";
 import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWeeklyReports } from "../../state/api/recap";
 import { RecapStackParamList } from "../../app/stacks/RecapStack";
 
-export type RecapTabName = "Story" | "Ask" | "Reports";
-const TAB_NAMES: RecapTabName[] = ["Story", "Ask", "Reports"];
+export type RecapTabName = "Cerita" | "Tanya" | "Laporan";
+const TAB_NAMES: RecapTabName[] = ["Cerita", "Tanya", "Laporan"];
 
 const AI_UNAVAILABLE_MESSAGE =
-  "AI recap isn't available yet — set ANTHROPIC_API_KEY on the backend to enable it. The numbers below are real, just not AI-written.";
+  "Rekap AI belum aktif — set ANTHROPIC_API_KEY di backend dulu. Angka di bawah tetap asli, cuma bukan tulisan AI.";
 
 // Mirrors the prototype's `suggestions` chips exactly (Warung POS.dc.html, isRecap/recapIsAsk block).
-const ASK_SUGGESTIONS = ["What should I restock?", "How is my margin?", "When am I quiet?"];
+const ASK_SUGGESTIONS = ["Apa yang harus dikulak?", "Gimana untungku?", "Jam berapa sepi?"];
 
 const ASK_AI_UNAVAILABLE_MESSAGE =
-  "AI isn't available yet — set ANTHROPIC_API_KEY on the backend for real answers. Your questions are still saved, and this thread will pick up as soon as it's configured.";
+  "AI belum aktif — set ANTHROPIC_API_KEY di backend biar jawabannya asli. Pertanyaanmu tetap tersimpan, dan obrolan ini lanjut begitu AI-nya nyala.";
 
 const BAR_MAX_HEIGHT = 96;
 
 export function RecapScreen() {
   const route = useRoute<RouteProp<RecapStackParamList, "Recap">>();
-  const [tab, setTab] = useState<RecapTabName>(route.params?.tab ?? "Story");
+  const [tab, setTab] = useState<RecapTabName>(route.params?.tab ?? "Cerita");
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -46,9 +46,9 @@ export function RecapScreen() {
         })}
       </View>
 
-      {tab === "Story" ? <StoryTab /> : null}
-      {tab === "Ask" ? <AskTab /> : null}
-      {tab === "Reports" ? <ReportsTab /> : null}
+      {tab === "Cerita" ? <StoryTab /> : null}
+      {tab === "Tanya" ? <AskTab /> : null}
+      {tab === "Laporan" ? <ReportsTab /> : null}
     </ScrollView>
   );
 }
@@ -63,7 +63,7 @@ function StoryTab() {
   if (recapQuery.isError || !recapQuery.data) {
     return (
       <Text variant="body" color={colors.accent700} style={styles.loading}>
-        Couldn't load today's recap. Pull to retry.
+        Gagal memuat rekap hari ini. Tarik untuk coba lagi.
       </Text>
     );
   }
@@ -89,7 +89,7 @@ function StoryTab() {
 
       <View style={styles.regenerateRow}>
         <Button
-          title={regenerate.isPending ? "Refreshing…" : "Refresh recap"}
+          title={regenerate.isPending ? "Menyegarkan…" : "Segarkan rekap"}
           variant="ghost"
           loading={regenerate.isPending}
           onPress={() => regenerate.mutate()}
@@ -97,11 +97,11 @@ function StoryTab() {
       </View>
 
       <Text variant="kicker" style={styles.sectionLabel}>
-        Noticed
+        Yang kelihatan
       </Text>
       {recap.insights.length === 0 ? (
         <Text variant="body" color={colors.neutral600} style={styles.emptyInsights}>
-          Nothing stands out today.
+          Hari ini nggak ada yang menonjol.
         </Text>
       ) : (
         recap.insights.map((insight, index) => <InsightRow key={`${insight.title}-${index}`} insight={insight} />)
@@ -148,7 +148,7 @@ function AskTab() {
   if (historyQuery.isError) {
     return (
       <Text variant="body" color={colors.accent700} style={styles.loading}>
-        Couldn't load the chat. Pull to retry.
+        Gagal memuat obrolan. Tarik untuk coba lagi.
       </Text>
     );
   }
@@ -169,14 +169,14 @@ function AskTab() {
       <View style={styles.chatThread}>
         {messages.length === 0 && !pendingMessage ? (
           <Text variant="body" color={colors.neutral700}>
-            Ask me anything about the shop — restocking, margin, quiet hours.
+            Tanya apa aja soal warung — kulakan, untung, jam sepi.
           </Text>
         ) : null}
         {messages.map((message) => (
           <ChatBubble key={message.id} role={message.role} text={message.content} />
         ))}
         {pendingMessage ? <ChatBubble role="user" text={pendingMessage} /> : null}
-        {askChat.isPending ? <ChatBubble role="assistant" text="Thinking…" muted /> : null}
+        {askChat.isPending ? <ChatBubble role="assistant" text="Mikir…" muted /> : null}
       </View>
 
       <View style={styles.suggestionsRow}>
@@ -196,13 +196,13 @@ function AskTab() {
         <TextField
           value={draft}
           onChangeText={setDraft}
-          placeholder="Ask about your shop…"
+          placeholder="Tanya soal warungmu…"
           editable={!askChat.isPending}
           onSubmitEditing={() => handleSend(draft)}
           style={styles.askInput}
         />
         <Button
-          title={askChat.isPending ? "Asking…" : "Ask"}
+          title={askChat.isPending ? "Mengirim…" : "Tanya"}
           onPress={() => handleSend(draft)}
           loading={askChat.isPending}
           disabled={askChat.isPending || draft.trim() === ""}
@@ -234,7 +234,7 @@ function ReportsTab() {
   if (reportsQuery.isError || !reportsQuery.data) {
     return (
       <Text variant="body" color={colors.accent700} style={styles.loading}>
-        Couldn't load reports. Pull to retry.
+        Gagal memuat laporan. Tarik untuk coba lagi.
       </Text>
     );
   }
@@ -249,7 +249,7 @@ function ReportsTab() {
       <WeeklyBarChart bars={bars} />
       <View style={styles.legendRow}>
         <LegendSwatch outline label="total" />
-        <LegendSwatch label="PPOB share" />
+        <LegendSwatch label="porsi PPOB" />
       </View>
 
       <View style={styles.topSellersHeaderRow}>
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(182, 130, 53, 0.18)",
+    backgroundColor: colors.accent200,
   },
   chartLabels: { flexDirection: "row", marginTop: space[1] },
   chartLabel: { flex: 1, textAlign: "center" },
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendSwatch: { width: 12, height: 12, borderRadius: 2 },
   legendSwatchOutline: { borderWidth: 1, borderColor: colors.accent, backgroundColor: "transparent" },
-  legendSwatchFill: { backgroundColor: "rgba(182, 130, 53, 0.18)" },
+  legendSwatchFill: { backgroundColor: colors.accent200 },
   topSellersHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",

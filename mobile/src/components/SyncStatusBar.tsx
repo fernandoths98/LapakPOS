@@ -42,9 +42,9 @@ export function SyncStatusBar() {
 
 function statusFor(pendingCount: number, isOnline: boolean): { label: string; tone: "attention" | "quiet" } {
   if (pendingCount > 0) {
-    return { label: `${pendingCount} queued · ${isOnline ? "syncing" : "offline"}`, tone: "attention" };
+    return { label: `${pendingCount} antre · ${isOnline ? "sinkron" : "offline"}`, tone: "attention" };
   }
-  return { label: isOnline ? "Synced" : "Offline", tone: isOnline ? "quiet" : "attention" };
+  return { label: isOnline ? "Tersinkron" : "Offline", tone: isOnline ? "quiet" : "attention" };
 }
 
 const styles = StyleSheet.create({

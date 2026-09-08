@@ -23,13 +23,13 @@ import { SellStackParamList } from "../../app/stacks/SellStack";
  * default. */
 const CHECKOUT_TIMEOUT_MS = 6_000;
 
-type TenderLabel = "Cash" | "QRIS" | "Debit card" | "Split";
-const TENDER_OPTIONS: TenderLabel[] = ["Cash", "QRIS", "Debit card", "Split"];
+type TenderLabel = "Tunai" | "QRIS" | "Kartu debit" | "Gabungan";
+const TENDER_OPTIONS: TenderLabel[] = ["Tunai", "QRIS", "Kartu debit", "Gabungan"];
 const TENDER_TYPE_BY_LABEL: Record<TenderLabel, TenderType> = {
-  Cash: "cash",
+  Tunai: "cash",
   QRIS: "qris",
-  "Debit card": "debit",
-  Split: "split",
+  "Kartu debit": "debit",
+  Gabungan: "split",
 };
 
 export function CartScreen() {
@@ -90,7 +90,7 @@ export function CartScreen() {
         navigation.navigate("Paid", { sale: offlineSale });
         return;
       }
-      setSubmitError("Payment didn't go through. Check your connection and try again.");
+      setSubmitError("Pembayaran gagal. Cek koneksi lalu coba lagi.");
     }
   };
 
@@ -133,7 +133,7 @@ export function CartScreen() {
 
       <View style={styles.summary}>
         <SummaryRow label="Subtotal" value={formatRupiah(total)} />
-        <SummaryRow label="Discount" value="—" />
+        <SummaryRow label="Diskon" value="—" />
         <View style={styles.totalRow}>
           <Text variant="kicker">Total</Text>
           <Text variant="h1" style={styles.totalValue}>
@@ -143,7 +143,7 @@ export function CartScreen() {
       </View>
 
       <Text variant="kicker" style={styles.sectionLabel}>
-        Tender
+        Metode bayar
       </Text>
       <View style={styles.tenderGrid}>
         {TENDER_OPTIONS.map((option) => (
@@ -151,10 +151,10 @@ export function CartScreen() {
         ))}
       </View>
 
-      {tender === "Split" ? (
+      {tender === "Gabungan" ? (
         <View style={styles.splitCard}>
-          <SummaryRow label="Cash received" value={formatRupiah(splitCash)} />
-          <SummaryRow label="QRIS remainder" value={formatRupiah(splitQris)} valueColor={colors.accent700} />
+          <SummaryRow label="Uang tunai" value={formatRupiah(splitCash)} />
+          <SummaryRow label="Sisa via QRIS" value={formatRupiah(splitQris)} valueColor={colors.accent700} />
           <Slider
             minimumValue={0}
             maximumValue={100}
@@ -170,13 +170,13 @@ export function CartScreen() {
       ) : null}
 
       {submitError ? (
-        <Text variant="caption" color={colors.accent700} style={styles.error}>
+        <Text variant="caption" color={colors.danger} style={styles.error}>
           {submitError}
         </Text>
       ) : null}
 
       <Button
-        title={createSale.isPending ? "Taking payment…" : `Take payment · ${formatRupiah(total)}`}
+        title={createSale.isPending ? "Memproses…" : `Bayar · ${formatRupiah(total)}`}
         onPress={handlePay}
         disabled={!canPay}
         loading={createSale.isPending}
@@ -206,7 +206,7 @@ interface OfflineSaleParams {
  * lands:
  *  - `id`: `"local-" + clientId` — clearly not a server id, but unique and
  *    stable for this attempt (React keys, navigation params).
- *  - `orderNo`: `"Queued"` — an honest placeholder rather than a fabricated
+ *  - `orderNo`: `"Antre"` — an honest placeholder rather than a fabricated
  *    number; the real sequential order number only exists once the server
  *    creates the row.
  *  - `merchantId`/`shiftId`: the currently-open shift's, if the shift query
@@ -233,7 +233,7 @@ function buildOfflineSale({
     id: `local-${clientId}`,
     merchantId: shift?.merchantId ?? "offline",
     shiftId: shift?.id ?? "offline",
-    orderNo: "Queued",
+    orderNo: "Antre",
     clientId,
     tenderType,
     cashAmount,
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: "center",
   },
-  tenderPillActive: { backgroundColor: "rgba(182, 130, 53, 0.14)", borderColor: colors.accent },
+  tenderPillActive: { backgroundColor: colors.accent100, borderColor: colors.accent },
   tenderPillInactive: { backgroundColor: "transparent", borderColor: colors.divider },
   tenderPillLabel: { fontSize: 14 },
   splitCard: {

@@ -26,14 +26,14 @@ export function AddExpenseScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleSnapNote = () => {
-    Alert.alert("Coming soon", "AI expense capture from a photo is coming in a later update.");
+    Alert.alert("Segera hadir", "Catat pengeluaran dari foto akan hadir di update berikutnya.");
   };
 
   const handleSave = async () => {
     setSubmitError(null);
     const amountNum = parseRupiah(amount);
     if (amount.trim() === "" || amountNum <= 0) {
-      setAmountError("Enter an amount greater than 0");
+      setAmountError("Isi jumlah lebih dari 0");
       return;
     }
     setAmountError(null);
@@ -42,7 +42,7 @@ export function AddExpenseScreen() {
       await createExpense.mutateAsync({ amount: amountNum, note: note.trim() || undefined });
       navigation.goBack();
     } catch (err) {
-      setSubmitError(extractErrorMessage(err, "Couldn't save the expense. Check your connection and try again."));
+      setSubmitError(extractErrorMessage(err, "Gagal simpan pengeluaran. Cek koneksi lalu coba lagi."));
     }
   };
 
@@ -50,20 +50,20 @@ export function AddExpenseScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="h2">Add expense</Text>
       <Text variant="body" color={colors.neutral700} style={styles.intro}>
-        Recorded against your current shift and counted as paid out of the drawer.
+        Tercatat di shift yang lagi jalan dan dihitung sebagai uang keluar dari laci.
       </Text>
 
       <View style={styles.snapCard}>
         <Text variant="kicker">Snap a note</Text>
         <Text variant="caption" color={colors.neutral700} style={styles.snapBody}>
-          Photograph a receipt and AI logs the expense for you.
+          Foto notanya, AI yang catat pengeluarannya.
         </Text>
-        <Button title="Try it" variant="ghost" onPress={handleSnapNote} style={styles.snapButton} />
+        <Button title="Coba" variant="ghost" onPress={handleSnapNote} style={styles.snapButton} />
       </View>
 
       <View style={styles.fields}>
         <TextField
-          label="Amount"
+          label="Jumlah"
           value={amount}
           onChangeText={(v) => {
             setAmount(v);
@@ -74,7 +74,7 @@ export function AddExpenseScreen() {
           error={amountError ?? undefined}
         />
 
-        <TextField label="Note" value={note} onChangeText={setNote} placeholder="What was this for? (optional)" />
+        <TextField label="Catatan" value={note} onChangeText={setNote} placeholder="Buat apa? (opsional)" />
       </View>
 
       {submitError ? (
@@ -84,7 +84,7 @@ export function AddExpenseScreen() {
       ) : null}
 
       <Button
-        title={createExpense.isPending ? "Saving…" : "Save expense"}
+        title={createExpense.isPending ? "Menyimpan…" : "Simpan pengeluaran"}
         onPress={handleSave}
         disabled={createExpense.isPending}
         loading={createExpense.isPending}

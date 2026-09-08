@@ -47,14 +47,14 @@ export function BillFormScreen() {
     setErrorMessage(null);
     const trimmed = customerNumber.trim();
     if (!trimmed) {
-      setErrorMessage("Enter a customer number first.");
+      setErrorMessage("Isi nomor pelanggan dulu.");
       return;
     }
     try {
       const result = await checkBill.mutateAsync({ billerId, customerNumber: trimmed });
       setQuote(result);
     } catch (err) {
-      setErrorMessage(extractErrorMessage(err, "Couldn't find that bill. Check the number and try again."));
+      setErrorMessage(extractErrorMessage(err, "Tagihan nggak ketemu. Cek nomornya lalu coba lagi."));
     }
   };
 
@@ -67,19 +67,19 @@ export function BillFormScreen() {
     } catch (err) {
       // A real failure — provider decline, expired quote, etc — surfaces inline;
       // it never gets swallowed into a silent success.
-      setErrorMessage(extractErrorMessage(err, "The payment couldn't be completed. Check the bill again and retry."));
+      setErrorMessage(extractErrorMessage(err, "Pembayaran gagal diselesaikan. Cek lagi tagihannya lalu ulangi."));
       setQuote(null);
     }
   };
 
   const isBusy = checkBill.isPending || payBill.isPending;
   const actionLabel = payBill.isPending
-    ? "Charging…"
+    ? "Memproses…"
     : checkBill.isPending
-      ? "Checking…"
+      ? "Mengecek…"
       : quote
         ? `Charge customer · ${formatRupiah(quote.customerPays)}`
-        : "Check bill";
+        : "Cek tagihan";
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -89,7 +89,7 @@ export function BillFormScreen() {
       </Text>
 
       <TextField
-        label="Customer number"
+        label="Nomor pelanggan"
         value={customerNumber}
         onChangeText={handleChangeNumber}
         placeholder="512 3344 8890"
@@ -109,9 +109,9 @@ export function BillFormScreen() {
 
           <View style={styles.divider} />
 
-          <SummaryLine label="Bill amount" value={formatRupiah(quote.billAmount)} />
-          <SummaryLine label="Admin" value={formatRupiah(quote.adminFee)} />
-          <SummaryLine label="Your margin" value={formatRupiah(quote.marginAmount)} color={colors.accent700} />
+          <SummaryLine label="Jumlah tagihan" value={formatRupiah(quote.billAmount)} />
+          <SummaryLine label="Biaya admin" value={formatRupiah(quote.adminFee)} />
+          <SummaryLine label="Untung kamu" value={formatRupiah(quote.marginAmount)} color={colors.success} />
 
           <View style={styles.totalRow}>
             <Text variant="kicker">Customer pays</Text>

@@ -16,11 +16,11 @@ const Stack = createNativeStackNavigator<BillsStackParamList>();
 export function BillsStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="Bills" component={BillsScreen} options={{ title: "Bills" }} />
+      <Stack.Screen name="Bills" component={BillsScreen} options={{ title: "Tagihan" }} />
       <Stack.Screen
         name="BillForm"
         component={BillFormScreen}
-        options={({ route }) => ({ title: route.params.billerName, headerBackTitle: "Bills" })}
+        options={({ route }) => ({ title: route.params.billerName, headerBackTitle: "Tagihan" })}
       />
     </Stack.Navigator>
   );

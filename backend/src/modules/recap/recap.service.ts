@@ -1,4 +1,12 @@
-import { DailyRecapResponse, formatRupiah, RecapInsight, TopSeller, WeeklyBar, WeeklyReportsResponse } from "@lapak/shared";
+import {
+  DailyRecapResponse,
+  formatRupiah,
+  formatWeekdayShort,
+  RecapInsight,
+  TopSeller,
+  WeeklyBar,
+  WeeklyReportsResponse,
+} from "@lapak/shared";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { aiEnabled } from "../../config/env";
@@ -276,7 +284,7 @@ export async function getWeeklyReports(merchantId: string): Promise<WeeklyReport
   ]);
 
   const bars: WeeklyBar[] = dayRanges.map((r, i) => ({
-    label: new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(r.start),
+    label: formatWeekdayShort(r.start),
     total: dayRevenues[i].total,
     ppobShare: dayRevenues[i].ppobRevenue,
   }));

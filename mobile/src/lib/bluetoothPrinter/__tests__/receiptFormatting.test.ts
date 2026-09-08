@@ -98,9 +98,9 @@ describe('receiptFormatting', () => {
 
   describe('formatRow', () => {
     it('pads the line out to the full receipt width', () => {
-      const row = formatRow('Tender', 'Cash');
+      const row = formatRow('Bayar pakai', 'Tunai');
       expect(row.length).toBe(RECEIPT_WIDTH);
-      expect(row).toBe('Tender                      Cash');
+      expect(row).toBe('Bayar pakai                Tunai');
     });
 
     it('right-aligns the value against a fixed width', () => {
@@ -133,7 +133,7 @@ describe('receiptFormatting', () => {
   });
 
   describe('buildSaleReceiptLines', () => {
-    const lines = buildSaleReceiptLines(SAMPLE_SALE, 'Cash', SAMPLE_MERCHANT);
+    const lines = buildSaleReceiptLines(SAMPLE_SALE, 'Tunai', SAMPLE_MERCHANT);
     const text = receiptLinesToPlainText(lines);
 
     it('renders every line at or under the receipt width', () => {
@@ -165,7 +165,7 @@ describe('receiptFormatting', () => {
       const totalLine = lines.find(l => l.text.startsWith('TOTAL'));
       expect(totalLine?.bold).toBe(true);
       expect(totalLine?.text.trim().endsWith('Rp 24.000')).toBe(true);
-      expect(text).toContain(formatRow('Tender', 'Cash'));
+      expect(text).toContain(formatRow('Bayar pakai', 'Tunai'));
     });
 
     it('ends with the Terima kasih footer', () => {
@@ -179,7 +179,7 @@ describe('receiptFormatting', () => {
         --------------------------------
         1x Es Kopi Susu Gula   Rp 18.000
         1x Teh Botol 450ml      Rp 6.000
-        Tender                      Cash
+        Bayar pakai                Tunai
         --------------------------------
         TOTAL                  Rp 24.000
         Terima kasih . powered by Lapak"
@@ -198,27 +198,27 @@ describe('receiptFormatting', () => {
     });
 
     it('includes shift open/close times and the cashier name', () => {
-      expect(text).toContain('Cashier');
+      expect(text).toContain('Kasir');
       expect(text).toContain('Sari');
-      expect(lines.some(l => l.text.startsWith('Opened'))).toBe(true);
-      expect(lines.some(l => l.text.startsWith('Closed'))).toBe(true);
+      expect(lines.some(l => l.text.startsWith('Buka'))).toBe(true);
+      expect(lines.some(l => l.text.startsWith('Tutup'))).toBe(true);
     });
 
     it("includes all five running-total rows matching the prototype's shiftRows", () => {
-      expect(text).toContain(formatRow('Opening float', 'Rp 300.000'));
-      expect(text).toContain(formatRow('Cash sales', 'Rp 951.000'));
-      expect(text).toContain(formatRow('PPOB cash in', 'Rp 872.000'));
-      expect(text).toContain(formatRow('Paid out', '- Rp 138.000'));
+      expect(text).toContain(formatRow('Modal awal', 'Rp 300.000'));
+      expect(text).toContain(formatRow('Penjualan tunai', 'Rp 951.000'));
+      expect(text).toContain(formatRow('Uang masuk PPOB', 'Rp 872.000'));
+      expect(text).toContain(formatRow('Uang keluar', '- Rp 138.000'));
       const expectedLine = lines.find(l =>
-        l.text.startsWith('Expected in drawer'),
+        l.text.startsWith('Seharusnya di laci'),
       );
       expect(expectedLine?.bold).toBe(true);
       expect(expectedLine?.text.trim().endsWith('Rp 1.290.000')).toBe(true);
     });
 
     it('includes counted cash and a signed discrepancy line', () => {
-      expect(text).toContain(formatRow('Counted in drawer', 'Rp 1.245.000'));
-      expect(text).toContain(formatRow('Short by', 'Rp 45.000'));
+      expect(text).toContain(formatRow('Hitungan di laci', 'Rp 1.245.000'));
+      expect(text).toContain(formatRow('Kurang', 'Rp 45.000'));
     });
 
     it("omits the counted/discrepancy rows when the shift hasn't been closed yet", () => {
@@ -230,9 +230,9 @@ describe('receiptFormatting', () => {
       const openText = receiptLinesToPlainText(
         buildZReportLines(openReport, SAMPLE_MERCHANT.name),
       );
-      expect(openText).not.toContain('Counted in drawer');
-      expect(openText).not.toContain('Short by');
-      expect(openText).not.toContain('Over by');
+      expect(openText).not.toContain('Hitungan di laci');
+      expect(openText).not.toContain('Kurang');
+      expect(openText).not.toContain('Lebih');
       expect(openText).not.toContain('Closed');
     });
 
@@ -241,18 +241,18 @@ describe('receiptFormatting', () => {
         "WARUNG SARI RASA
         Z-REPORT
         --------------------------------
-        Opened                     00:10
-        Closed                     12:55
-        Cashier                     Sari
+        Buka                       00.10
+        Tutup                      12.55
+        Kasir                       Sari
         --------------------------------
-        Opening float         Rp 300.000
-        Cash sales            Rp 951.000
-        PPOB cash in          Rp 872.000
-        Paid out            - Rp 138.000
+        Modal awal            Rp 300.000
+        Penjualan tunai       Rp 951.000
+        Uang masuk PPOB       Rp 872.000
+        Uang keluar         - Rp 138.000
         --------------------------------
-        Expected in drawer  Rp 1.290.000
-        Counted in drawer   Rp 1.245.000
-        Short by               Rp 45.000
+        Seharusnya di laci  Rp 1.290.000
+        Hitungan di laci    Rp 1.245.000
+        Kurang                 Rp 45.000
         --------------------------------
         Terima kasih . powered by Lapak"
       `);
