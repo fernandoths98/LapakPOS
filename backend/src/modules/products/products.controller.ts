@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { requireOutlet } from "../../middleware/outlet";
 import { requireFeature } from "../subscription/entitlements.service";
+import { consumeAiQuota } from "../subscription/aiQuota.service";
 import { unauthorized } from "../../utils/errors";
 import { saveProductPhoto } from "./products.photo";
 import { photoFillProduct } from "./products.photoFill.service";
@@ -101,6 +102,7 @@ const photoFillSchema = z.object({
 export async function photoFillProductHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   await requireFeature(req.user.merchantId, "ai");
+  await consumeAiQuota(req.user.merchantId, "photoFill");
   const { imageBase64, mimeType } = photoFillSchema.parse(req.body);
   const result = await photoFillProduct(imageBase64, mimeType);
   res.json(result);

@@ -9,10 +9,12 @@ import {
   PpobBiller as PpobBillerDto,
   PpobCommissionSummaryResponse,
   PpobTransaction as PpobTransactionDto,
+  splitPpobMargin,
 } from "@lapak/shared";
 import { PpobBiller, PpobTransaction } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { AppError, badRequest, notFound } from "../../utils/errors";
+import { resolvePlan } from "../subscription/entitlements.service";
 import { getOrOpenCurrentShift } from "../shifts/shifts.service";
 import { getPpobProvider } from "./providers";
 import { env } from "../../config/env";
@@ -247,6 +249,13 @@ export async function payBill(
 
   const totalCharged = quote.billAmount + quote.adminFee + quote.marginAmount;
 
+  // The customer is charged the merchant's full markup either way — the plan
+  // only decides how that markup is divided once it lands. Resolved before the
+  // transaction opens so a plan change mid-payment cannot split one payment
+  // against two different rates.
+  const { planCode } = await resolvePlan(merchantId);
+  const { merchantCommission, platformFee } = splitPpobMargin(quote.marginAmount, planCode);
+
   const created = await prisma.$transaction(async (tx) => {
     const shift = await getOrOpenCurrentShift(merchantId, userId, outletId, tx);
 
@@ -275,7 +284,8 @@ export async function payBill(
         data: {
           merchantId,
           ppobTransactionId: transaction.id,
-          commissionAmount: quote.marginAmount,
+          commissionAmount: merchantCommission,
+          platformFeeAmount: platformFee,
           depositDelta: 0,
         },
       });
