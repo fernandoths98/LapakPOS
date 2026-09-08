@@ -59,13 +59,31 @@ enum ChatRole {
   assistant
 }
 
+enum MerchantPlan {
+  free
+  pro
+}
+
+/// Mirrors AiFeature in @lapak/shared — the surfaces that spend Claude credit.
+enum AiFeature {
+  recap
+  ask
+  discrepancy
+  photoFill
+}
+
 model Merchant {
-  id                 String   @id @default(uuid())
+  id                 String       @id @default(uuid())
   name               String
   address            String?
   phone              String?
   defaultPrinterName String?
-  createdAt          DateTime @default(now())
+  plan               MerchantPlan @default(free)
+  /// When a paid plan lapses. Null on free. A past date is treated as free.
+  planRenewsAt       DateTime?    @map("plan_renews_at")
+  createdAt          DateTime     @default(now())
+
+  aiUsageDays AiUsageDay[]
 
   users             User[]
   categories        Category[]
@@ -270,10 +288,28 @@ model PpobCommissionLedgerEntry {
   ppobTransactionId String          @unique @map("ppob_transaction_id")
   ppobTransaction   PpobTransaction @relation(fields: [ppobTransactionId], references: [id])
   commissionAmount  Int             @map("commission_amount")
+  /// Lapak's cut of the markup, recorded so the split stays auditable by the merchant.
+  platformFeeAmount Int             @default(0) @map("platform_fee_amount")
   depositDelta      Int             @map("deposit_delta")
   createdAt         DateTime        @default(now()) @map("created_at")
 
   @@map("ppob_commission_ledger")
+}
+
+/// One row per merchant per day per AI feature. Metering lives in its own
+/// table rather than a counter on Merchant so a day's usage is a fact with a
+/// date on it — quota resets by rolling to a new row, and past usage stays
+/// readable.
+model AiUsageDay {
+  id         String    @id @default(uuid())
+  merchantId String    @map("merchant_id")
+  merchant   Merchant  @relation(fields: [merchantId], references: [id])
+  day        DateTime  @db.Date
+  feature    AiFeature
+  count      Int       @default(0)
+
+  @@unique([merchantId, day, feature])
+  @@map("ai_usage_days")
 }
 
 model AiRecapCache {

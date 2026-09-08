@@ -6,6 +6,7 @@ import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { formatLongDate, formatRupiah, formatTimeOfDay, formatWeekdayShort } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
+import { AdSlot } from "../../components/AdSlot";
 import { colors, radius, space } from "../../theme/tokens";
 import { useTodaySummary, useHomeAlerts } from "../../state/api/home";
 import { useMerchant } from "../../state/api/merchant";
@@ -162,6 +163,8 @@ export function HomeScreen() {
           </Text>
         </View>
       )}
+
+      <AdSlot placement="home" />
 
       <Text variant="kicker" style={styles.sectionTitle}>
         Pintasan

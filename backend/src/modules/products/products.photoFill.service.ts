@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { PhotoFillResponse } from "@lapak/shared";
 import { aiEnabled } from "../../config/env";
-import { AppError, badRequest } from "../../utils/errors";
+import { consumeAiQuota } from "../plan/aiQuota.service";
+import { AppError, badRequest, quotaExhausted } from "../../utils/errors";
 import { generateStructured, JsonSchema } from "../recap/claudeClient";
 
 /**
@@ -66,7 +67,11 @@ const SYSTEM_PROMPT =
  * Claude call that itself fails (network, rate limit, malformed response)
  * also surfaces as a clear error (502) rather than a silent empty result.
  */
-export async function photoFillProduct(imageBase64: string, mimeType: string): Promise<PhotoFillResponse> {
+export async function photoFillProduct(
+  merchantId: string,
+  imageBase64: string,
+  mimeType: string,
+): Promise<PhotoFillResponse> {
   if (!aiEnabled) {
     throw badRequest("AI photo-fill isn't available yet: ANTHROPIC_API_KEY is not configured on the backend");
   }
@@ -76,6 +81,9 @@ export async function photoFillProduct(imageBase64: string, mimeType: string): P
   const mediaType = SUPPORTED_VISION_MIME_TYPES[mimeType.toLowerCase()];
   if (!mediaType) {
     throw badRequest(`Unsupported image type for photo-fill: ${mimeType}. Use JPEG, PNG, GIF or WebP.`);
+  }
+  if (!(await consumeAiQuota(merchantId, "photoFill")).allowed) {
+    throw quotaExhausted("Jatah isi-otomatis-dari-foto hari ini sudah habis. Upgrade ke Pro buat pakai tanpa batas.");
   }
 
   const messages: Anthropic.MessageParam[] = [

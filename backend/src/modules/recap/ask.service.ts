@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AiChatMessage as AiChatMessageDto, AskHistoryResponse, AskResponse } from "@lapak/shared";
 import { AiChatMessage as AiChatMessageRow } from "@prisma/client";
 import { prisma } from "../../db/prisma";
+import { consumeAiQuota } from "../plan/aiQuota.service";
 import { aiEnabled } from "../../config/env";
 import { badRequest } from "../../utils/errors";
 import { buildRecapAggregation, RecapAggregationContext } from "./recapAggregation.service";
@@ -24,6 +25,14 @@ export const AI_UNAVAILABLE_REPLY = "AI isn't available yet — ask again once A
 
 /** Shown when Claude is configured but a live call fails (network, rate limit, etc) — a transient problem, not a config problem. */
 const AI_TRANSIENT_FAILURE_REPLY = "Couldn't reach the AI assistant just now — try again in a moment.";
+
+/**
+ * Refused for quota, not broken. Says so plainly and points at the way out,
+ * because a merchant who thinks the feature is broken uninstalls, while one
+ * who knows they hit a limit is being told what Pro is for.
+ */
+export const AI_QUOTA_EXHAUSTED_REPLY =
+  "Jatah tanya AI hari ini sudah habis. Coba lagi besok, atau upgrade ke Pro buat tanya sepuasnya.";
 
 const ASK_SCHEMA: JsonSchema = {
   type: "object",
@@ -132,6 +141,14 @@ export async function postAsk(merchantId: string, userId: string, message: strin
       data: { merchantId, userId, role: "assistant", content: AI_UNAVAILABLE_REPLY },
     });
     return { reply: AI_UNAVAILABLE_REPLY, aiAvailable: false };
+  }
+
+  const quota = await consumeAiQuota(merchantId, "ask");
+  if (!quota.allowed) {
+    await prisma.aiChatMessage.create({
+      data: { merchantId, userId, role: "assistant", content: AI_QUOTA_EXHAUSTED_REPLY },
+    });
+    return { reply: AI_QUOTA_EXHAUSTED_REPLY, aiAvailable: false };
   }
 
   try {

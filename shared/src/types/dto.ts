@@ -1,4 +1,5 @@
 import { TenderType, UserRole } from "../constants";
+import { AiFeature, MerchantPlan, PlanEntitlements } from "../plan";
 import { AiChatMessage, Expense, Merchant, PpobBiller, PpobTransaction, Product, Sale, Shift } from "./domain";
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -261,6 +262,24 @@ export interface WeeklyReportsResponse {
 export interface ApiErrorBody {
   error: string;
   message: string;
+}
+
+// ── Plan ──────────────────────────────────────────────────────────────────
+
+/** One AI feature's standing for today. `limit`/`remaining` are null when unlimited. */
+export interface AiUsageToday {
+  feature: AiFeature;
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+}
+
+export interface PlanResponse {
+  plan: MerchantPlan;
+  /** When a paid plan lapses back to free. Null on the free plan. */
+  planRenewsAt: string | null;
+  entitlements: PlanEntitlements;
+  aiUsageToday: AiUsageToday[];
 }
 
 export type { Product, Sale, Shift, PpobBiller, Expense, Merchant };

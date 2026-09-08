@@ -50,6 +50,7 @@ describe("shifts.service", () => {
     await prisma.ppobBiller.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.shift.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.aiUsageDay.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });

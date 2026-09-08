@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AskHistoryResponse, AskResponse, DailyRecapResponse, WeeklyReportsResponse } from "@lapak/shared";
 import { apiClient } from "./apiClient";
+import { PLAN_KEY } from "./plan";
 
 const DAILY_RECAP_KEY = ["recap", "daily"];
 const WEEKLY_REPORTS_KEY = ["recap", "weekly"];
@@ -72,6 +73,10 @@ export function useAskChat() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEY });
+      // Asking spends today's allowance, so the remaining count on screen is
+      // stale the moment this settles — including when the answer came back
+      // refused for quota.
+      queryClient.invalidateQueries({ queryKey: PLAN_KEY });
     },
   });
 }

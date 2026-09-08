@@ -31,6 +31,7 @@ describe("ask.service — degraded path (no ANTHROPIC_API_KEY in this sandbox)",
 
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.aiUsageDay.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });

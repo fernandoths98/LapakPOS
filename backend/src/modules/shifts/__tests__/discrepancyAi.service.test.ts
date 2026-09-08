@@ -55,6 +55,7 @@ describe("discrepancyAi.service", () => {
     await prisma.shift.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.product.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.aiUsageDay.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });
@@ -163,12 +164,12 @@ describe("discrepancyAi.service", () => {
           sum: 45000,
         },
       ];
-      const result = await explainDiscrepancyWithAi(45000, candidates);
+      const result = await explainDiscrepancyWithAi(TEST_MERCHANT_ID, 45000, candidates);
       expect(result).toBeNull();
     });
 
     it("returns null immediately when there are no candidates, without any AI call", async () => {
-      const result = await explainDiscrepancyWithAi(45000, []);
+      const result = await explainDiscrepancyWithAi(TEST_MERCHANT_ID, 45000, []);
       expect(result).toBeNull();
     });
   });

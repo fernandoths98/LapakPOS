@@ -1,3 +1,4 @@
+import { splitPpobMargin } from "@lapak/shared";
 import { prisma } from "../../../db/prisma";
 import { AppError } from "../../../utils/errors";
 import { CheckBillResult, PayBillResult, PpobProvider } from "../providers/PpobProvider";
@@ -98,6 +99,7 @@ describe("ppob.service", () => {
     await prisma.ppobBiller.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.shift.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.user.deleteMany({ where: { id: TEST_USER_ID } });
+    await prisma.aiUsageDay.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.merchant.deleteMany({ where: { id: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.$disconnect();
   });
@@ -150,11 +152,18 @@ describe("ppob.service", () => {
       expect(transaction.marginAmount).toBe(3000);
       expect(transaction.billerName).toBe("PLN");
 
+      // The customer still pays the merchant's full 3.000 markup; the plan
+      // only decides how it is divided afterwards. This merchant is on free,
+      // so Lapak keeps 30% and both halves are recorded rather than one being
+      // silently netted off.
+      const { merchantCommission, platformFee } = splitPpobMargin(3000, "free");
       const ledgerEntry = await prisma.ppobCommissionLedgerEntry.findUnique({
         where: { ppobTransactionId: transaction.id },
       });
-      expect(ledgerEntry?.commissionAmount).toBe(3000);
-      expect(ledgerEntry?.depositDelta).toBe(3000);
+      expect(ledgerEntry?.commissionAmount).toBe(merchantCommission);
+      expect(ledgerEntry?.platformFeeAmount).toBe(platformFee);
+      expect(ledgerEntry?.depositDelta).toBe(merchantCommission);
+      expect(merchantCommission + platformFee).toBe(transaction.marginAmount);
 
       // Replaying the exact same (already-redeemed) checkRef must be a real
       // 400, not a second charge — the quote was deleted the moment it was read.
@@ -222,13 +231,14 @@ describe("ppob.service", () => {
 
       const currentMonth = new Date().toISOString().slice(0, 7);
       const summary = await ppobService.getCommissionSummary(TEST_MERCHANT_ID, currentMonth);
-      expect(summary.commissionThisMonth).toBeGreaterThanOrEqual(3000);
-      expect(summary.deposit).toBe(priorDeposit + 3000);
+      const { merchantCommission } = splitPpobMargin(3000, "free");
+      expect(summary.commissionThisMonth).toBeGreaterThanOrEqual(merchantCommission);
+      expect(summary.deposit).toBe(priorDeposit + merchantCommission);
 
       // A month with no activity has zero commission but the same all-time deposit.
       const emptyMonth = await ppobService.getCommissionSummary(TEST_MERCHANT_ID, "2020-01");
       expect(emptyMonth.commissionThisMonth).toBe(0);
-      expect(emptyMonth.deposit).toBe(priorDeposit + 3000);
+      expect(emptyMonth.deposit).toBe(priorDeposit + merchantCommission);
     });
 
     it("rejects a malformed month", async () => {

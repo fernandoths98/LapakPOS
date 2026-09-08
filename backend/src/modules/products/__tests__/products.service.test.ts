@@ -53,6 +53,7 @@ describe("products.service", () => {
     await prisma.productCostHistory.deleteMany({ where: { product: { merchantId: TEST_MERCHANT_ID } } });
     await prisma.product.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.category.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
+    await prisma.aiUsageDay.deleteMany({ where: { merchantId: TEST_MERCHANT_ID } });
     await prisma.merchant.deleteMany({ where: { id: TEST_MERCHANT_ID } });
     await prisma.$disconnect();
   });

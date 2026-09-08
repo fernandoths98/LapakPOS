@@ -4,6 +4,8 @@ import { RouteProp, useRoute } from "@react-navigation/native";
 import { AiChatMessage, formatRupiah, RecapInsight, TopSeller, WeeklyBar } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
+import { AdSlot } from "../../components/AdSlot";
+import { useAiRemaining } from "../../state/api/plan";
 import { TextField } from "../../components/TextField";
 import { colors, radius, space } from "../../theme/tokens";
 import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWeeklyReports } from "../../state/api/recap";
@@ -106,6 +108,8 @@ function StoryTab() {
       ) : (
         recap.insights.map((insight, index) => <InsightRow key={`${insight.title}-${index}`} insight={insight} />)
       )}
+
+      <AdSlot placement="recap" />
     </View>
   );
 }
@@ -131,6 +135,7 @@ function InsightRow({ insight }: { insight: RecapInsight }) {
 function AskTab() {
   const historyQuery = useAskChatHistory();
   const askChat = useAskChat();
+  const askRemaining = useAiRemaining("ask");
   const [draft, setDraft] = useState("");
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
@@ -191,6 +196,14 @@ function AskTab() {
           />
         ))}
       </View>
+
+      {askRemaining !== null ? (
+        <Text variant="caption" color={askRemaining === 0 ? colors.danger : colors.neutral600} style={styles.askQuota}>
+          {askRemaining === 0
+            ? "Jatah tanya hari ini habis. Upgrade ke Pro buat tanya sepuasnya."
+            : `Sisa ${askRemaining} pertanyaan hari ini`}
+        </Text>
+      ) : null}
 
       <View style={styles.askInputRow}>
         <TextField
@@ -385,7 +398,8 @@ const styles = StyleSheet.create({
   },
   suggestionsRow: { flexDirection: "row", flexWrap: "wrap", gap: space[2] - 2, marginTop: space[4] },
   suggestionChip: { paddingHorizontal: space[3], minHeight: 0, paddingVertical: space[2] - 3 },
-  askInputRow: { flexDirection: "row", gap: space[2], marginTop: space[4], alignItems: "flex-start" },
+  askQuota: { marginTop: space[3] },
+  askInputRow: { flexDirection: "row", gap: space[2], marginTop: space[2], alignItems: "flex-start" },
   askInput: { flex: 1 },
   askButton: { paddingHorizontal: space[4] },
 

@@ -44,6 +44,7 @@ describe("catalog-io.service", () => {
     await prisma.productCostHistory.deleteMany({ where: { product: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } } });
     await prisma.product.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.user.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
+    await prisma.aiUsageDay.deleteMany({ where: { merchantId: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.merchant.deleteMany({ where: { id: { in: [TEST_MERCHANT_ID, OTHER_MERCHANT_ID] } } });
     await prisma.$disconnect();
   });

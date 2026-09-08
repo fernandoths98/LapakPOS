@@ -93,6 +93,6 @@ const photoFillSchema = z.object({
 export async function photoFillProductHandler(req: Request, res: Response): Promise<void> {
   if (!req.user) throw unauthorized();
   const { imageBase64, mimeType } = photoFillSchema.parse(req.body);
-  const result = await photoFillProduct(imageBase64, mimeType);
+  const result = await photoFillProduct(req.user.merchantId, imageBase64, mimeType);
   res.json(result);
 }

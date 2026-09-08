@@ -9,6 +9,7 @@ import {
 } from "@lapak/shared";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
+import { consumeAiQuota } from "../plan/aiQuota.service";
 import { aiEnabled } from "../../config/env";
 import { badRequest } from "../../utils/errors";
 import { dayBounds, dayRevenueTotal } from "../sales/sales.service";
@@ -178,6 +179,14 @@ async function generateFreshDailyRecap(
   recapDateKey: Date,
 ): Promise<DailyRecapResponse> {
   if (!aiEnabled) {
+    return toDailyRecapResponse(context, buildDeterministicStory(context), false);
+  }
+
+  // Claimed only here, where a Claude call is actually about to happen — a
+  // cache hit in getDailyRecap never reaches this function, so re-opening
+  // Home all day costs the merchant nothing against their allowance.
+  const quota = await consumeAiQuota(merchantId, "recap");
+  if (!quota.allowed) {
     return toDailyRecapResponse(context, buildDeterministicStory(context), false);
   }
 

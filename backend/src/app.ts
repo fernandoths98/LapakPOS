@@ -11,6 +11,7 @@ import { ensureUploadsDirExists, UPLOADS_ROOT } from "./modules/products/product
 import { expensesRouter } from "./modules/expenses/expenses.routes";
 import { homeRouter } from "./modules/home/home.routes";
 import { merchantRouter } from "./modules/merchant/merchant.routes";
+import { planRouter } from "./modules/plan/plan.routes";
 import { ppobRouter } from "./modules/ppob/ppob.routes";
 import { recapRouter } from "./modules/recap/recap.routes";
 import { salesRouter } from "./modules/sales/sales.routes";
@@ -46,6 +47,7 @@ export function createApp() {
   app.use("/api/merchant", merchantRouter);
   app.use("/api/home", homeRouter);
   app.use("/api/recap", recapRouter);
+  app.use("/api/plan", planRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

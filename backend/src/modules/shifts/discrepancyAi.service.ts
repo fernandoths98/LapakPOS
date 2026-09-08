@@ -1,6 +1,7 @@
 import { prisma } from "../../db/prisma";
 import { formatRupiah } from "@lapak/shared";
 import { AiUnavailableError, generateStructured, JsonSchema } from "../recap/claudeClient";
+import { consumeAiQuota } from "../plan/aiQuota.service";
 
 /**
  * One real, shift-scoped cash-contributing event that could plausibly
@@ -183,10 +184,12 @@ function formatTime(d: Date): string {
  * summary. Never throws.
  */
 export async function explainDiscrepancyWithAi(
+  merchantId: string,
   discrepancy: number,
   candidates: DiscrepancyCandidateSet[],
 ): Promise<string | null> {
   if (candidates.length === 0) return null;
+  if (!(await consumeAiQuota(merchantId, "discrepancy")).allowed) return null;
   const best = candidates[0];
 
   const user =

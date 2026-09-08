@@ -196,7 +196,7 @@ async function resolveDiscrepancyBody(
     return genericBody;
   }
 
-  const aiBody = await explainDiscrepancyWithAi(discrepancy, candidates);
+  const aiBody = await explainDiscrepancyWithAi(merchantId, discrepancy, candidates);
   return aiBody ?? genericBody;
 }
 
