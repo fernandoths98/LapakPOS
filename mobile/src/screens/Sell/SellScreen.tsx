@@ -144,7 +144,7 @@ export function SellScreen() {
                   {isPortraitPhone ? "Kasir" : "Transaksi Penjualan"}
                 </Text>
                 <View style={styles.shiftStatus}>
-                  <View style={[styles.statusDot, { backgroundColor: shift ? colors.success : colors.warning }]} />
+                  <View style={[styles.statusDot, { backgroundColor: shift ? colors.success : colors.attention }]} />
                   <Text variant="caption" color={colors.neutral600}>
                     {shift ? "Kasir aktif" : "Shift belum dibuka"}
                   </Text>
@@ -198,7 +198,7 @@ export function SellScreen() {
             </View>
             {productsQuery.isLoading ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : null}
             {productsQuery.isError ? (
-              <Text variant="caption" color={colors.accent} style={styles.loading}>
+              <Text variant="caption" color={colors.accent700} style={styles.loading}>
                 Produk gagal dimuat. Tarik layar untuk mencoba lagi.
               </Text>
             ) : null}
@@ -277,7 +277,7 @@ export function SellScreen() {
           <Pressable onPress={() => isPortraitPhone ? setCartPreviewOpen((open) => !open) : navigation.navigate("Cart")} style={styles.cartBarInfo} accessibilityLabel="Lihat isi keranjang">
             <Text variant="caption" color={colors.neutral600}>TOTAL BELANJA</Text>
             <View style={styles.cartTotalRow}>
-              <Text variant="h2">{formatRupiah(total)}</Text>
+              <Text variant="h2" style={styles.cartBarTotal}>{formatRupiah(total)}</Text>
               {isPortraitPhone ? (cartPreviewOpen ? <ChevronDown size={18} color={colors.neutral600} /> : <ChevronUp size={18} color={colors.neutral600} />) : null}
             </View>
           </Pressable>
@@ -287,7 +287,7 @@ export function SellScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Bayar ${formatRupiah(total)}`}
           >
-            <Text variant="kicker" color={colors.surface} style={styles.payActionLabel}>BAYAR</Text>
+            <Text variant="h3" color={colors.surface} style={styles.payActionLabel}>BAYAR</Text>
             <ChevronRight size={20} strokeWidth={2.4} color={colors.surface} />
           </Pressable>
         </View>
@@ -430,11 +430,17 @@ function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = 
           <View style={styles.qtyBadgeInline}><Text variant="caption" color={colors.surface}>{qtyInCart}</Text></View>
         ) : null}
         <Text variant="body" style={[styles.tileName, compact && styles.tileNameCompact, portrait && styles.tileNamePortrait]} numberOfLines={compact ? 1 : 2}>{product.name}</Text>
-        <Text variant="tabular" color={colors.accent2} style={[styles.tilePrice, portrait && styles.tilePricePortrait]}>{formatRupiah(product.sellPrice)}</Text>
+        <Text variant="tabular" style={[styles.tilePrice, portrait && styles.tilePricePortrait]}>{formatRupiah(product.sellPrice)}</Text>
         <View style={[styles.stockRow, compact && styles.stockRowCompact, portrait && styles.stockRowPortrait]}>
-          <Text variant="caption" color={soldOut || isLow ? colors.accent : colors.neutral600}>
-            {soldOut ? "Stok habis" : `Stok ${product.stockQty}`}
-          </Text>
+          {soldOut || isLow ? (
+            <View style={[styles.stockChip, soldOut ? styles.stockChipOut : styles.stockChipLow]}>
+              <Text variant="caption" color={soldOut ? colors.accent700 : colors.attention} style={styles.stockChipText}>
+                {soldOut ? "Stok habis" : `Sisa ${product.stockQty}`}
+              </Text>
+            </View>
+          ) : (
+            <Text variant="caption" color={colors.neutral600}>{`Stok ${product.stockQty}`}</Text>
+          )}
           {product.barcode ? <Text variant="caption" color={colors.neutral500}>#{product.barcode.slice(-6)}</Text> : null}
         </View>
       </View>
@@ -493,6 +499,10 @@ const styles = StyleSheet.create({
   tileNamePortrait: { minHeight: 36, fontSize: 13, lineHeight: 18 },
   tilePrice: { marginTop: 4, fontSize: 16 },
   tilePricePortrait: { marginTop: 3, fontSize: 15 },
+  stockChip: { alignSelf: "flex-start", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999 },
+  stockChipLow: { backgroundColor: colors.attentionBg },
+  stockChipOut: { backgroundColor: colors.accent100 },
+  stockChipText: { fontWeight: "700", fontSize: 11 },
   stockRow: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginTop: 6 },
   stockRowCompact: { position: "absolute", right: 10, bottom: 8 },
   stockRowPortrait: { marginTop: 4 },
@@ -505,6 +515,7 @@ const styles = StyleSheet.create({
   cartCountBubble: { position: "absolute", right: -6, top: -6, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.surface, alignItems: "center", justifyContent: "center" },
   cartBarInfo: { flex: 1 },
   cartTotalRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  cartBarTotal: { fontSize: 25, letterSpacing: -0.4 },
   cartPreview: { position: "absolute", left: space[3], right: space[3], bottom: 72, maxHeight: 380, backgroundColor: colors.surface, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.divider, borderRadius: radius.lg, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingHorizontal: space[3], paddingTop: space[3], ...shadow.lg },
   cartPreviewHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: space[2], borderBottomWidth: 1, borderBottomColor: colors.divider },
   previewClearButton: { paddingHorizontal: 8, paddingVertical: 6 },
@@ -517,9 +528,9 @@ const styles = StyleSheet.create({
   previewStepButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   previewQty: { width: 24, textAlign: "center", fontSize: 13 },
   previewTotal: { width: 88, textAlign: "right", fontSize: 13 },
-  payAction: { height: 44, minWidth: 100, paddingHorizontal: space[3], borderRadius: radius.sm, backgroundColor: colors.text, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  payActionPressed: { backgroundColor: colors.neutral800, transform: [{ scale: 0.98 }] },
-  payActionLabel: { letterSpacing: 1.1 },
+  payAction: { height: 52, minWidth: 116, paddingHorizontal: space[4], borderRadius: radius.md, backgroundColor: colors.actionFill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  payActionPressed: { backgroundColor: colors.accent700, transform: [{ scale: 0.98 }] },
+  payActionLabel: { fontSize: 17, fontWeight: "700", letterSpacing: 0.3 },
   orderPanel: { flex: 1, minWidth: 440, backgroundColor: colors.surface },
   orderHeader: { height: 60, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space[4], borderBottomWidth: 1, borderBottomColor: colors.divider },
   clearButton: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.sm, backgroundColor: colors.accent100 },

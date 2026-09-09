@@ -68,7 +68,7 @@ export function WalletTopupScreen() {
               <Text variant="caption" color={colors.neutral600}>Bayar melalui aplikasi bank atau dompet digital</Text>
               <View style={styles.qrFrame}><QRCode value={active.qrContent} size={landscape ? 190 : 210} /></View>
               <Text variant="h1" style={styles.amountResult}>{formatRupiah(active.amount)}</Text>
-              <View style={styles.waiting}><Clock3 size={15} color={colors.warning} /><Text variant="caption" color={colors.neutral700}>Menunggu pembayaran · berlaku 10 menit</Text></View>
+              <View style={styles.waiting}><Clock3 size={15} color={colors.attention} /><Text variant="caption" color={colors.neutral700}>Menunggu pembayaran · berlaku 10 menit</Text></View>
               <Button title="Batalkan transaksi" variant="secondary" onPress={() => setActive(null)} style={styles.actionButton} />
             </View>}
           </View> : <View style={styles.card}>
@@ -84,7 +84,7 @@ export function WalletTopupScreen() {
           <View style={styles.historyHeader}><Text variant="h3">Riwayat isi saldo</Text><Text variant="caption" color={colors.neutral600}>Transaksi terbaru</Text></View>
           {(topups.data ?? []).length === 0 ? <View style={styles.empty}><Clock3 size={28} color={colors.neutral400} /><Text variant="body" color={colors.neutral600}>Belum ada riwayat isi saldo.</Text></View> : null}
           {(topups.data ?? []).map(item => <View key={item.id} style={styles.historyRow}>
-            <View style={[styles.historyIcon, item.status === 'paid' ? styles.iconPaid : item.status === 'pending' ? styles.iconPending : styles.iconFailed]}>{item.status === 'paid' ? <CheckCircle2 size={18} color={colors.success} /> : <Clock3 size={18} color={item.status === 'pending' ? colors.warning : colors.neutral500} />}</View>
+            <View style={[styles.historyIcon, item.status === 'paid' ? styles.iconPaid : item.status === 'pending' ? styles.iconPending : styles.iconFailed]}>{item.status === 'paid' ? <CheckCircle2 size={18} color={colors.success} /> : <Clock3 size={18} color={item.status === 'pending' ? colors.attention : colors.neutral500} />}</View>
             <View style={styles.historyCopy}><Text variant="body" style={styles.bold}>{formatRupiah(item.amount)}</Text><Text variant="caption" color={colors.neutral600}>{new Date(item.createdAt).toLocaleString('id-ID')}</Text></View>
             <View style={[styles.statusBadge, item.status === 'paid' ? styles.badgePaid : item.status === 'pending' ? styles.badgePending : styles.badgeFailed]}><Text variant="caption" color={item.status === 'paid' ? colors.success : item.status === 'pending' ? '#9A6700' : colors.neutral600}>{item.status === 'paid' ? 'Berhasil' : item.status === 'pending' ? 'Menunggu' : item.status === 'expired' ? 'Kedaluwarsa' : 'Gagal'}</Text></View>
           </View>)}

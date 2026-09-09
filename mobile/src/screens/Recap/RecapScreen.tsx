@@ -452,8 +452,8 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
         <Text variant="caption" color={colors.neutral600} style={styles.blockCaption}>Bandingkan pemasukan toko setiap hari.</Text>
         <WeeklyBarChart bars={bars} />
         <View style={styles.legendRow}>
-          <LegendSwatch label="Omzet total" color={colors.accent2} />
-          <LegendSwatch label="Bagian PPOB" color={colors.accent} />
+          <LegendSwatch label="Omzet total" color={colors.neutral300} />
+          <LegendSwatch label="Bagian PPOB" color={colors.accent2} />
         </View>
       </View>
 
@@ -527,10 +527,17 @@ function WeeklyBarChart({ bars }: { bars: WeeklyBar[] }) {
         {bars.map((bar, index) => {
           const totalHeight = Math.max(1, Math.round((bar.total / maxTotal) * BAR_MAX_HEIGHT));
           const ppobHeight = Math.max(0, Math.round((bar.ppobShare / maxTotal) * BAR_MAX_HEIGHT));
+          const isToday = index === bars.length - 1;
           return (
             <View key={`${bar.label}-${index}`} style={styles.barColumn}>
               <View style={styles.barTrack}>
-                <View style={[styles.barTotal, { height: totalHeight }]} />
+                <View
+                  style={[
+                    styles.barTotal,
+                    { height: totalHeight },
+                    isToday && styles.barTotalToday,
+                  ]}
+                />
                 <View style={[styles.barPpob, { height: ppobHeight }]} />
               </View>
             </View>
@@ -539,7 +546,12 @@ function WeeklyBarChart({ bars }: { bars: WeeklyBar[] }) {
       </View>
       <View style={styles.chartLabels}>
         {bars.map((bar, index) => (
-          <Text key={`${bar.label}-${index}-label`} variant="caption" color={colors.neutral600} style={styles.chartLabel}>
+          <Text
+            key={`${bar.label}-${index}-label`}
+            variant="caption"
+            color={index === bars.length - 1 ? colors.text : colors.neutral600}
+            style={[styles.chartLabel, index === bars.length - 1 && styles.chartLabelToday]}
+          >
             {bar.label}
           </Text>
         ))}
@@ -843,19 +855,23 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.accent2,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    backgroundColor: colors.neutral300,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
   },
+  barTotalToday: { backgroundColor: colors.text },
   barPpob: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accent2,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
   },
-  chartLabels: { flexDirection: "row", marginTop: space[1] },
+  chartLabels: { flexDirection: "row", marginTop: space[2] },
   chartLabel: { flex: 1, textAlign: "center" },
+  chartLabelToday: { fontWeight: "700" },
   legendRow: { flexDirection: "row", gap: space[4], marginTop: space[2] },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendSwatch: { width: 12, height: 12, borderRadius: 2 },

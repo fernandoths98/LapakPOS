@@ -11,6 +11,9 @@ import {
   FileDown,
   PackagePlus,
   ReceiptText,
+  TrendingDown,
+  TrendingUp,
+  TriangleAlert,
   UserRound,
   WalletCards,
   type LucideIcon,
@@ -57,7 +60,7 @@ function formatYesterdayShort(): string {
 }
 
 function formatOpenedAt(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-GB', {
+  return new Date(iso).toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -98,7 +101,9 @@ export function HomeScreen() {
 
   const change = summary?.pctChangeVsYesterday ?? 0;
   const changeIsUp = change >= 0;
-  const changeColor = changeIsUp ? colors.accent700 : colors.neutral700;
+  // Green when takings grew, red when they fell — previously red meant "up",
+  // which read backwards and spent the action colour on a status.
+  const changeColor = changeIsUp ? colors.moneyUp : colors.accent700;
 
   const recapLine = recapQuery.isLoading
     ? RECAP_LOADING_LINE
@@ -182,7 +187,7 @@ export function HomeScreen() {
           <View
             style={[
               styles.statusDot,
-              { backgroundColor: shift ? colors.success : colors.warning },
+              { backgroundColor: shift ? colors.success : colors.attention },
             ]}
           />
           <View style={styles.shiftCopy}>
@@ -202,21 +207,48 @@ export function HomeScreen() {
 
         <View style={styles.takings}>
           <Text variant="kicker">PENJUALAN HARI INI</Text>
-          <Text variant="h1" style={styles.takingsTotal}>
+          <Text variant="money" style={styles.takingsTotal}>
             {formatRupiah(summary?.total ?? 0)}
           </Text>
+
+          {/* The comparison is a direction before it is a number, so it reads
+              as a shape — arrow and tint — rather than a third column of
+              digits competing with the takings. */}
+          <View style={styles.deltaRow}>
+            <View
+              style={[
+                styles.deltaPill,
+                {
+                  backgroundColor: changeIsUp
+                    ? colors.moneyUpBg
+                    : colors.accent100,
+                },
+              ]}
+            >
+              {changeIsUp ? (
+                <TrendingUp size={13} color={changeColor} strokeWidth={2.6} />
+              ) : (
+                <TrendingDown size={13} color={changeColor} strokeWidth={2.6} />
+              )}
+              <Text
+                variant="caption"
+                color={changeColor}
+                style={styles.deltaValue}
+              >
+                {Math.abs(Math.round(change))}%
+              </Text>
+            </View>
+            <Text variant="caption" color={colors.neutral600}>
+              dibanding {yesterdayShort}
+            </Text>
+          </View>
+
           <View style={styles.takingsMetaRow}>
             <Metric label="TRANSAKSI" value={`${summary?.count ?? 0}`} />
+            <View style={styles.metricDivider} />
             <Metric
               label="RATA-RATA"
               value={formatRupiah(summary?.avgTicket ?? 0)}
-            />
-            <Metric
-              label={`VS ${yesterdayShort.toUpperCase()}`}
-              value={`${changeIsUp ? '+' : '−'}${Math.abs(
-                Math.round(change),
-              )}%`}
-              valueColor={changeColor}
             />
           </View>
         </View>
@@ -224,19 +256,20 @@ export function HomeScreen() {
         <Text variant="kicker" style={styles.sectionTitle}>
           METODE PEMBAYARAN
         </Text>
+        {/* Stacked rather than columns: a fourth tender leaves ~90px per cell,
+            which is not enough for a seven-digit rupiah amount. Stacking also
+            gives the bars one shared baseline, so the split is comparable. */}
         <View style={styles.tenderStrip}>
           {(summary?.tenderMix ?? []).map(t => (
-            <View key={t.label} style={styles.tenderCell}>
-              <Text
-                variant="caption"
-                color={colors.neutral600}
-                style={styles.tenderLabel}
-              >
-                {t.label.toUpperCase()}
-              </Text>
-              <Text variant="tabular" style={styles.tenderAmount}>
-                {formatRupiah(t.amount)}
-              </Text>
+            <View key={t.label} style={styles.tenderRow}>
+              <View style={styles.tenderRowHead}>
+                <Text variant="body" color={colors.neutral800}>
+                  {t.label}
+                </Text>
+                <Text variant="tabular" style={styles.tenderAmount}>
+                  {formatRupiah(t.amount)}
+                </Text>
+              </View>
               <View style={styles.tenderBarTrack}>
                 <View
                   style={[
@@ -308,7 +341,9 @@ export function HomeScreen() {
         ) : (
           alerts.map((alert, index) => (
             <View key={`${alert.text}-${index}`} style={styles.alertRow}>
-              <View style={styles.alertDot} />
+              <View style={styles.alertIcon}>
+                <TriangleAlert size={17} color={colors.attention} />
+              </View>
               <View style={styles.alertBody}>
                 <Text variant="body">{alert.text}</Text>
                 <Text
@@ -402,39 +437,57 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     borderRadius: radius.md,
   },
-  takingsTotal: { marginTop: space[1], fontSize: 36 },
+  // No fontSize here: the `money` variant governs the hero figure.
+  takingsTotal: { marginTop: space[1] },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    marginTop: space[2],
+  },
+  deltaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: space[2],
+    borderRadius: 999,
+  },
+  deltaValue: { fontWeight: '700' },
   takingsMetaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
     marginTop: space[4],
     paddingTop: space[3],
     borderTopWidth: 1,
     borderTopColor: colors.divider,
   },
   metric: { flex: 1 },
-  metricValue: { marginTop: 4, fontSize: 14 },
+  metricDivider: { width: 1, alignSelf: 'stretch', backgroundColor: colors.divider },
+  metricValue: { marginTop: 4, fontSize: 18 },
   tenderStrip: {
-    flexDirection: 'row',
     borderWidth: 1,
     borderColor: colors.divider,
     borderRadius: radius.md,
-    overflow: 'hidden',
     backgroundColor: colors.surface,
+    padding: space[4],
+    gap: space[3],
   },
-  tenderCell: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    padding: space[3],
-    borderRightWidth: 1,
-    borderRightColor: colors.divider,
+  tenderRow: { gap: 5 },
+  tenderRowHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
   },
-  tenderLabel: { letterSpacing: 1 },
-  tenderAmount: { marginTop: 4, fontSize: 16 },
+  tenderAmount: { fontSize: 15 },
   tenderBarTrack: {
-    height: 2,
-    marginTop: space[2],
-    backgroundColor: 'transparent',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.neutral200,
+    overflow: 'hidden',
   },
-  tenderBarFill: { height: 2, backgroundColor: colors.accent300 },
+  tenderBarFill: { height: 6, borderRadius: 3, backgroundColor: colors.text },
   recapCard: {
     marginTop: space[4],
     flexDirection: 'row',
@@ -465,18 +518,19 @@ const styles = StyleSheet.create({
   alertsEmpty: { paddingVertical: space[2] },
   alertRow: {
     flexDirection: 'row',
-    gap: space[2] + 2,
-    alignItems: 'flex-start',
+    gap: space[3],
+    alignItems: 'center',
     paddingVertical: space[2] + 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
-  alertDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.accent,
-    marginTop: 7,
+  alertIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    backgroundColor: colors.attentionBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   alertBody: { flex: 1 },
   alertMeta: { marginTop: 2 },

@@ -56,7 +56,7 @@ export function ProfileScreen({ navigation }: Props) {
             <Text variant="caption" color={colors.neutral600}>{user?.email ?? "-"}</Text>
             <View style={styles.roleBadge}>
               <ShieldCheck size={13} color={colors.success} />
-              <Text variant="caption" color={colors.success}>{user?.role === "owner" ? "Pemilik" : "Kasir"}</Text>
+              <Text variant="caption" color={colors.moneyUp}>{user?.role === "owner" ? "Pemilik" : "Kasir"}</Text>
             </View>
           </View>
         </View>
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   infoText: { flex: 1, marginLeft: space[3], gap: 4 },
   statusRow: { flexDirection: "row", alignItems: "flex-start", padding: space[4], backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginTop: 6, backgroundColor: colors.success },
-  statusDotWarning: { backgroundColor: colors.warning },
+  statusDotWarning: { backgroundColor: colors.attention },
   managementRow: { flexDirection: "row", alignItems: "center", padding: space[3], borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider },
   managementIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent2100 },
   managementTitle: { fontWeight: "600" },

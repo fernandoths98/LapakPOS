@@ -9,6 +9,24 @@ export const colors = {
   warning: "#F3A712",
   divider: "#DDE3EC",
 
+  /**
+   * Role colours. `accent`, `success` and `warning` above are FILL colours —
+   * they were being used for text too, and two of them cannot carry it:
+   * #168A52 measures 4.38:1 on white and #F3A712 only 2.03:1, both under the
+   * 4.5:1 floor. These are the text-safe shades of the same hues, so each
+   * colour keeps one job: `accent` marks the primary action, money that grew
+   * is green, anything the owner must look at is amber, and blue stays for
+   * links and AI. Ratios are against `surface`.
+   */
+  /** 5.44:1 with white on it — the fill under every primary button label. */
+  actionFill: "#C92B27",
+  /** 6.57:1 — takings up, margin, a running shift. */
+  moneyUp: "#0F6B3F",
+  moneyUpBg: "#E7F3EC",
+  /** 5.14:1 — low stock, a supplier cost rise. */
+  attention: "#9A6100",
+  attentionBg: "#FDF3E2",
+
   neutral100: "#F8FAFC",
   neutral200: "#EEF2F7",
   neutral300: "#DDE3EC",
