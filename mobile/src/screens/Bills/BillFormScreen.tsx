@@ -137,12 +137,12 @@ export function BillFormScreen() {
       {prepaid ? <View style={styles.productSection}>
         <View style={styles.productHeading}><Text variant="h3">{formCopy.productTitle}</Text><Text variant="caption" color={colors.neutral600}>{visibleProducts.length} produk</Text></View>
         {productQuery.isLoading ? <Text variant="caption" color={colors.neutral600}>Memuat produk…</Text> : null}
-        {productQuery.isError ? <Pressable onPress={() => productQuery.refetch()}><Text variant="caption" color={colors.accent}>Produk gagal dimuat · ketuk untuk mencoba lagi</Text></Pressable> : null}
+        {productQuery.isError ? <Pressable onPress={() => productQuery.refetch()}><Text variant="caption" color={colors.accent700}>Produk gagal dimuat · ketuk untuk mencoba lagi</Text></Pressable> : null}
         <View style={styles.productList}>{visibleProducts.map(product => {
           const selected = selectedSku === product.skuCode;
           return <Pressable key={product.skuCode} onPress={() => { setSelectedSku(product.skuCode); setQuote(null); setErrorMessage(null); }} style={[styles.productRow, selected && styles.productRowSelected]}>
             <View style={styles.productCopy}><Text variant="body" style={styles.productName} numberOfLines={2}>{product.name}</Text><Text variant="caption" color={colors.neutral600}>{product.brand} · {product.type}</Text></View>
-            <View style={styles.productPrice}><Text variant="tabular" color={selected ? colors.accent2 : colors.text}>{formatRupiah(product.price)}</Text><Text variant="caption" color={colors.success}>+ komisi</Text></View>
+            <View style={styles.productPrice}><Text variant="tabular" color={selected ? colors.accent2 : colors.text}>{formatRupiah(product.price)}</Text><Text variant="caption" color={colors.moneyUp}>+ komisi</Text></View>
           </Pressable>;
         })}</View>
         {!productQuery.isLoading && visibleProducts.length === 0 ? <Text variant="caption" color={colors.attention}>{formCopy.emptyProducts}</Text> : null}
@@ -150,7 +150,7 @@ export function BillFormScreen() {
 
       {quote ? (
         <View style={styles.card}>
-          <View style={styles.foundRow}><View style={styles.checkBadge}><Check size={13} color={colors.success} strokeWidth={3} /></View><Text variant="kicker" color={colors.success}>{prepaid ? "RINCIAN PEMBELIAN" : "TAGIHAN DITEMUKAN"}</Text></View>
+          <View style={styles.foundRow}><View style={styles.checkBadge}><Check size={13} color={colors.success} strokeWidth={3} /></View><Text variant="kicker" color={colors.moneyUp}>{prepaid ? "RINCIAN PEMBELIAN" : "TAGIHAN DITEMUKAN"}</Text></View>
           <Text variant="h3" style={styles.customerName}>
             {quote.customerName}
           </Text>

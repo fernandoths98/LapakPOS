@@ -269,7 +269,7 @@ export function CartScreen() {
             />
           ) : null}
           {requestedDiscount > subtotal ? (
-            <Text variant="caption" color={colors.accent} style={styles.discountHint}>
+            <Text variant="caption" color={colors.accent700} style={styles.discountHint}>
               Diskon dibatasi sebesar subtotal.
             </Text>
           ) : null}
@@ -332,7 +332,7 @@ export function CartScreen() {
               </Text>
             </View>
             {cashReceived > 0 && cashReceived < total ? (
-              <Text variant="caption" color={colors.accent}>
+              <Text variant="caption" color={colors.accent700}>
                 Uang diterima masih kurang {formatRupiah(total - cashReceived)}.
               </Text>
             ) : null}
@@ -566,7 +566,7 @@ function TenderPill({
     >
       <Text
         variant="h3"
-        color={active ? colors.accent2 : colors.neutral700}
+        color={active ? colors.accent700 : colors.neutral700}
         style={styles.tenderPillLabel}
       >
         {label}
@@ -665,13 +665,11 @@ const styles = StyleSheet.create({
   },
   tabularText: { fontVariant: ['tabular-nums'] },
   totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
+    gap: 3,
     borderTopWidth: 1,
-    borderTopColor: colors.text,
-    marginTop: space[2],
-    paddingTop: space[2],
+    borderTopColor: colors.divider,
+    marginTop: space[3],
+    paddingTop: space[3],
   },
   // No fontSize here: the `money` variant governs the amount read out loud.
   totalValue: {},
@@ -684,12 +682,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     alignItems: 'center',
-    minHeight: 48,
+    minHeight: 52,
     justifyContent: 'center',
   },
   tenderPillActive: {
-    backgroundColor: colors.accent2100,
-    borderColor: colors.accent2,
+    backgroundColor: colors.accent100,
+    borderColor: colors.actionFill,
+    borderWidth: 2,
   },
   tenderPillInactive: {
     backgroundColor: colors.surface,
