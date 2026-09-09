@@ -68,7 +68,7 @@ export function BillsScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent2} />}>
       <View style={styles.headerRow}>
         <View><Text variant="h2">PPOB & Top Up</Text><Text variant="caption" color={colors.neutral600} style={styles.headerCaption}>Semua pembayaran dalam satu kasir</Text></View>
-        <View style={styles.liveBadge}><View style={styles.liveDot} /><Text variant="caption" color={colors.success}>ONLINE</Text></View>
+        <View style={styles.liveBadge}><View style={styles.liveDot} /><Text variant="caption" color={colors.moneyUp}>ONLINE</Text></View>
       </View>
       <View style={styles.balanceCard}>
         <View style={styles.balanceTop}>
@@ -105,7 +105,7 @@ function BillerTile({ biller, onPress, width }: { biller: PpobBiller; onPress: (
   const ServiceIcon = meta.icon;
   return <Pressable onPress={onPress} style={({ pressed }) => [styles.tile, { width }, pressed && styles.tilePressed]} accessibilityRole="button">
     <View style={[styles.serviceIcon, { backgroundColor: meta.tint }]}><ServiceIcon size={22} color={meta.color} strokeWidth={2.2} /></View>
-    <View style={styles.tileText}><Text variant="body" style={styles.tileName} numberOfLines={1}>{meta.label}</Text><Text variant="caption" color={colors.neutral600} numberOfLines={1}>{biller.sub}</Text><Text variant="caption" color={colors.success} style={styles.tileMargin}>{`Komisi ${formatRupiah(biller.marginAmount)}`}</Text></View>
+    <View style={styles.tileText}><Text variant="body" style={styles.tileName} numberOfLines={1}>{meta.label}</Text><Text variant="caption" color={colors.neutral600} numberOfLines={1}>{biller.sub}</Text><Text variant="caption" color={colors.moneyUp} style={styles.tileMargin}>{`Komisi ${formatRupiah(biller.marginAmount)}`}</Text></View>
     <ChevronRight size={17} color={colors.neutral400} />
   </Pressable>;
 }
@@ -115,10 +115,10 @@ function RecentRow({ transaction, last, onPress }: { transaction: PpobTransactio
   const pending = transaction.status === "pending";
   return <Pressable onPress={onPress} style={({ pressed }) => [styles.row, last && styles.lastRow, pressed && styles.rowPressed]} accessibilityRole="button" accessibilityLabel={`Detail ${transaction.billerName}`}>
     <View style={[styles.statusIcon, success ? styles.statusSuccess : pending ? styles.statusPending : styles.statusFailed]}>
-      {success ? <Check size={18} color={colors.success} strokeWidth={2.5} /> : <CircleAlert size={18} color={pending ? colors.warning : colors.accent} />}
+      {success ? <Check size={18} color={colors.success} strokeWidth={2.5} /> : <CircleAlert size={18} color={pending ? colors.attention : colors.accent} />}
     </View>
     <View style={styles.rowBody}><Text variant="body" style={styles.rowTitle} numberOfLines={1}>{transaction.billerName}</Text><Text variant="caption" color={colors.neutral600} numberOfLines={1}>{formatTime(transaction.createdAt)} · {transaction.customerNumber}</Text></View>
-    <View style={styles.rowEnd}><Text variant="tabular">{formatRupiah(transaction.totalCharged)}</Text><Text variant="caption" color={success ? colors.success : pending ? colors.warning : colors.accent}>{success ? "Berhasil" : pending ? "Diproses" : "Gagal"}</Text></View>
+    <View style={styles.rowEnd}><Text variant="tabular">{formatRupiah(transaction.totalCharged)}</Text><Text variant="caption" color={success ? colors.success : pending ? colors.attention : colors.accent}>{success ? "Berhasil" : pending ? "Diproses" : "Gagal"}</Text></View>
     <ChevronRight size={17} color={colors.neutral400} />
   </Pressable>;
 }

@@ -109,7 +109,7 @@ export function SubscriptionScreen({ navigation }: Props) {
                   <QRCode value={invoice.qrContent} size={220} />
                 </View>
                 <View style={styles.pendingRow}>
-                  <Clock3 size={15} color={colors.warning} />
+                  <Clock3 size={15} color={colors.attention} />
                   <Text variant="caption" color={colors.neutral600}>Menunggu pembayaran…</Text>
                 </View>
                 <Button title="Batalkan" variant="secondary" onPress={() => setInvoice(null)} style={styles.mt3} />
@@ -205,7 +205,7 @@ function PlanCard({
         ))}
       </View>
       {isCurrent ? (
-        <View style={styles.currentBadge}><Text variant="caption" color={colors.success}>Paket aktif</Text></View>
+        <View style={styles.currentBadge}><Text variant="caption" color={colors.moneyUp}>Paket aktif</Text></View>
       ) : plan.monthlyPrice > 0 ? (
         <Button
           title={`Pilih — ${formatRupiah(plan.monthlyPrice * months)}`}

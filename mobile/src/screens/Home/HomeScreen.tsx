@@ -57,7 +57,7 @@ function formatYesterdayShort(): string {
 }
 
 function formatOpenedAt(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-GB', {
+  return new Date(iso).toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -98,7 +98,9 @@ export function HomeScreen() {
 
   const change = summary?.pctChangeVsYesterday ?? 0;
   const changeIsUp = change >= 0;
-  const changeColor = changeIsUp ? colors.accent700 : colors.neutral700;
+  // Green when takings grew, red when they fell — previously red meant "up",
+  // which read backwards and spent the action colour on a status.
+  const changeColor = changeIsUp ? colors.moneyUp : colors.accent700;
 
   const recapLine = recapQuery.isLoading
     ? RECAP_LOADING_LINE
@@ -182,7 +184,7 @@ export function HomeScreen() {
           <View
             style={[
               styles.statusDot,
-              { backgroundColor: shift ? colors.success : colors.warning },
+              { backgroundColor: shift ? colors.success : colors.attention },
             ]}
           />
           <View style={styles.shiftCopy}>
@@ -202,7 +204,7 @@ export function HomeScreen() {
 
         <View style={styles.takings}>
           <Text variant="kicker">PENJUALAN HARI INI</Text>
-          <Text variant="h1" style={styles.takingsTotal}>
+          <Text variant="money" style={styles.takingsTotal}>
             {formatRupiah(summary?.total ?? 0)}
           </Text>
           <View style={styles.takingsMetaRow}>
@@ -402,7 +404,8 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     borderRadius: radius.md,
   },
-  takingsTotal: { marginTop: space[1], fontSize: 36 },
+  // No fontSize here: the `money` variant governs the hero figure.
+  takingsTotal: { marginTop: space[1] },
   takingsMetaRow: {
     flexDirection: 'row',
     marginTop: space[4],

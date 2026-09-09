@@ -144,7 +144,7 @@ export function SellScreen() {
                   {isPortraitPhone ? "Kasir" : "Transaksi Penjualan"}
                 </Text>
                 <View style={styles.shiftStatus}>
-                  <View style={[styles.statusDot, { backgroundColor: shift ? colors.success : colors.warning }]} />
+                  <View style={[styles.statusDot, { backgroundColor: shift ? colors.success : colors.attention }]} />
                   <Text variant="caption" color={colors.neutral600}>
                     {shift ? "Kasir aktif" : "Shift belum dibuka"}
                   </Text>

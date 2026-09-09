@@ -12,11 +12,11 @@ import { Text } from "../theme/Text";
 import { colors, radius, space } from "../theme/tokens";
 
 /**
- * All three variants are outlined, never filled — the design system's rule
- * that colour is stroke only ("Do not fill cards or buttons with solid
- * accent color", readme.md). Pressed/hover states approximate styles.css's
- * color-mix() alpha overlays (12%/22% for primary, 7%/14% for secondary,
- * 10%/18% for ghost) since RN has no CSS-style color-mix.
+ * The primary fill is `actionFill`, not `accent`. White on #E53935 measures
+ * 4.23:1 — under the 4.5:1 floor, and 15px semibold does not qualify for the
+ * large-text allowance either, so the one control that completes a sale was
+ * the least legible thing on screen. One step darker in the same ramp puts it
+ * at 5.44:1 without introducing a new colour or changing the brand.
  */
 export type ButtonVariant = "primary" | "secondary" | "ghost";
 
@@ -29,7 +29,7 @@ export interface ButtonProps extends Omit<PressableProps, "style" | "children"> 
 }
 
 const PRESSED_TINT: Record<ButtonVariant, string> = {
-  primary: colors.accent600,
+  primary: colors.accent700,
   secondary: colors.neutral200,
   ghost: colors.accent100,
 };
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
-    minHeight: 46,
+    minHeight: 52,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -93,13 +93,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
   },
   primary: {
     borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
+    borderColor: colors.actionFill,
+    backgroundColor: colors.actionFill,
   },
   secondary: {
     borderWidth: 1,

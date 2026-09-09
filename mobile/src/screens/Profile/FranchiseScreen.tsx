@@ -304,7 +304,7 @@ export function FranchiseScreen({ navigation }: Props) {
               <View key={p.id} style={styles.card}>
                 <View style={styles.cardTop}>
                   <Text variant="body" style={styles.bold}>{p.franchiseeName ?? p.label ?? "Undangan"}</Text>
-                  <Text variant="caption" color={p.status === "active" ? colors.success : p.status === "pending" ? colors.warning : colors.neutral500}>
+                  <Text variant="caption" color={p.status === "active" ? colors.success : p.status === "pending" ? colors.attention : colors.neutral500}>
                     {p.status === "pending" ? "Menunggu" : p.status === "active" ? "Aktif" : "Berakhir"}
                   </Text>
                 </View>

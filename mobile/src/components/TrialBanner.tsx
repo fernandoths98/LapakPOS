@@ -43,7 +43,7 @@ export function TrialBanner() {
   if (data.status === "canceled") {
     return (
       <Pressable onPress={goToPlans} style={[styles.banner, styles.ended]} accessibilityRole="button">
-        <Clock size={17} color={colors.warning} />
+        <Clock size={17} color={colors.attention} />
         <View style={styles.body}>
           <Text variant="body" style={styles.title} color={colors.text}>
             Masa uji Starter berakhir

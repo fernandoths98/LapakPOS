@@ -145,7 +145,7 @@ export function BillFormScreen() {
             <View style={styles.productPrice}><Text variant="tabular" color={selected ? colors.accent2 : colors.text}>{formatRupiah(product.price)}</Text><Text variant="caption" color={colors.success}>+ komisi</Text></View>
           </Pressable>;
         })}</View>
-        {!productQuery.isLoading && visibleProducts.length === 0 ? <Text variant="caption" color={colors.warning}>{formCopy.emptyProducts}</Text> : null}
+        {!productQuery.isLoading && visibleProducts.length === 0 ? <Text variant="caption" color={colors.attention}>{formCopy.emptyProducts}</Text> : null}
       </View> : null}
 
       {quote ? (

@@ -56,7 +56,7 @@ export function BillSuccessScreen() {
     <Text variant="h2" style={styles.center}>{fromHistory ? "Detail transaksi" : pending ? "Pembayaran diproses" : failed ? "Pembayaran gagal" : "Pembayaran berhasil"}</Text>
     <Text variant="body" color={colors.neutral600} style={styles.subtitle}>{fromHistory ? date : pending ? "Jangan ulangi transaksi. Status akan diperbarui otomatis dari provider." : failed ? "Saldo tidak terpotong. Silakan coba lagi." : "Transaksi sudah tercatat dan saldo komisi telah diperbarui."}</Text>
     <View style={styles.receipt}>
-      <View style={styles.receiptHeader}><View><Text variant="kicker">BUKTI TRANSAKSI</Text><Text variant="h3" style={styles.biller}>{transaction.billerName}</Text></View><View style={[styles.statusBadge, pending && styles.pendingBadge, failed && styles.failedBadge]}><Text variant="caption" color={pending ? colors.warning : failed ? colors.accent : colors.success}>{pending ? "DIPROSES" : failed ? "GAGAL" : "BERHASIL"}</Text></View></View>
+      <View style={styles.receiptHeader}><View><Text variant="kicker">BUKTI TRANSAKSI</Text><Text variant="h3" style={styles.biller}>{transaction.billerName}</Text></View><View style={[styles.statusBadge, pending && styles.pendingBadge, failed && styles.failedBadge]}><Text variant="caption" color={pending ? colors.attention : failed ? colors.accent : colors.success}>{pending ? "DIPROSES" : failed ? "GAGAL" : "BERHASIL"}</Text></View></View>
       <View style={styles.rule} />
       <Line label="Nomor pelanggan" value={transaction.customerNumber} />
       <Line label="Nama" value={transaction.customerName} />
@@ -66,7 +66,7 @@ export function BillSuccessScreen() {
       <Line label="Tagihan" value={formatRupiah(transaction.billAmount)} />
       <Line label="Biaya admin" value={formatRupiah(transaction.adminFee)} />
       <View style={styles.totalRow}><Text variant="h3">Total dibayar</Text><Text variant="h2" color={colors.accent2}>{formatRupiah(transaction.totalCharged)}</Text></View>
-      {failed ? null : <View style={styles.commission}><Text variant="caption" color={colors.success}>Komisi toko</Text><Text variant="tabular" color={colors.success}>+{formatRupiah(transaction.marginAmount)}</Text></View>}
+      {failed ? null : <View style={styles.commission}><Text variant="caption" color={colors.moneyUp}>Komisi toko</Text><Text variant="tabular" color={colors.moneyUp}>+{formatRupiah(transaction.marginAmount)}</Text></View>}
     </View>
     <Button title="Cetak struk" fullWidth onPress={handlePrint} style={styles.printButton} />
     <Button title={fromHistory ? "Tutup" : "Selesai"} variant="secondary" fullWidth onPress={() => (fromHistory ? navigation.goBack() : navigation.popToTop())} />
@@ -86,7 +86,7 @@ function Line({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg }, content: { padding: space[3], paddingBottom: space[8], alignItems: "center" },
-  successIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginTop: space[4], marginBottom: space[3], ...shadow.md }, pendingIcon: { backgroundColor: colors.warning }, failedIcon: { backgroundColor: colors.accent }, center: { textAlign: "center" }, subtitle: { textAlign: "center", marginTop: space[2], lineHeight: 20, paddingHorizontal: space[4] },
+  successIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginTop: space[4], marginBottom: space[3], ...shadow.md }, pendingIcon: { backgroundColor: colors.attention }, failedIcon: { backgroundColor: colors.accent }, center: { textAlign: "center" }, subtitle: { textAlign: "center", marginTop: space[2], lineHeight: 20, paddingHorizontal: space[4] },
   printButton: { marginBottom: space[2] },
   receipt: { width: "100%", backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.divider, padding: space[4], marginVertical: space[6], ...shadow.sm }, receiptHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, biller: { marginTop: 4 }, statusBadge: { backgroundColor: "#EAF8F0", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 }, pendingBadge: { backgroundColor: "#FFF6DF" }, failedBadge: { backgroundColor: colors.accent100 }, rule: { height: 1, backgroundColor: colors.divider, marginVertical: space[3] }, line: { flexDirection: "row", justifyContent: "space-between", gap: space[3], paddingVertical: 5 }, lineValue: { flex: 1, textAlign: "right" }, totalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: space[3] }, commission: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#EAF8F0", borderRadius: radius.sm, padding: space[2], marginTop: space[3] },
 });

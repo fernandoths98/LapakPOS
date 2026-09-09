@@ -10,7 +10,7 @@ import { colors, fonts } from "./tokens";
  * a ledger — sets fontVariant tabular-nums per the design system's rule that
  * every number is tabular).
  */
-export type TextVariant = "h1" | "h2" | "h3" | "body" | "caption" | "kicker" | "tabular";
+export type TextVariant = "h1" | "h2" | "h3" | "body" | "caption" | "kicker" | "tabular" | "money";
 
 export interface ThemedTextProps extends RNTextProps {
   variant?: TextVariant;
@@ -18,6 +18,21 @@ export interface ThemedTextProps extends RNTextProps {
 }
 
 const variantStyles = StyleSheet.create({
+  /**
+   * The headline figure: takings for the day, the total a customer is told
+   * out loud. Read at arm's length while handling cash and talking to
+   * someone, so it outweighs everything else on the screen rather than
+   * sitting a step above body text.
+   */
+  money: {
+    fontFamily: fonts.heading,
+    fontWeight: "800",
+    fontSize: 42,
+    lineHeight: 46,
+    letterSpacing: -1.2,
+    color: colors.text,
+    fontVariant: ["tabular-nums"],
+  },
   h1: {
     fontFamily: fonts.heading,
     fontWeight: "700",
@@ -25,6 +40,7 @@ const variantStyles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: -0.3,
     color: colors.text,
+    fontVariant: ["tabular-nums"],
   },
   h2: {
     fontFamily: fonts.heading,
@@ -32,6 +48,7 @@ const variantStyles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 29,
     color: colors.text,
+    fontVariant: ["tabular-nums"],
   },
   h3: {
     fontFamily: fonts.heading,

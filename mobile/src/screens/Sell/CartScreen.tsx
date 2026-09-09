@@ -275,7 +275,7 @@ export function CartScreen() {
           ) : null}
           <View style={styles.totalRow}>
             <Text variant="kicker">TOTAL TAGIHAN</Text>
-            <Text variant="h1" style={styles.totalValue}>
+            <Text variant="money" style={styles.totalValue}>
               {formatRupiah(total)}
             </Text>
           </View>
@@ -673,7 +673,8 @@ const styles = StyleSheet.create({
     marginTop: space[2],
     paddingTop: space[2],
   },
-  totalValue: { fontSize: 26 },
+  // No fontSize here: the `money` variant governs the amount read out loud.
+  totalValue: {},
   sectionLabel: { marginTop: space[6], marginBottom: space[2] },
   tenderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   tenderPill: {
