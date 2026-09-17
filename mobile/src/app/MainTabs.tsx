@@ -17,6 +17,7 @@ import type { UserRole } from '@lapak/shared';
 import { Text } from '../theme/Text';
 import { colors } from '../theme/tokens';
 import { useAuthStore } from '../state/auth/authStore';
+import { Walkthrough } from '../components/Walkthrough';
 import { HomeStack, HomeStackParamList } from './stacks/HomeStack';
 import { SellStack } from './stacks/SellStack';
 import { BillsStack, BillsStackParamList } from './stacks/BillsStack';
@@ -42,8 +43,8 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 const TAB_LABELS: Record<keyof MainTabsParamList, string> = {
   HomeTab: 'Beranda',
-  SellTab: 'Kasir',
-  BillsTab: 'PPOB',
+  SellTab: 'Jualan',
+  BillsTab: 'Tagihan',
   StockTab: 'Stok',
   RecapTab: 'Laporan',
 };
@@ -98,7 +99,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             style={styles.tabItem}
           >
             <View style={[styles.activeIndicator, isFocused && styles.activeIndicatorVisible]} />
-            <Icon size={21} strokeWidth={isFocused ? 2.3 : 1.9} color={isFocused ? colors.text : colors.neutral500} />
+            <Icon size={26} strokeWidth={isFocused ? 2.3 : 1.9} color={isFocused ? colors.text : colors.neutral500} />
             <Text
               variant="caption"
               style={[styles.label, isFocused && styles.labelActive]}
@@ -136,11 +137,14 @@ export function MainTabs() {
   const role = useAuthStore((s) => s.user?.role) ?? 'owner';
   const visibleTabs = TABS_BY_ROLE[role] ?? TABS_BY_ROLE.owner;
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={renderTabBar}>
-      {visibleTabs.map((name) => (
-        <Tab.Screen key={name} name={name} component={TAB_COMPONENTS[name]} />
-      ))}
-    </Tab.Navigator>
+    <>
+      <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={renderTabBar}>
+        {visibleTabs.map((name) => (
+          <Tab.Screen key={name} name={name} component={TAB_COMPONENTS[name]} />
+        ))}
+      </Tab.Navigator>
+      <Walkthrough />
+    </>
   );
 }
 
@@ -154,18 +158,18 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    height: 58,
+    height: 70,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
     paddingTop: 7,
     paddingBottom: 5,
   },
-  activeIndicator: { position: 'absolute', top: -1, width: 30, height: 3, backgroundColor: 'transparent' },
+  activeIndicator: { position: 'absolute', top: -1, width: 44, height: 4, backgroundColor: 'transparent' },
   activeIndicatorVisible: { backgroundColor: colors.accent },
   label: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: '500',
   },
   labelActive: { fontWeight: '700' },

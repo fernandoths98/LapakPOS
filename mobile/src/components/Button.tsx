@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
-    minHeight: 52,
+    minHeight: 58,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
   },
   primary: {

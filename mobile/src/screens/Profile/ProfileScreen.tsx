@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { ChevronLeft, ChevronRight, ShieldCheck, Store, UserRound, UsersRound } from "lucide-react-native";
+import { BookOpen, ChevronLeft, ChevronRight, ShieldCheck, Store, UserRound, UsersRound } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../theme/Text";
@@ -10,6 +10,7 @@ import { useMerchant } from "../../state/api/merchant";
 import { useAuthStore } from "../../state/auth/authStore";
 import { usePendingSalesStore } from "../../state/offline/pendingSalesQueue";
 import { queryClient } from "../../state/api/queryClient";
+import { useWalkthroughStore } from "../../state/walkthrough/walkthroughStore";
 import type { HomeStackParamList } from "../../app/stacks/HomeStack";
 
 type Props = NativeStackScreenProps<HomeStackParamList, "Profile">;
@@ -18,6 +19,7 @@ export function ProfileScreen({ navigation }: Props) {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const pendingSales = usePendingSalesStore((state) => state.items.length);
+  const replayWalkthrough = useWalkthroughStore((state) => state.replay);
   const merchantQuery = useMerchant();
   const merchant = merchantQuery.data;
 
@@ -91,12 +93,12 @@ export function ProfileScreen({ navigation }: Props) {
           </>
         ) : null}
 
-        <View style={styles.helpCard}>
-          <Text variant="h3">Tentang menu ini</Text>
-          <Text variant="caption" color={colors.neutral700} style={styles.helpText}>
-            Pengaturan printer tetap tersedia saat mencetak struk. Pengaturan toko dan pengguna akan ditambahkan di sini setelah hak akses pemilik tersedia.
-          </Text>
-        </View>
+        <Text variant="kicker" style={styles.sectionTitle}>BANTUAN</Text>
+        <Pressable onPress={replayWalkthrough} style={styles.managementRow} accessibilityRole="button">
+          <View style={styles.managementIcon}><BookOpen size={21} color={colors.accent2} /></View>
+          <View style={styles.infoText}><Text variant="body" style={styles.managementTitle}>Lihat panduan</Text><Text variant="caption" color={colors.neutral600}>Ulangi langkah-langkah cara memakai aplikasi</Text></View>
+          <ChevronRight size={19} color={colors.neutral500} />
+        </Pressable>
 
         <Button title="Keluar dari akun" variant="secondary" onPress={confirmLogout} fullWidth style={styles.logoutButton} />
       </ScrollView>
@@ -124,7 +126,5 @@ const styles = StyleSheet.create({
   managementRow: { flexDirection: "row", alignItems: "center", padding: space[3], borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider },
   managementIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent2100 },
   managementTitle: { fontWeight: "600" },
-  helpCard: { marginTop: space[6], padding: space[4], borderRadius: radius.md, backgroundColor: colors.neutral200 },
-  helpText: { marginTop: space[2], lineHeight: 19 },
   logoutButton: { marginTop: space[6] },
 });
