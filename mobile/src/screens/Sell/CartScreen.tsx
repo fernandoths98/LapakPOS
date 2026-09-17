@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,6 +26,8 @@ import {
 } from '../../state/cart/cartStore';
 import { generateClientId, useCreateSale } from '../../state/api/sales';
 import { useCurrentShift } from '../../state/api/shifts';
+import { useMerchant } from '../../state/api/merchant';
+import { uploadUrl } from '../../state/api/apiClient';
 import { enqueue } from '../../state/offline/pendingSalesQueue';
 import { SellStackParamList } from '../../app/stacks/SellStack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,6 +56,7 @@ export function CartScreen() {
   const lines = useCartStore(s => s.lines);
   const bump = useCartStore(s => s.bump);
   const [tender, setTender] = useState<TenderLabel | null>(null);
+  const qrisImageUrl = useMerchant().data?.qrisImageUrl ?? null;
   const [splitPct, setSplitPct] = useState(60);
   const [discountText, setDiscountText] = useState('');
   const [discountFocused, setDiscountFocused] = useState(false);
@@ -336,6 +339,22 @@ export function CartScreen() {
                 Uang diterima masih kurang {formatRupiah(total - cashReceived)}.
               </Text>
             ) : null}
+          </View>
+        ) : null}
+
+        {tender === 'QRIS' || tender === 'Split' ? (
+          <View style={styles.qrisCard}>
+            {qrisImageUrl ? (
+              <>
+                <Text variant="h3">Minta pembeli scan QRIS ini</Text>
+                <Image source={{ uri: uploadUrl(qrisImageUrl) }} style={styles.qrisImage} resizeMode="contain" />
+                <Text variant="caption">Pastikan uang sudah masuk ke rekening toko sebelum menekan Bayar.</Text>
+              </>
+            ) : (
+              <Text variant="body" color={colors.attention}>
+                Gambar QRIS toko belum diunggah. Pemilik bisa mengunggahnya di Profil → QRIS toko.
+              </Text>
+            )}
           </View>
         ) : null}
 
@@ -695,6 +714,17 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
   },
   tenderPillLabel: { fontSize: 14 },
+  qrisCard: {
+    marginTop: space[3],
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: space[4],
+    alignItems: 'center',
+    gap: space[2],
+  },
+  qrisImage: { width: '100%', aspectRatio: 1, maxWidth: 320 },
   splitCard: {
     marginTop: space[3],
     borderWidth: 1,

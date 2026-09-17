@@ -1,12 +1,14 @@
 import React from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { BookOpen, ChevronLeft, ChevronRight, ShieldCheck, Store, UserRound, UsersRound } from "lucide-react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { BookOpen, ChevronLeft, QrCode, ChevronRight, ShieldCheck, Store, UserRound, UsersRound } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { colors, radius, space } from "../../theme/tokens";
-import { useMerchant } from "../../state/api/merchant";
+import { launchImageLibrary } from "react-native-image-picker";
+import { useMerchant, useSetQrisImage } from "../../state/api/merchant";
+import { apiErrorMessage, uploadUrl } from "../../state/api/apiClient";
 import { useAuthStore } from "../../state/auth/authStore";
 import { usePendingSalesStore } from "../../state/offline/pendingSalesQueue";
 import { queryClient } from "../../state/api/queryClient";
@@ -22,6 +24,18 @@ export function ProfileScreen({ navigation }: Props) {
   const replayWalkthrough = useWalkthroughStore((state) => state.replay);
   const merchantQuery = useMerchant();
   const merchant = merchantQuery.data;
+  const setQris = useSetQrisImage();
+  const canManage = user?.role === "owner" || user?.role === "manager";
+
+  const pickQris = async () => {
+    const result = await launchImageLibrary({ mediaType: "photo", includeBase64: true, quality: 0.9 });
+    const asset = result.assets?.[0];
+    if (!asset?.base64) return;
+    setQris.mutate(
+      { imageBase64: asset.base64, mimeType: asset.type ?? "image/jpeg" },
+      { onError: (err) => Alert.alert("Gagal mengunggah QRIS", apiErrorMessage(err, "Coba lagi beberapa saat.")) },
+    );
+  };
 
   const confirmLogout = () => {
     const warning = pendingSales > 0
@@ -93,6 +107,30 @@ export function ProfileScreen({ navigation }: Props) {
           </>
         ) : null}
 
+        {canManage ? (
+          <>
+            <Text variant="kicker" style={styles.sectionTitle}>QRIS TOKO</Text>
+            <View style={styles.qrisCard}>
+              {merchant?.qrisImageUrl ? (
+                <Image source={{ uri: uploadUrl(merchant.qrisImageUrl) }} style={styles.qrisImage} resizeMode="contain" />
+              ) : (
+                <View style={styles.qrisEmpty}>
+                  <QrCode size={40} color={colors.neutral500} />
+                  <Text variant="body" color={colors.neutral700} style={styles.qrisHint}>
+                    Unggah foto/screenshot QRIS dari bank atau e-wallet toko. Gambar ini ditampilkan ke pembeli saat bayar pakai QRIS.
+                  </Text>
+                </View>
+              )}
+              <Button
+                title={merchant?.qrisImageUrl ? "Ganti gambar QRIS" : "Unggah gambar QRIS"}
+                onPress={pickQris}
+                loading={setQris.isPending}
+                fullWidth
+              />
+            </View>
+          </>
+        ) : null}
+
         <Text variant="kicker" style={styles.sectionTitle}>BANTUAN</Text>
         <Pressable onPress={replayWalkthrough} style={styles.managementRow} accessibilityRole="button">
           <View style={styles.managementIcon}><BookOpen size={21} color={colors.accent2} /></View>
@@ -126,5 +164,9 @@ const styles = StyleSheet.create({
   managementRow: { flexDirection: "row", alignItems: "center", padding: space[3], borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider },
   managementIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent2100 },
   managementTitle: { fontWeight: "600" },
+  qrisCard: { padding: space[4], gap: space[3], backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider },
+  qrisImage: { width: "100%", aspectRatio: 1 },
+  qrisEmpty: { alignItems: "center", gap: space[2], paddingVertical: space[2] },
+  qrisHint: { textAlign: "center" },
   logoutButton: { marginTop: space[6] },
 });

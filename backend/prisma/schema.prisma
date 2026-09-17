@@ -137,6 +137,8 @@ model Merchant {
   businessType       BusinessType @default(retail) @map("business_type")
   onboardingCompleted Boolean @default(false) @map("onboarding_completed")
   trialEndsAt        DateTime? @map("trial_ends_at")
+  /// The shop's own static QRIS image, shown to the customer when they pay by QRIS.
+  qrisImageUrl       String?  @map("qris_image_url")
 
   users             User[]
   categories        Category[]

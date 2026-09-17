@@ -31,6 +31,11 @@ export interface SavedProductPhoto {
 
 /** Decodes a base64 product photo and writes it to backend/uploads/products/<uuid>.<ext>. */
 export function saveProductPhoto(imageBase64: string, mimeType: string): SavedProductPhoto {
+  return { imageUrl: saveUploadedImage("products", imageBase64, mimeType) };
+}
+
+/** Decodes a base64 image into backend/uploads/<folder>/<uuid>.<ext> and returns its public path. */
+export function saveUploadedImage(folder: "products" | "qris", imageBase64: string, mimeType: string): string {
   const ext = MIME_EXTENSIONS[mimeType.toLowerCase()];
   if (!ext) {
     throw badRequest(`Unsupported image type: ${mimeType}`);
@@ -49,9 +54,10 @@ export function saveProductPhoto(imageBase64: string, mimeType: string): SavedPr
     throw badRequest("imageBase64 decoded to an empty file");
   }
 
-  ensureUploadsDirExists();
+  const dir = path.join(UPLOADS_ROOT, folder);
+  fs.mkdirSync(dir, { recursive: true });
   const fileName = `${randomUUID()}.${ext}`;
-  fs.writeFileSync(path.join(PRODUCT_PHOTOS_DIR, fileName), buffer);
+  fs.writeFileSync(path.join(dir, fileName), buffer);
 
-  return { imageUrl: `/uploads/products/${fileName}` };
+  return `/uploads/${folder}/${fileName}`;
 }

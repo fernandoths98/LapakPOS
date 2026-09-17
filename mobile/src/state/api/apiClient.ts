@@ -37,3 +37,21 @@ export function isPlanLimitError(err: unknown): boolean {
 export function apiErrorMessage(err: unknown, fallback: string): string {
   return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
 }
+
+/**
+ * An expired or revoked token otherwise leaves every screen stuck on
+ * "gagal dimuat" with no way out. Any 401 on an authenticated request signs
+ * the user out, which drops them back on the login screen.
+ */
+apiClient.interceptors.response.use(undefined, (err) => {
+  const hadToken = !!err?.config?.headers?.Authorization;
+  if (err?.response?.status === 401 && hadToken && useAuthStore.getState().token) {
+    useAuthStore.getState().logout();
+  }
+  return Promise.reject(err);
+});
+
+/** Absolute URL for a path the API serves under /uploads. */
+export function uploadUrl(path: string): string {
+  return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+}

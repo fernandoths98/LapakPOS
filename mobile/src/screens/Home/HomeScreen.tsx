@@ -260,6 +260,11 @@ export function HomeScreen() {
             which is not enough for a seven-digit rupiah amount. Stacking also
             gives the bars one shared baseline, so the split is comparable. */}
         <View style={styles.tenderStrip}>
+          {!summary?.tenderMix?.length ? (
+            <Text variant="body" color={colors.neutral600}>
+              Belum ada pembayaran hari ini.
+            </Text>
+          ) : null}
           {(summary?.tenderMix ?? []).map(t => (
             <View key={t.label} style={styles.tenderRow}>
               <View style={styles.tenderRowHead}>

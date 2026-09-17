@@ -3,6 +3,7 @@ import { AccountSetupResponse, CreateOutletRequest, CreateStaffRequest, Merchant
 import { prisma } from "../../db/prisma";
 import { assertWithinQuota } from "../subscription/entitlements.service";
 import { notFound } from "../../utils/errors";
+import { saveUploadedImage } from "../products/products.photo";
 
 /**
  * GET /api/merchant/me — the caller's own merchant record. Home needs the
@@ -22,8 +23,16 @@ export async function getMyMerchant(merchantId: string): Promise<MerchantRespons
     address: merchant.address,
     phone: merchant.phone,
     defaultPrinterName: merchant.defaultPrinterName,
+    qrisImageUrl: merchant.qrisImageUrl,
     createdAt: merchant.createdAt.toISOString(),
   };
+}
+
+/** PUT /api/merchant/qris — stores the shop's own QRIS image; null clears it. */
+export async function setQrisImage(merchantId: string, image: { imageBase64: string; mimeType: string } | null): Promise<MerchantResponse> {
+  const qrisImageUrl = image ? saveUploadedImage("qris", image.imageBase64, image.mimeType) : null;
+  await prisma.merchant.update({ where: { id: merchantId }, data: { qrisImageUrl } });
+  return getMyMerchant(merchantId);
 }
 
 const outletDto = (outlet: { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; timezone: string; isActive: boolean; createdAt: Date }): OutletDto => ({ ...outlet, createdAt: outlet.createdAt.toISOString() });
