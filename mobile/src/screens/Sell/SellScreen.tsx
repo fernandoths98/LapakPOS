@@ -21,6 +21,7 @@ import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
 import { BarcodeScanner } from "../../components/BarcodeScanner";
 import { colors, radius, shadow, space } from "../../theme/tokens";
+import { uploadUrl } from "../../state/api/apiClient";
 import { ALL_CATEGORIES, fetchProductByBarcode, UNCATEGORIZED, useCategories, useProducts } from "../../state/api/products";
 import { useCurrentShift } from "../../state/api/shifts";
 import { cartCount, cartTotal, useCartStore } from "../../state/cart/cartStore";
@@ -401,10 +402,9 @@ function CategoryPill({ label, active, onPress }: { label: string; active: boole
 function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = false }: { product: Product; qtyInCart: number; onPress: () => void; compact?: boolean; portrait?: boolean }) {
   const isLow = product.stockQty <= product.lowStockThreshold;
   const soldOut = product.stockQty <= 0;
-  // On phones a warung's catalog is almost all photo-less; the big monogram
-  // band just wastes vertical space and cuts the visible product count. Show
-  // a photo band only when there's a real image; otherwise a dense text card.
-  const showPhoto = !portrait || !!product.imageUrl;
+  // Every tile gets the same photo band — a real photo, or a tinted initial —
+  // so tiles in one row are always the same height and read as a tidy grid.
+  const showPhoto = true;
 
   return (
     <Pressable
@@ -416,9 +416,9 @@ function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = 
       {showPhoto ? (
         <View style={[styles.tilePhoto, compact && styles.tilePhotoCompact, portrait && styles.tilePhotoPortrait]}>
           {product.imageUrl ? (
-            <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
+            <Image source={{ uri: uploadUrl(product.imageUrl) }} style={styles.productImage} resizeMode="cover" />
           ) : (
-            <Text variant="h2" color={colors.neutral400}>{product.name.charAt(0).toUpperCase()}</Text>
+            <Text variant="h1" color={colors.accent2600}>{product.name.charAt(0).toUpperCase()}</Text>
           )}
           {qtyInCart > 0 ? (
             <View style={[styles.qtyBadge, portrait && styles.qtyBadgePortrait]}><Text variant="caption" color={colors.surface}>{portrait ? qtyInCart : `${qtyInCart} di keranjang`}</Text></View>
@@ -482,26 +482,26 @@ const styles = StyleSheet.create({
   tileDisabled: { opacity: 0.55 },
   tileCompact: { flexDirection: "row", minHeight: 68, marginBottom: 6, borderRadius: radius.sm, shadowOpacity: 0, elevation: 0 },
   tilePortrait: { borderRadius: radius.lg },
-  tilePhoto: { height: 92, backgroundColor: colors.neutral100, alignItems: "center", justifyContent: "center" },
+  tilePhoto: { height: 92, backgroundColor: colors.accent2100, alignItems: "center", justifyContent: "center" },
   tilePhotoCompact: { width: 68, height: 68 },
-  tilePhotoPortrait: { height: 76 },
+  tilePhotoPortrait: { height: 84 },
   productImage: { width: "100%", height: "100%" },
   qtyBadge: { position: "absolute", right: 6, top: 6, backgroundColor: colors.accent2, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
   qtyBadgePortrait: { minWidth: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 6, paddingVertical: 0 },
   tileBody: { padding: 10 },
   tileBodyCompact: { flex: 1, paddingVertical: 7, paddingHorizontal: 10 },
-  tileBodyPortrait: { padding: 9 },
+  tileBodyPortrait: { flex: 1, padding: 12, justifyContent: "space-between" },
   tileBodyNoPhoto: { paddingTop: 12, paddingBottom: 11, minHeight: 92 },
   qtyBadgeInline: { position: "absolute", right: 8, top: 8, minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 5, backgroundColor: colors.accent2, alignItems: "center", justifyContent: "center" },
   tileName: { minHeight: 40, fontWeight: "600" },
   tileNameCompact: { minHeight: 0 },
-  tileNamePortrait: { minHeight: 36, fontSize: 13, lineHeight: 18 },
+  tileNamePortrait: { minHeight: 44, fontSize: 16, lineHeight: 22 },
   tilePrice: { marginTop: 4, fontSize: 16 },
-  tilePricePortrait: { marginTop: 3, fontSize: 15 },
+  tilePricePortrait: { marginTop: 4, fontSize: 18 },
   stockChip: { alignSelf: "flex-start", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999 },
   stockChipLow: { backgroundColor: colors.attentionBg },
   stockChipOut: { backgroundColor: colors.accent100 },
-  stockChipText: { fontWeight: "700", fontSize: 11 },
+  stockChipText: { fontWeight: "700", fontSize: 13 },
   stockRow: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginTop: 6 },
   stockRowCompact: { position: "absolute", right: 10, bottom: 8 },
   stockRowPortrait: { marginTop: 4 },
