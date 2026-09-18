@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FeatureKey, MerchantResponse } from "@lapak/shared";
 import { apiClient } from "./apiClient";
+import { useEntitlements } from "./subscription";
 
 /** GET /api/merchant/me — real merchant name/address/phone for the Home header. */
 export function useMerchant() {
@@ -30,10 +31,13 @@ export function useSetQrisImage() {
  * Whether an optional feature group is switched on for this shop. Until the
  * merchant has loaded — or when talking to a server that predates the
  * setting — everything counts as on, so nothing a shop relies on vanishes.
+ * The AI group also needs a plan that includes AI; otherwise its screens
+ * would only ever show an upgrade error.
  */
 export function useFeature(): (key: FeatureKey) => boolean {
   const features = useMerchant().data?.features;
-  return (key) => !features || features.includes(key);
+  const planHasAi = useEntitlements().data?.entitlements.ai !== false;
+  return (key) => (!features || features.includes(key)) && (key !== "ai" || planHasAi);
 }
 
 /** PUT /api/merchant/features — owner switches optional feature groups on/off. */

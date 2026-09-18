@@ -10,7 +10,7 @@ import { AuthTokenPayload } from "../modules/auth/auth.service";
 export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
-    next(unauthorized("Missing or malformed Authorization header"));
+    next(unauthorized());
     return;
   }
 
@@ -26,14 +26,14 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
     };
     next();
   } catch {
-    next(unauthorized("Invalid or expired token"));
+    next(unauthorized());
   }
 }
 
 export function requireRole(...roles: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) return next(unauthorized());
-    if (!roles.includes(req.user.role)) return next(forbidden("You do not have permission to perform this action"));
+    if (!roles.includes(req.user.role)) return next(forbidden());
     next();
   };
 }

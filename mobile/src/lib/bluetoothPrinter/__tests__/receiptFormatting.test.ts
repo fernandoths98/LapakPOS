@@ -290,27 +290,25 @@ describe('receiptFormatting', () => {
     });
 
     it('includes shift open/close times and the cashier name', () => {
-      expect(text).toContain('Cashier');
+      expect(text).toContain('Kasir');
       expect(text).toContain('Sari');
-      expect(lines.some(l => l.text.startsWith('Opened'))).toBe(true);
-      expect(lines.some(l => l.text.startsWith('Closed'))).toBe(true);
+      expect(lines.some(l => l.text.startsWith('Dibuka'))).toBe(true);
+      expect(lines.some(l => l.text.startsWith('Ditutup'))).toBe(true);
     });
 
     it("includes all five running-total rows matching the prototype's shiftRows", () => {
-      expect(text).toContain(formatRow('Opening float', 'Rp 300.000'));
-      expect(text).toContain(formatRow('Cash sales', 'Rp 951.000'));
-      expect(text).toContain(formatRow('PPOB cash in', 'Rp 872.000'));
-      expect(text).toContain(formatRow('Paid out', '- Rp 138.000'));
-      const expectedLine = lines.find(l =>
-        l.text.startsWith('Expected in drawer'),
-      );
+      expect(text).toContain(formatRow('Modal awal', 'Rp 300.000'));
+      expect(text).toContain(formatRow('Jual tunai', 'Rp 951.000'));
+      expect(text).toContain(formatRow('Tunai PPOB', 'Rp 872.000'));
+      expect(text).toContain(formatRow('Pengeluaran', '- Rp 138.000'));
+      const expectedLine = lines.find(l => l.text.startsWith('Seharusnya'));
       expect(expectedLine?.bold).toBe(true);
       expect(expectedLine?.text.trim().endsWith('Rp 1.290.000')).toBe(true);
     });
 
     it('includes counted cash and a signed discrepancy line', () => {
-      expect(text).toContain(formatRow('Counted in drawer', 'Rp 1.245.000'));
-      expect(text).toContain(formatRow('Short by', 'Rp 45.000'));
+      expect(text).toContain(formatRow('Dihitung', 'Rp 1.245.000'));
+      expect(text).toContain(formatRow('Kurang', 'Rp 45.000'));
     });
 
     it("omits the counted/discrepancy rows when the shift hasn't been closed yet", () => {
@@ -322,29 +320,29 @@ describe('receiptFormatting', () => {
       const openText = receiptLinesToPlainText(
         buildZReportLines(openReport, SAMPLE_CTX.merchant.name),
       );
-      expect(openText).not.toContain('Counted in drawer');
-      expect(openText).not.toContain('Short by');
-      expect(openText).not.toContain('Over by');
-      expect(openText).not.toContain('Closed');
+      expect(openText).not.toContain('Dihitung');
+      expect(openText).not.toContain('Kurang');
+      expect(openText).not.toContain('Lebih');
+      expect(openText).not.toContain('Ditutup');
     });
 
     it('prints the full formatted Z-report exactly as expected', () => {
       expect(text).toMatchInlineSnapshot(`
         "WARUNG SARI RASA
-        Z-REPORT
+        LAPORAN SHIFT
         --------------------------------
-        Opened                     07:10
-        Closed                     19:55
-        Cashier                     Sari
+        Dibuka                     07:10
+        Ditutup                    19:55
+        Kasir                       Sari
         --------------------------------
-        Opening float         Rp 300.000
-        Cash sales            Rp 951.000
-        PPOB cash in          Rp 872.000
-        Paid out            - Rp 138.000
+        Modal awal            Rp 300.000
+        Jual tunai            Rp 951.000
+        Tunai PPOB            Rp 872.000
+        Pengeluaran         - Rp 138.000
         --------------------------------
-        Expected in drawer  Rp 1.290.000
-        Counted in drawer   Rp 1.245.000
-        Short by               Rp 45.000
+        Seharusnya          Rp 1.290.000
+        Dihitung            Rp 1.245.000
+        Kurang                 Rp 45.000
         --------------------------------
         Terima kasih - Kotdee POS"
       `);
@@ -382,14 +380,20 @@ describe('receiptFormatting', () => {
 
     it('shows the name row when a real customer name is present', () => {
       const named = receiptLinesToPlainText(
-        buildBillReceiptLines({ ...SAMPLE_PPOB_TX, customerName: 'Budi Santoso' }, SAMPLE_BILL_CTX),
+        buildBillReceiptLines(
+          { ...SAMPLE_PPOB_TX, customerName: 'Budi Santoso' },
+          SAMPLE_BILL_CTX,
+        ),
       );
       expect(named).toContain(formatRow('Nama', 'Budi Santoso'));
     });
 
     it('labels a pending transaction as DIPROSES', () => {
       const pending = receiptLinesToPlainText(
-        buildBillReceiptLines({ ...SAMPLE_PPOB_TX, status: 'pending' }, SAMPLE_BILL_CTX),
+        buildBillReceiptLines(
+          { ...SAMPLE_PPOB_TX, status: 'pending' },
+          SAMPLE_BILL_CTX,
+        ),
       );
       expect(pending).toContain(formatRow('Status', 'DIPROSES'));
     });
@@ -397,7 +401,10 @@ describe('receiptFormatting', () => {
     it('prints the cashier as "Kasir: <first name>" opposite the date, shortening a full name', () => {
       expect(text).toContain(formatRow('2026-08-19', 'Kasir: Sheila'));
       const namedText = receiptLinesToPlainText(
-        buildBillReceiptLines(SAMPLE_PPOB_TX, { ...SAMPLE_BILL_CTX, cashierName: 'Budi Santoso Wijaya' }),
+        buildBillReceiptLines(SAMPLE_PPOB_TX, {
+          ...SAMPLE_BILL_CTX,
+          cashierName: 'Budi Santoso Wijaya',
+        }),
       );
       expect(namedText).toContain(formatRow('2026-08-19', 'Kasir: Budi'));
       expect(namedText).not.toContain('Santoso');

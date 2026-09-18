@@ -27,7 +27,7 @@ import {
 import { generateClientId, useCreateSale } from '../../state/api/sales';
 import { useCurrentShift } from '../../state/api/shifts';
 import { useFeature, useMerchant } from '../../state/api/merchant';
-import { uploadUrl } from '../../state/api/apiClient';
+import { apiErrorMessage, uploadUrl } from '../../state/api/apiClient';
 import { enqueue } from '../../state/offline/pendingSalesQueue';
 import { SellStackParamList } from '../../app/stacks/SellStack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,13 +40,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
  * default. */
 const CHECKOUT_TIMEOUT_MS = 6_000;
 
-type TenderLabel = 'Tunai' | 'QRIS' | 'Kartu debit' | 'Split';
-const TENDER_OPTIONS: TenderLabel[] = ['Tunai', 'QRIS', 'Kartu debit', 'Split'];
+type TenderLabel = 'Tunai' | 'QRIS' | 'Kartu debit' | 'Tunai + QRIS';
+const TENDER_OPTIONS: TenderLabel[] = ['Tunai', 'QRIS', 'Kartu debit', 'Tunai + QRIS'];
 const TENDER_TYPE_BY_LABEL: Record<TenderLabel, TenderType> = {
   Tunai: 'cash',
   QRIS: 'qris',
   'Kartu debit': 'debit',
-  Split: 'split',
+  'Tunai + QRIS': 'split',
 };
 
 export function CartScreen() {
@@ -165,7 +165,7 @@ export function CartScreen() {
         });
         return;
       }
-      setSubmitError('Pembayaran gagal. Periksa koneksi dan coba lagi.');
+      setSubmitError(apiErrorMessage(err, 'Pembayaran gagal. Coba lagi.'));
     }
   };
 
@@ -347,7 +347,7 @@ export function CartScreen() {
           </View>
         ) : null}
 
-        {tender === 'QRIS' || tender === 'Split' ? (
+        {tender === 'QRIS' || tender === 'Tunai + QRIS' ? (
           <View style={styles.qrisCard}>
             {qrisImageUrl ? (
               <>
@@ -363,7 +363,7 @@ export function CartScreen() {
           </View>
         ) : null}
 
-        {tender === 'Split' ? (
+        {tender === 'Tunai + QRIS' ? (
           <View style={styles.splitCard}>
             <SummaryRow label="Porsi tunai" value={formatRupiah(splitCash)} />
             <SummaryRow
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.divider,
   },
-  tenderPillLabel: { fontSize: 14 },
+  tenderPillLabel: { fontSize: 17 },
   qrisCard: {
     marginTop: space[3],
     borderWidth: 1,

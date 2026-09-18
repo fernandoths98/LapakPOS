@@ -4,7 +4,8 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
-import { parseRupiah, PhotoFillResponse } from "@lapak/shared";
+import { Camera } from "lucide-react-native";
+import { parseRupiah } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
@@ -15,7 +16,6 @@ import {
   fetchProductByBarcode,
   useCategories,
   useCreateProduct,
-  usePhotoFillProduct,
   useProduct,
   useUpdateProduct,
   useUploadProductPhoto,
@@ -45,7 +45,6 @@ export function ProductScreen() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const uploadPhoto = useUploadProductPhoto();
-  const photoFill = usePhotoFillProduct();
 
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -58,7 +57,6 @@ export function ProductScreen() {
   const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [snapToFillError, setSnapToFillError] = useState<string | null>(null);
 
   // Prefills the form once the real product loads — the prototype's mocked
   // "Kopi Susu Gula Aren" example is placeholder state only; a real Add form
@@ -79,16 +77,12 @@ export function ProductScreen() {
   const costPriceNum = parseRupiah(costPrice);
   const marginHint =
     sellPrice && costPrice && sellPriceNum > 0
-      ? `Margin ${Math.round(((sellPriceNum - costPriceNum) / sellPriceNum) * 100)}% at this cost`
-      : "Enter both prices to see the margin";
+      ? `Untung ${Math.round(((sellPriceNum - costPriceNum) / sellPriceNum) * 100)}% dari harga jual`
+      : "Isi harga jual dan modal untuk melihat untungnya";
 
   /**
-   * Shared image-picker step for both "Add photo" and "Snap to fill" — the
-   * only two flows in this screen that ever open the camera/gallery. Returns
-   * `null` when the cashier cancels (a normal, silent outcome); throws with a
-   * plain message on any other failure so each caller can show it however
-   * fits its own UI (an `Alert` for the photo box, an inline message for
-   * Snap to fill).
+   * Opens the camera or gallery. Returns `null` when the user cancels (a
+   * normal, silent outcome); throws with a plain message on any other failure.
    */
   const pickImage = async (source: "camera" | "library"): Promise<{ imageBase64: string; mimeType: string } | null> => {
     const options = { mediaType: "photo" as const, includeBase64: true, quality: 0.7 as const };
@@ -100,16 +94,16 @@ export function ProductScreen() {
     }
     const asset = result.assets?.[0];
     if (!asset?.base64) {
-      throw new Error("No image data was returned.");
+      throw new Error("Foto tidak terbaca. Coba pilih foto lain.");
     }
     return { imageBase64: asset.base64, mimeType: asset.type ?? "image/jpeg" };
   };
 
   const handlePickPhoto = () => {
-    Alert.alert("Add photo", "Take a new photo or choose one from the gallery.", [
-      { text: "Camera", onPress: () => pickPhoto("camera") },
-      { text: "Gallery", onPress: () => pickPhoto("library") },
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("Foto produk", "Ambil foto baru atau pilih dari galeri.", [
+      { text: "Kamera", onPress: () => pickPhoto("camera") },
+      { text: "Galeri", onPress: () => pickPhoto("library") },
+      { text: "Batal", style: "cancel" },
     ]);
   };
 
@@ -118,7 +112,7 @@ export function ProductScreen() {
     try {
       picked = await pickImage(source);
     } catch (err) {
-      Alert.alert("Couldn't get photo", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Gagal mengambil foto", err instanceof Error ? err.message : "Coba lagi.");
       return;
     }
     if (!picked) return;
@@ -127,59 +121,7 @@ export function ProductScreen() {
       const uploaded = await uploadPhoto.mutateAsync(picked);
       setImageUrl(uploaded.imageUrl);
     } catch {
-      Alert.alert("Upload failed", "The photo couldn't be uploaded. Check your connection and try again.");
-    }
-  };
-
-  const handleSnapToFill = () => {
-    setSnapToFillError(null);
-    Alert.alert("Snap to fill", "Photograph the packet — name, size and barcode fill themselves.", [
-      { text: "Camera", onPress: () => pickPhotoForFill("camera") },
-      { text: "Gallery", onPress: () => pickPhotoForFill("library") },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  };
-
-  const pickPhotoForFill = async (source: "camera" | "library") => {
-    let picked: { imageBase64: string; mimeType: string } | null;
-    try {
-      picked = await pickImage(source);
-    } catch (err) {
-      setSnapToFillError(err instanceof Error ? err.message : "Couldn't get photo.");
-      return;
-    }
-    if (!picked) return;
-
-    try {
-      const filled = await photoFill.mutateAsync(picked);
-      applyPhotoFillResult(filled);
-    } catch (err) {
-      setSnapToFillError(extractErrorMessage(err, "AI photo-fill isn't available yet."));
-    }
-  };
-
-  /**
-   * Pre-fills Name and Barcode from a successful photo-fill — a fill assist,
-   * never a lock: every field stays plain-editable right after. There's no
-   * separate "size" input in this form's data model (`Product` has no
-   * `size` column — see shared/src/types/domain.ts), so a returned `size`
-   * (e.g. "250 ml") is folded into the Name field alongside the product
-   * name, matching how a warung actually writes it on the shelf ("Indomie
-   * Goreng 85g"). Sell price and Cost are deliberately left untouched — the
-   * endpoint never returns pricing, matching the prototype's own promise
-   * ("name, size and barcode fill themselves," not price).
-   */
-  const applyPhotoFillResult = (filled: PhotoFillResponse) => {
-    const nameParts = [filled.name, filled.size].filter((part): part is string => !!part && part.trim() !== "");
-    if (nameParts.length > 0) {
-      setName(nameParts.join(" "));
-    }
-    if (filled.barcode) {
-      setBarcode(filled.barcode);
-      setBarcodeNote(null);
-    }
-    if (nameParts.length === 0 && !filled.barcode) {
-      setSnapToFillError("Couldn't confidently read anything from that photo — fill the fields in by hand.");
+      Alert.alert("Gagal mengunggah foto", "Periksa internet lalu coba lagi.");
     }
   };
 
@@ -192,7 +134,7 @@ export function ProductScreen() {
     try {
       const existing = await fetchProductByBarcode(code);
       if (existing && existing.id !== productId) {
-        setBarcodeNote(`Already used by "${existing.name}" — saving will be rejected unless you change it.`);
+        setBarcodeNote(`Barcode ini sudah dipakai "${existing.name}". Ganti barcode-nya supaya bisa disimpan.`);
       }
     } catch {
       // Best-effort duplicate check; a failed lookup shouldn't block filling the field.
@@ -201,10 +143,10 @@ export function ProductScreen() {
 
   const validate = (): FormErrors => {
     const next: FormErrors = {};
-    if (!name.trim()) next.name = "Product name is required";
-    if (sellPrice === "" || sellPriceNum < 0) next.sellPrice = "Enter a sell price of 0 or more";
-    if (costPrice === "" || costPriceNum < 0) next.costPrice = "Enter a cost of 0 or more";
-    if (stockQty === "" || parseRupiah(stockQty) < 0) next.stockQty = "Enter a stock count of 0 or more";
+    if (!name.trim()) next.name = "Nama produk wajib diisi";
+    if (sellPrice === "" || sellPriceNum < 0) next.sellPrice = "Isi harga jual";
+    if (costPrice === "" || costPriceNum < 0) next.costPrice = "Isi harga modal (boleh 0)";
+    if (stockQty === "" || parseRupiah(stockQty) < 0) next.stockQty = "Isi jumlah stok (boleh 0)";
     return next;
   };
 
@@ -232,7 +174,7 @@ export function ProductScreen() {
       }
       navigation.goBack();
     } catch (err) {
-      setSubmitError(extractErrorMessage(err, "Couldn't save the product. Check your connection and try again."));
+      setSubmitError(extractErrorMessage(err, "Produk gagal disimpan. Periksa internet lalu coba lagi."));
     }
   };
 
@@ -259,46 +201,28 @@ export function ProductScreen() {
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
     >
-      <Text variant="h2">{isEditing ? "Edit product" : "New product"}</Text>
+      <Text variant="h2">{isEditing ? "Ubah produk" : "Produk baru"}</Text>
 
       <View style={styles.photoRow}>
         <PhotoBox onPress={handlePickPhoto} loading={uploadPhoto.isPending} photoUri={photoUri} />
 
         <View style={styles.photoSideCol}>
-          <View style={styles.snapCard}>
-            <Text variant="kicker">Snap to fill</Text>
-            <Text variant="caption" color={colors.neutral700} style={styles.snapBody}>
-              Photograph the packet — name, size and barcode fill themselves.
-            </Text>
-            <Button
-              title={photoFill.isPending ? "Reading photo…" : "Try it"}
-              variant="ghost"
-              loading={photoFill.isPending}
-              disabled={photoFill.isPending}
-              onPress={handleSnapToFill}
-              style={styles.snapButton}
-            />
-            {snapToFillError ? (
-              <Text variant="caption" color={colors.accent700} style={styles.snapError}>
-                {snapToFillError}
-              </Text>
-            ) : null}
-          </View>
-          <Button title="Scan barcode" variant="secondary" onPress={handleScanBarcode} />
+          <Text variant="body" color={colors.neutral700}>Foto membantu kasir menemukan barang lebih cepat.</Text>
+          <Button title="Pindai barcode" variant="secondary" onPress={handleScanBarcode} />
         </View>
       </View>
 
       <View style={styles.fields}>
         <TextField
-          label="Name"
+          label="Nama produk"
           value={name}
           onChangeText={setName}
-          placeholder="Product name"
+          placeholder="Contoh: Gramoxone 1 Liter"
           error={errors.name}
         />
 
         <View>
-          <Text variant="kicker" style={styles.categoryLabel}>Category</Text>
+          <Text variant="kicker" style={styles.categoryLabel}>Kategori</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -318,7 +242,7 @@ export function ProductScreen() {
 
         <View>
           <TextField
-            label="Sell price"
+            label="Harga jual"
             value={sellPrice}
             onChangeText={setSellPrice}
             placeholder="0"
@@ -334,7 +258,7 @@ export function ProductScreen() {
 
         <View>
           <TextField
-            label="Cost"
+            label="Harga modal"
             value={costPrice}
             onChangeText={setCostPrice}
             placeholder="0"
@@ -343,14 +267,14 @@ export function ProductScreen() {
           />
           {!errors.costPrice ? (
             <Text variant="caption" color={colors.neutral600} style={styles.hint}>
-              {isEditing ? "Changing this writes to the product's cost history" : "From your last supplier note"}
+              {isEditing ? "Perubahan harga modal dicatat di riwayat" : "Harga beli dari supplier"}
             </Text>
           ) : null}
         </View>
 
         <View>
           <TextField
-            label="Stock"
+            label="Jumlah stok"
             value={stockQty}
             onChangeText={setStockQty}
             placeholder="0"
@@ -359,7 +283,7 @@ export function ProductScreen() {
           />
           {!errors.stockQty ? (
             <Text variant="caption" color={colors.neutral600} style={styles.hint}>
-              Alert me under 8
+              Diberi peringatan kalau stok di bawah 8
             </Text>
           ) : null}
         </View>
@@ -372,12 +296,12 @@ export function ProductScreen() {
               setBarcode(v);
               setBarcodeNote(null);
             }}
-            placeholder="Scan or type"
+            placeholder="Pindai atau ketik"
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Text variant="caption" color={barcodeNote ? colors.accent700 : colors.neutral600} style={styles.hint}>
-            {barcodeNote ?? "Scan or type"}
+            {barcodeNote ?? "Opsional"}
           </Text>
         </View>
       </View>
@@ -389,7 +313,7 @@ export function ProductScreen() {
       ) : null}
 
       <Button
-        title={isSaving ? "Saving…" : "Save product"}
+        title={isSaving ? "Menyimpan…" : "Simpan produk"}
         onPress={handleSave}
         disabled={isSaving}
         loading={isSaving}
@@ -425,16 +349,17 @@ function PhotoBox({
       disabled={loading}
       style={styles.photoBox}
       accessibilityRole="button"
-      accessibilityLabel="Add photo"
+      accessibilityLabel="Tambah foto produk"
     >
       {loading ? (
         <ActivityIndicator color={colors.accent} />
       ) : photoUri ? (
         <Image source={{ uri: photoUri }} style={styles.photoImage} resizeMode="cover" />
       ) : (
-        <Text variant="caption" color={colors.neutral600}>
-          Add photo
-        </Text>
+        <View style={styles.photoEmpty}>
+          <Camera size={28} color={colors.neutral600} />
+          <Text variant="caption" color={colors.neutral700}>Tambah foto</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -469,28 +394,21 @@ const styles = StyleSheet.create({
   content: { padding: space[4], paddingBottom: 320 },
   photoRow: { flexDirection: "row", gap: space[3], marginTop: space[4] },
   photoBox: {
-    width: 104,
-    height: 104,
+    width: 120,
+    height: 120,
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderStyle: "dashed",
     borderColor: colors.neutral400,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     overflow: "hidden",
   },
+  photoEmpty: { alignItems: "center", gap: 4 },
   photoImage: { width: "100%", height: "100%" },
-  photoSideCol: { flex: 1, gap: space[2] },
-  snapCard: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: radius.md,
-    padding: space[2],
-  },
-  snapBody: { marginTop: 4 },
-  snapButton: { alignSelf: "flex-start", paddingHorizontal: 0, minHeight: 0, marginTop: 2 },
-  snapError: { marginTop: 4 },
+  photoSideCol: { flex: 1, gap: space[3], justifyContent: "center" },
   fields: { marginTop: space[4], gap: space[3] },
   categoryLabel: { marginBottom: 6 },
   categoryRow: { gap: space[2], paddingBottom: 2 },

@@ -11,9 +11,10 @@ const ASK_HISTORY_KEY = ["recap", "ask", "history"];
  * the backend has no `ANTHROPIC_API_KEY` configured and this is the honest,
  * deterministic (non-AI) summary, never a fake-looking blank state.
  */
-export function useDailyRecap() {
+export function useDailyRecap(enabled = true) {
   return useQuery({
     queryKey: DAILY_RECAP_KEY,
+    enabled,
     queryFn: async () => {
       const { data } = await apiClient.get<DailyRecapResponse>("/api/recap/daily");
       return data;

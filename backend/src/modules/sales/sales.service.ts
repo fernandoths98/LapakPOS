@@ -134,7 +134,7 @@ export async function createSale(
     }
 
     if (body.lineItems.length === 0) {
-      throw badRequest("A sale needs at least one line item");
+      throw badRequest("Keranjang masih kosong");
     }
 
     const productIds = [...new Set(body.lineItems.map((li) => li.productId))];
@@ -149,14 +149,14 @@ export async function createSale(
     let subtotal = 0;
     const linePlans = body.lineItems.map((li) => {
       if (!Number.isInteger(li.qty) || li.qty <= 0) {
-        throw badRequest("Line item qty must be a positive whole number");
+        throw badRequest("Jumlah barang harus bilangan bulat lebih dari 0");
       }
       const op = invByProduct.get(li.productId);
       if (!op) {
-        throw badRequest(`Product ${li.productId} not found at this outlet`);
+        throw badRequest("Ada produk di keranjang yang sudah tidak dijual di outlet ini. Hapus lalu coba lagi.");
       }
       if (op.stockQty < li.qty) {
-        throw badRequest(`Not enough stock for ${op.product.name} (${op.stockQty} left)`);
+        throw badRequest(`Stok ${op.product.name} tidak cukup (sisa ${op.stockQty})`);
       }
       const unitPrice = op.priceOverride ?? op.product.sellPrice;
       const lineTotal = unitPrice * li.qty;
@@ -166,7 +166,7 @@ export async function createSale(
 
     const discount = body.discount ?? 0;
     if (!Number.isInteger(discount) || discount < 0 || discount > subtotal) {
-      throw badRequest("Discount must be a whole amount between 0 and the subtotal");
+      throw badRequest("Diskon tidak boleh melebihi subtotal");
     }
     const total = subtotal - discount;
     assertTenderAmountsConsistent(body.tenderType, body.cashAmount, body.qrisAmount, total);
@@ -346,7 +346,7 @@ export async function getDaySummary(
     avgTicket,
     pctChangeVsYesterday,
     tenderMix: [
-      { label: "Cash", amount: cashToday, pct: pct(cashToday) },
+      { label: "Tunai", amount: cashToday, pct: pct(cashToday) },
       { label: "QRIS", amount: qrisToday, pct: pct(qrisToday) },
       { label: "PPOB", amount: ppobToday, pct: pct(ppobToday) },
     ],

@@ -43,7 +43,7 @@ export function LoginScreen() {
     setError(null);
     try {
       const request = mode === "account"
-        ? apiClient.post<LoginResponse>("/api/auth/login", { email: email.trim(), password } satisfies LoginRequest)
+        ? apiClient.post<LoginResponse>("/api/auth/login", { email: email.trim().toLowerCase(), password } satisfies LoginRequest)
         : apiClient.post<LoginResponse>("/api/auth/pin-login", { businessSlug: businessSlug.trim().toLowerCase(), outletCode: outletCode.trim().toUpperCase(), pin } satisfies PinLoginRequest);
       const { data } = await request;
       login(data);
@@ -52,13 +52,13 @@ export function LoginScreen() {
         if (err.response) {
           const message =
             (err.response.data as { message?: string } | undefined)?.message ??
-            "Invalid email or password.";
+            "Email atau password salah.";
           setError(message);
         } else {
-          setError("Can't reach the server. Check your connection and try again.");
+          setError("Tidak bisa terhubung ke server. Periksa internet lalu coba lagi.");
         }
       } else {
-        setError("Something went wrong. Please try again.");
+        setError("Terjadi kesalahan. Coba lagi.");
       }
     } finally {
       setSubmitting(false);
@@ -106,7 +106,7 @@ export function LoginScreen() {
             label="Email"
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
+            placeholder="nama@email.com"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -125,7 +125,7 @@ export function LoginScreen() {
           />
         </View>
         </> : <>
-          <View style={styles.field}><TextField label="Kode usaha" value={businessSlug} onChangeText={setBusinessSlug} placeholder="contoh: warung-sari-a1b2c3" autoCapitalize="none" autoCorrect={false} /></View>
+          <View style={styles.field}><TextField label="Kode usaha" value={businessSlug} onChangeText={setBusinessSlug} placeholder="Contoh: warung-sari-a1b2c3" autoCapitalize="none" autoCorrect={false} /></View>
           <View style={styles.field}><TextField label="Kode outlet" value={outletCode} onChangeText={setOutletCode} placeholder="UTAMA" autoCapitalize="characters" autoCorrect={false} /></View>
           <View style={styles.field}><TextField label="PIN kasir" value={pin} onChangeText={(value) => setPin(value.replace(/\D/g, "").slice(0, 6))} placeholder="4–6 digit" keyboardType="number-pad" secureTextEntry /></View>
         </>}

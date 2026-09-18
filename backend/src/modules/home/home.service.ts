@@ -20,9 +20,9 @@ async function lowStockAlerts(merchantId: string): Promise<RankedAlert[]> {
   const rows = await getLowStockWithSaleRate(merchantId);
   return rows.map(({ product, soldInWindow }) => {
     const roundedPerDay = Math.round(soldInWindow / SALE_RATE_WINDOW_DAYS);
-    const rateClause = roundedPerDay >= 1 ? `, you sell about ${roundedPerDay} a day` : "";
+    const rateClause = roundedPerDay >= 1 ? `, laku sekitar ${roundedPerDay} per hari` : "";
     return {
-      alert: { text: `${product.name} — ${product.stockQty} left${rateClause}.`, meta: "Reorder soon" },
+      alert: { text: product.stockQty <= 0 ? `${product.name} habis.` : `${product.name} tinggal ${product.stockQty}${rateClause}.`, meta: "Segera belanja lagi" },
       severity: -product.stockQty, // fewer left = higher severity
     };
   });
@@ -49,15 +49,15 @@ async function costIncreaseAlerts(merchantId: string): Promise<RankedAlert[]> {
   return rows.map((row) => {
     const product = row.product;
     const oldMarginPct = product.sellPrice > 0 ? (product.sellPrice - row.oldCost) / product.sellPrice : NaN;
-    let meta = "Review pricing";
+    let meta = "Cek harga jual";
     if (oldMarginPct > 0 && oldMarginPct < 1) {
       const suggestedPrice = row.newCost / (1 - oldMarginPct);
       if (Number.isFinite(suggestedPrice) && suggestedPrice > 0) {
-        meta = `Suggested price ${formatRupiah(Math.round(suggestedPrice / 100) * 100)}`;
+        meta = `Saran harga jual ${formatRupiah(Math.round(suggestedPrice / 100) * 100)}`;
       }
     }
     return {
-      alert: { text: `${product.name} cost rose ${Math.round(row.pctIncrease)}% this month.`, meta },
+      alert: { text: `Harga modal ${product.name} naik ${Math.round(row.pctIncrease)}% bulan ini.`, meta },
       severity: row.pctIncrease,
     };
   });

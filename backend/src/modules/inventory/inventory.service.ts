@@ -52,10 +52,10 @@ export async function updateInventory(
   if (!product) throw notFound("Product");
 
   if (body.stockQty !== undefined && (!Number.isInteger(body.stockQty) || body.stockQty < 0)) {
-    throw badRequest("Stock cannot be negative");
+    throw badRequest("Stok tidak boleh minus");
   }
   if (body.priceOverride !== undefined && body.priceOverride !== null && (!Number.isInteger(body.priceOverride) || body.priceOverride < 0)) {
-    throw badRequest("Price override cannot be negative");
+    throw badRequest("Harga khusus tidak boleh minus");
   }
   if (body.lowStockThreshold !== undefined && (!Number.isInteger(body.lowStockThreshold) || body.lowStockThreshold < 0)) {
     throw badRequest("Low-stock threshold cannot be negative");

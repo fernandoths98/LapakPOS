@@ -38,7 +38,7 @@ export function saveProductPhoto(imageBase64: string, mimeType: string): SavedPr
 export function saveUploadedImage(folder: "products" | "qris", imageBase64: string, mimeType: string): string {
   const ext = MIME_EXTENSIONS[mimeType.toLowerCase()];
   if (!ext) {
-    throw badRequest(`Unsupported image type: ${mimeType}`);
+    throw badRequest(`Format foto tidak didukung (${mimeType}). Gunakan JPG atau PNG.`);
   }
   if (!imageBase64) {
     throw badRequest("imageBase64 is required");

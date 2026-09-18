@@ -72,7 +72,7 @@ export function HomeScreen() {
   const summaryQuery = useTodaySummary();
   const alertsQuery = useHomeAlerts();
   const currentShiftQuery = useCurrentShift();
-  const recapQuery = useDailyRecap();
+  const recapQuery = useDailyRecap(has('ai'));
 
 
   if (

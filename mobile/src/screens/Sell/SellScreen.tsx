@@ -25,6 +25,7 @@ import { uploadUrl } from "../../state/api/apiClient";
 import { ALL_CATEGORIES, fetchProductByBarcode, UNCATEGORIZED, useCategories, useProducts } from "../../state/api/products";
 import { useCurrentShift } from "../../state/api/shifts";
 import { cartCount, cartTotal, useCartStore } from "../../state/cart/cartStore";
+import { useFeature } from "../../state/api/merchant";
 import { SellStackParamList } from "../../app/stacks/SellStack";
 
 interface CategoryPillItem {
@@ -44,6 +45,7 @@ export function SellScreen() {
 
   const categoriesQuery = useCategories();
   const productsQuery = useProducts({ query, categoryId });
+  const has = useFeature();
   const currentShiftQuery = useCurrentShift();
   const lines = useCartStore((state) => state.lines);
   const addItem = useCartStore((state) => state.addItem);
@@ -105,7 +107,7 @@ export function SellScreen() {
   };
 
   const checkout = () => {
-    if (!shift) {
+    if (!shift && has("shift")) {
       Alert.alert("Buka shift terlebih dahulu", "Saldo awal kas perlu dicatat sebelum transaksi pertama agar laporan kas akurat.", [
         { text: "Nanti", style: "cancel" },
         {
@@ -145,9 +147,9 @@ export function SellScreen() {
                   {isPortraitPhone ? "Jualan" : "Transaksi Penjualan"}
                 </Text>
                 <View style={styles.shiftStatus}>
-                  <View style={[styles.statusDot, { backgroundColor: shift ? colors.success : colors.attention }]} />
+                  <View style={[styles.statusDot, { backgroundColor: shift || !has("shift") ? colors.success : colors.attention }]} />
                   <Text variant="caption" color={colors.neutral600}>
-                    {shift ? "Kasir aktif" : "Shift belum dibuka"}
+                    {shift || !has("shift") ? "Siap jualan" : "Shift belum dibuka"}
                   </Text>
                 </View>
               </View>

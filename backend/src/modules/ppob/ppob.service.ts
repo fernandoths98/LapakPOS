@@ -148,7 +148,7 @@ export async function checkBill(merchantId: string, body: CheckBillRequest): Pro
 
   const customerNumber = body.customerNumber.trim();
   if (!customerNumber) {
-    throw badRequest("Customer number is required");
+    throw badRequest("Nomor pelanggan wajib diisi");
   }
 
   const biller = await findActiveBiller(merchantId, body.billerId);
@@ -221,7 +221,7 @@ export async function payBill(
     quote.billerId !== body.billerId ||
     quote.customerNumber !== body.customerNumber.trim()
   ) {
-    throw badRequest("This bill check has expired or doesn't match — check the bill again before charging.");
+    throw badRequest("Hasil cek tagihan sudah kedaluwarsa. Cek tagihan lagi sebelum membayar.");
   }
   quotes.delete(body.checkRef);
 

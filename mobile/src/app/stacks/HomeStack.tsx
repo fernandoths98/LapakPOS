@@ -37,17 +37,17 @@ export function HomeStack() {
       <Stack.Screen
         name="OpenShift"
         component={OpenShiftScreen}
-        options={{ title: "Open shift", headerBackTitle: "Home" }}
+        options={{ title: "", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen
         name="ShiftClose"
         component={ShiftCloseScreen}
-        options={{ title: "Close shift", headerBackTitle: "Home" }}
+        options={{ title: "Tutup shift", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen
         name="AddExpense"
         component={AddExpenseScreen}
-        options={{ title: "Add expense", headerBackTitle: "Home" }}
+        options={{ title: "", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AccountManagement" component={AccountManagementScreen} options={{ headerShown: false }} />
