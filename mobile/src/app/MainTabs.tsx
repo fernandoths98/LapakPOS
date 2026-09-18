@@ -97,7 +97,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             onPress={onPress}
             style={styles.tabItem}
           >
-            <View style={[styles.iconPill, isFocused && styles.iconPillActive]}>
+            <View style={[styles.iconPill, { backgroundColor: isFocused ? colors.accent100 : colors.surface }]}>
               <Icon size={24} strokeWidth={isFocused ? 2.4 : 1.9} color={isFocused ? colors.actionFill : colors.neutral500} />
             </View>
             <Text
@@ -166,8 +166,10 @@ const styles = StyleSheet.create({
     paddingTop: 7,
     paddingBottom: 5,
   },
-  iconPill: { width: 60, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  iconPillActive: { backgroundColor: colors.accent100 },
+  // The pill always has a fill (surface when idle) and clips to its radius:
+  // on Android, toggling a background onto a rounded view after first render
+  // can repaint it as a plain rectangle.
+  iconPill: { width: 60, height: 34, borderRadius: 17, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   label: {
     fontSize: 13,
     lineHeight: 17,
