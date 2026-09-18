@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -11,10 +13,9 @@ import { LoginRequest, LoginResponse, PinLoginRequest } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
-import { Divider } from "../../components/Divider";
 import { apiClient } from "../../state/api/apiClient";
 import { useAuthStore } from "../../state/auth/authStore";
-import { colors, space } from "../../theme/tokens";
+import { colors, radius, shadow, space } from "../../theme/tokens";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../app/RootNavigator";
@@ -74,19 +75,29 @@ export function LoginScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text variant="kicker">KOTDEE POS</Text>
-        <Text variant="h1" style={styles.title}>
-          Masuk ke usaha Anda
-        </Text>
-        <Text variant="body" color={colors.neutral700} style={styles.subtitle}>
-          {mode === "account" ? "Gunakan email dan password pemilik atau staf." : "Gunakan kode usaha, outlet, dan PIN yang diberikan pemilik."}
-        </Text>
+        <View style={styles.brand}>
+          <Image source={require("../../assets/branding/kotdee-pos-mark.png")} style={styles.logo} resizeMode="contain" />
+          <Text variant="h1" style={styles.title}>
+            Selamat datang
+          </Text>
+          <Text variant="body" color={colors.neutral700} style={styles.subtitle}>
+            {mode === "account" ? "Masuk dengan email dan password toko Anda." : "Masuk dengan kode usaha, outlet, dan PIN dari pemilik."}
+          </Text>
+        </View>
 
-        <Divider />
-
-        <View style={styles.modeRow}>
-          <Button title="Email" variant={mode === "account" ? "primary" : "secondary"} onPress={() => { setMode("account"); setError(null); }} style={styles.modeButton} />
-          <Button title="PIN kasir" variant={mode === "pin" ? "primary" : "secondary"} onPress={() => { setMode("pin"); setError(null); }} style={styles.modeButton} />
+        <View style={styles.formCard}>
+        <View style={styles.segment} accessibilityRole="tablist">
+          {([["account", "Email"], ["pin", "PIN kasir"]] as const).map(([value, label]) => (
+            <Pressable
+              key={value}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: mode === value }}
+              onPress={() => { setMode(value); setError(null); }}
+              style={[styles.segmentItem, mode === value && styles.segmentItemActive]}
+            >
+              <Text variant="h3" color={mode === value ? colors.text : colors.neutral600} style={styles.segmentLabel}>{label}</Text>
+            </Pressable>
+          ))}
         </View>
 
         {mode === "account" ? <>
@@ -133,6 +144,7 @@ export function LoginScreen() {
           fullWidth
           style={styles.submit}
         />
+        </View>
         <Button title="Daftarkan usaha baru" variant="ghost" onPress={() => navigation.navigate("Register")} fullWidth style={styles.registerButton} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -148,11 +160,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
     paddingVertical: space[8],
   },
-  title: { marginTop: 4 },
-  subtitle: { marginTop: space[2] },
+  brand: { alignItems: "center", marginBottom: space[6] },
+  logo: { width: 84, height: 84, borderRadius: radius.lg },
+  title: { marginTop: space[4], textAlign: "center" },
+  subtitle: { marginTop: space[2], textAlign: "center" },
+  formCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4], ...shadow.md },
+  segment: { flexDirection: "row", backgroundColor: colors.neutral200, borderRadius: radius.md, padding: 4, marginBottom: space[2] },
+  segmentItem: { flex: 1, minHeight: 48, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  segmentItemActive: { backgroundColor: colors.surface, ...shadow.sm },
+  segmentLabel: { fontSize: 16 },
   field: { marginTop: space[3] },
-  modeRow: { flexDirection: "row", gap: space[2], marginTop: space[4] },
-  modeButton: { flex: 1, minHeight: 40, paddingVertical: 8 },
   error: { marginTop: space[3] },
   submit: { marginTop: space[6] },
   registerButton: { marginTop: space[2] },

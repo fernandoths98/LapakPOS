@@ -1,13 +1,13 @@
 /** Kotdee POS design tokens: high-contrast, fast to scan, and touch friendly. */
 export const colors = {
-  bg: "#F4F7FB",
+  bg: "#F5F6FA",
   surface: "#FFFFFF",
   text: "#172033",
   accent: "#E53935",
   accent2: "#1559C5",
   success: "#168A52",
   warning: "#F3A712",
-  divider: "#DDE3EC",
+  divider: "#E7EAF0",
 
   /**
    * Role colours. `accent`, `success` and `warning` above are FILL colours —
@@ -83,9 +83,9 @@ export const space = {
 } as const;
 
 export const radius = {
-  sm: 6,
-  md: 10,
-  lg: 16,
+  sm: 10,
+  md: 14,
+  lg: 22,
 } as const;
 
 /**
@@ -98,14 +98,14 @@ export const shadow = {
   sm: {
     shadowColor: colors.neutral900,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.14,
-    shadowRadius: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
     elevation: 1,
   },
   md: {
     shadowColor: colors.neutral900,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 3,
   },

@@ -141,7 +141,7 @@ export function SellScreen() {
             <View style={styles.brandRow}>
               <View>
                 <Text variant="h2" style={isPortraitPhone ? styles.titlePortrait : undefined}>
-                  {isPortraitPhone ? "Kasir" : "Transaksi Penjualan"}
+                  {isPortraitPhone ? "Jualan" : "Transaksi Penjualan"}
                 </Text>
                 <View style={styles.shiftStatus}>
                   <View style={[styles.statusDot, { backgroundColor: shift ? colors.success : colors.attention }]} />
@@ -441,7 +441,6 @@ function ProductTile({ product, qtyInCart, onPress, compact = false, portrait = 
           ) : (
             <Text variant="caption" color={colors.neutral600}>{`Stok ${product.stockQty}`}</Text>
           )}
-          {product.barcode ? <Text variant="caption" color={colors.neutral500}>#{product.barcode.slice(-6)}</Text> : null}
         </View>
       </View>
     </Pressable>
@@ -478,11 +477,11 @@ const styles = StyleSheet.create({
   catalogHeadingPortrait: { marginBottom: space[2] },
   loading: { marginVertical: space[3] },
   row: { gap: space[2] },
-  tile: { flex: 1, marginBottom: space[2], borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.surface, ...shadow.sm },
+  tile: { flex: 1, marginBottom: space[2], borderWidth: 1.5, borderColor: "transparent", borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.surface, ...shadow.sm },
   tilePressed: { transform: [{ scale: 0.98 }], borderColor: colors.accent2 },
   tileDisabled: { opacity: 0.55 },
   tileCompact: { flexDirection: "row", minHeight: 68, marginBottom: 6, borderRadius: radius.sm, shadowOpacity: 0, elevation: 0 },
-  tilePortrait: { borderRadius: radius.md, shadowOpacity: 0.08, elevation: 1 },
+  tilePortrait: { borderRadius: radius.lg },
   tilePhoto: { height: 92, backgroundColor: colors.neutral100, alignItems: "center", justifyContent: "center" },
   tilePhotoCompact: { width: 68, height: 68 },
   tilePhotoPortrait: { height: 76 },

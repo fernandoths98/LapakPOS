@@ -15,7 +15,7 @@ import {
 } from 'lucide-react-native';
 import type { UserRole } from '@lapak/shared';
 import { Text } from '../theme/Text';
-import { colors } from '../theme/tokens';
+import { colors, shadow } from '../theme/tokens';
 import { useAuthStore } from '../state/auth/authStore';
 import { Walkthrough } from '../components/Walkthrough';
 import { HomeStack, HomeStackParamList } from './stacks/HomeStack';
@@ -66,9 +66,8 @@ const TABS_BY_ROLE: Record<UserRole, Array<keyof MainTabsParamList>> = {
 };
 
 /**
- * Custom tab bar matching the prototype's `tabs` render logic: a 2px
- * accent-colored bar above the label marks the active group, never a filled
- * pill or icon — color is stroke/mark only, per the design system.
+ * Custom tab bar: the active tab gets a soft tinted pill behind its icon and
+ * a brand-coloured label, so the current place is obvious at a glance.
  */
 function TabBar({ state, navigation }: BottomTabBarProps) {
   return (
@@ -98,12 +97,13 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             onPress={onPress}
             style={styles.tabItem}
           >
-            <View style={[styles.activeIndicator, isFocused && styles.activeIndicatorVisible]} />
-            <Icon size={26} strokeWidth={isFocused ? 2.3 : 1.9} color={isFocused ? colors.text : colors.neutral500} />
+            <View style={[styles.iconPill, isFocused && styles.iconPillActive]}>
+              <Icon size={24} strokeWidth={isFocused ? 2.4 : 1.9} color={isFocused ? colors.actionFill : colors.neutral500} />
+            </View>
             <Text
               variant="caption"
               style={[styles.label, isFocused && styles.labelActive]}
-              color={isFocused ? colors.text : colors.neutral600}
+              color={isFocused ? colors.actionFill : colors.neutral600}
             >
               {label}
             </Text>
@@ -151,22 +151,23 @@ export function MainTabs() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopWidth: 0,
+    ...shadow.md,
+    shadowOffset: { width: 0, height: -2 },
     backgroundColor: colors.surface,
     paddingHorizontal: 2,
   },
   tabItem: {
     flex: 1,
-    height: 70,
+    height: 76,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
     paddingTop: 7,
     paddingBottom: 5,
   },
-  activeIndicator: { position: 'absolute', top: -1, width: 44, height: 4, backgroundColor: 'transparent' },
-  activeIndicatorVisible: { backgroundColor: colors.accent },
+  iconPill: { width: 60, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  iconPillActive: { backgroundColor: colors.accent100 },
   label: {
     fontSize: 13,
     lineHeight: 17,
