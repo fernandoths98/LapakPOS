@@ -306,7 +306,7 @@ export async function getWeeklyReports(merchantId: string): Promise<WeeklyReport
   ]);
 
   const bars: WeeklyBar[] = dayRanges.map((r, i) => ({
-    label: new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone }).format(r.start),
+    label: new Intl.DateTimeFormat("id-ID", { weekday: "short", timeZone }).format(r.start),
     total: dayRevenues[i].total,
     ppobShare: dayRevenues[i].ppobRevenue,
   }));

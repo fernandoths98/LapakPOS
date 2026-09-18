@@ -22,7 +22,7 @@ const TENDER_LABEL: Record<TenderType, string> = {
   cash: "Tunai",
   qris: "QRIS",
   debit: "Kartu debit",
-  split: "Split",
+  split: "Tunai + QRIS",
 };
 
 export function PaidScreen() {
@@ -56,7 +56,7 @@ export function PaidScreen() {
 
   const handlePrint = () => {
     if (Platform.OS !== "android") {
-      Alert.alert("Print receipt", IOS_UNAVAILABLE_MESSAGE);
+      Alert.alert("Cetak struk", IOS_UNAVAILABLE_MESSAGE);
       return;
     }
     setPrintSheetVisible(true);

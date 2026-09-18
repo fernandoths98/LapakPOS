@@ -197,7 +197,7 @@ describe("shifts.service", () => {
       expect(closeResult.expectedCash).toBe(expected);
       expect(closeResult.countedCash).toBe(countedShort);
       expect(closeResult.discrepancy).toBe(15000);
-      expect(closeResult.discrepancyTitle).toBe("Short by Rp 15.000");
+      expect(closeResult.discrepancyTitle).toBe("Kurang Rp 15.000");
       expect(closeResult.discrepancyBody).not.toMatch(/PLN|reclassify|19:0/); // no fabricated specific-cause explanation
       expect(closeResult.shift.status).toBe("closed");
       expect(closeResult.shift.countedCash).toBe(countedShort);
@@ -217,14 +217,14 @@ describe("shifts.service", () => {
       const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 100000 });
       const result = await shiftsService.closeShift(TEST_MERCHANT_ID, shift.id, { countedCash: 120000 });
       expect(result.discrepancy).toBe(-20000);
-      expect(result.discrepancyTitle).toBe("Over by Rp 20.000");
+      expect(result.discrepancyTitle).toBe("Lebih Rp 20.000");
     });
 
     it("reports 'Drawer balances' when counted matches expected exactly", async () => {
       const shift = await shiftsService.openShift(TEST_MERCHANT_ID, TEST_USER_ID, TEST_OUTLET_ID, { openingFloat: 200000 });
       const result = await shiftsService.closeShift(TEST_MERCHANT_ID, shift.id, { countedCash: 200000 });
       expect(result.discrepancy).toBe(0);
-      expect(result.discrepancyTitle).toBe("Drawer balances");
+      expect(result.discrepancyTitle).toBe("Uang di laci pas");
     });
 
     it("falls back to the exact Phase 5a generic discrepancyBody even when a real transaction genuinely matches the gap — proving the AI-unavailable path is safe, not just the no-candidate path", async () => {
@@ -269,10 +269,10 @@ describe("shifts.service", () => {
       const result = await shiftsService.closeShift(TEST_MERCHANT_ID, shift.id, { countedCash: 100000 });
 
       expect(result.discrepancy).toBe(45000);
-      expect(result.discrepancyTitle).toBe("Short by Rp 45.000");
+      expect(result.discrepancyTitle).toBe("Kurang Rp 45.000");
       // Exactly Phase 5a's generic, rule-based body — no fabricated specific-cause text.
       expect(result.discrepancyBody).toBe(
-        "Counted cash is Rp 45.000 short of what today's sales, PPOB and expenses add up to. Recount the drawer or review today's transactions before closing.",
+        "Uang di laci kurang Rp 45.000 dari catatan penjualan, PPOB, dan pengeluaran hari ini. Hitung ulang uangnya atau cek transaksi hari ini sebelum menutup shift.",
       );
       expect(result.discrepancyBody).not.toMatch(/Token PLN|19:0|reclassify/);
 

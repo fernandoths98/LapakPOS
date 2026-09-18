@@ -30,7 +30,7 @@ export interface ButtonProps extends Omit<PressableProps, "style" | "children"> 
 
 const PRESSED_TINT: Record<ButtonVariant, string> = {
   primary: colors.accent700,
-  secondary: colors.neutral200,
+  secondary: colors.neutral300,
   ghost: colors.accent100,
 };
 
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
-    minHeight: 52,
+    minHeight: 58,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
   },
   primary: {
@@ -102,9 +102,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.actionFill,
   },
   secondary: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "transparent",
+    borderWidth: 0,
+    backgroundColor: colors.neutral200,
   },
   ghost: {
     borderWidth: 0,

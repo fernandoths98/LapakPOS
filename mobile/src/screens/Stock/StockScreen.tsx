@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -7,13 +7,16 @@ import { Boxes, FileSpreadsheet, Plus, type LucideIcon } from "lucide-react-nati
 import { formatRupiah, Product } from "@lapak/shared";
 import { Text } from "../../theme/Text";
 import { TextField } from "../../components/TextField";
-import { colors, radius, space } from "../../theme/tokens";
+import { colors, radius, shadow, space } from "../../theme/tokens";
+import { uploadUrl } from "../../state/api/apiClient";
 import { useProducts } from "../../state/api/products";
+import { useFeature } from "../../state/api/merchant";
 import { StockStackParamList } from "../../app/stacks/StockStack";
 
 export function StockScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<StockStackParamList>>();
   const [query, setQuery] = useState("");
+  const has = useFeature();
 
   // Stats are from the full unfiltered catalog; the visible rows use the
   // same live query, filtered by `query`.
@@ -40,13 +43,13 @@ export function StockScreen() {
             <Text variant="h2" style={styles.title}>Stok</Text>
 
             <View style={styles.actionRow}>
-              <ActionButton icon={Boxes} label="Stok outlet" onPress={() => navigation.navigate("OutletInventory")} />
+              {has("outlets") ? <ActionButton icon={Boxes} label="Stok outlet" onPress={() => navigation.navigate("OutletInventory")} /> : null}
               <ActionButton icon={FileSpreadsheet} label="Excel" onPress={() => navigation.navigate("Sheet")} />
               <ActionButton icon={Plus} label="Produk baru" primary onPress={() => navigation.navigate("Product", undefined)} />
             </View>
 
             <View style={styles.statStrip}>
-              <StatItem label="SKU" value={String(stats.skuCount)} />
+              <StatItem label="Jenis barang" value={String(stats.skuCount)} />
               <StatItem label="Menipis" value={String(stats.lowCount)} color={stats.lowCount > 0 ? colors.accent700 : colors.text} />
               <StatItem label="Nilai stok" value={formatRupiah(stats.value)} />
             </View>
@@ -121,13 +124,16 @@ function CatalogRow({ product, onPress }: { product: Product; onPress: () => voi
   return (
     <Pressable onPress={onPress} style={styles.row} accessibilityRole="button">
       <View style={styles.rowTile}>
-        <Text variant="h3" color={colors.neutral500}>{product.name.charAt(0).toUpperCase()}</Text>
+        {product.imageUrl ? (
+          <Image source={{ uri: uploadUrl(product.imageUrl) }} style={styles.rowImage} resizeMode="cover" />
+        ) : (
+          <Text variant="h3" color={colors.accent2600}>{product.name.charAt(0).toUpperCase()}</Text>
+        )}
       </View>
       <View style={styles.rowBody}>
         <Text variant="body" numberOfLines={1} style={styles.rowName}>{product.name}</Text>
         <Text variant="caption" style={styles.rowMeta} numberOfLines={1}>
           {product.categoryName ?? "Tanpa kategori"}
-          {product.barcode ? ` · ${product.barcode}` : ""}
         </Text>
       </View>
       <View style={styles.rowEnd}>
@@ -148,16 +154,15 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: space[2] },
   action: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 52,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: 4,
+    ...shadow.sm,
   },
   actionPrimary: { backgroundColor: colors.accent2, borderColor: colors.accent2 },
   actionPressed: { transform: [{ scale: 0.98 }] },
@@ -166,9 +171,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: space[6],
     marginTop: space[4],
-    borderTopWidth: 1,
-    borderTopColor: colors.text,
-    paddingTop: space[2],
+    padding: space[4],
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    ...shadow.sm,
   },
   statItem: {},
   statLabel: { marginBottom: 2 },
@@ -184,20 +190,20 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   rowTile: {
-    width: 38,
-    height: 38,
+    width: 48,
+    height: 48,
     flexShrink: 0,
-    borderRadius: radius.sm,
-    backgroundColor: colors.neutral100,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent2100,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
+  rowImage: { width: "100%", height: "100%" },
   rowBody: { flex: 1, minWidth: 0 },
   rowName: { fontWeight: "600" },
   rowMeta: { marginTop: 2 },
   rowEnd: { alignItems: "flex-end", flexShrink: 0 },
-  rowPrice: { fontSize: 14 },
+  rowPrice: { fontSize: 17 },
   empty: { textAlign: "center", marginTop: space[6] },
 });

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { unauthorized } from "../../utils/errors";
 import * as merchantService from "./merchant.service";
-import { OUTLET_TIMEZONES } from "@lapak/shared";
+import { FEATURE_KEYS, OUTLET_TIMEZONES } from "@lapak/shared";
 import { z } from "zod";
 
 export async function getMyMerchantHandler(req: Request, res: Response): Promise<void> {
@@ -14,3 +14,9 @@ const outletSchema = z.object({ name: z.string().trim().min(2).max(100), code: z
 export async function createOutletHandler(req: Request, res: Response): Promise<void> { if (!req.user) throw unauthorized(); res.status(201).json(await merchantService.createOutlet(req.user.merchantId, outletSchema.parse(req.body))); }
 const staffSchema = z.object({ name: z.string().trim().min(2).max(80), email: z.string().email().optional(), role: z.enum(["manager", "cashier", "stocker"]), outletId: z.string().uuid(), pin: z.string().regex(/^\d{4,6}$/), password: z.string().min(8).max(128).optional() });
 export async function createStaffHandler(req: Request, res: Response): Promise<void> { if (!req.user) throw unauthorized(); res.status(201).json(await merchantService.createStaff(req.user.merchantId, staffSchema.parse(req.body))); }
+
+const qrisSchema = z.object({ imageBase64: z.string().min(1), mimeType: z.string().min(1) }).nullable();
+export async function setQrisHandler(req: Request, res: Response): Promise<void> { if (!req.user) throw unauthorized(); res.json(await merchantService.setQrisImage(req.user.merchantId, qrisSchema.parse(req.body?.image ?? null))); }
+
+const featuresSchema = z.object({ features: z.array(z.enum(FEATURE_KEYS)) });
+export async function setFeaturesHandler(req: Request, res: Response): Promise<void> { if (!req.user) throw unauthorized(); res.json(await merchantService.setFeatures(req.user.merchantId, featuresSchema.parse(req.body).features)); }

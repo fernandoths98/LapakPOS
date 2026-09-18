@@ -26,7 +26,7 @@ export function BillsStack() {
       <Stack.Screen
         name="BillForm"
         component={BillFormScreen}
-        options={({ route }) => ({ title: route.params.billerName, headerBackTitle: "Bills" })}
+        options={({ route }) => ({ title: route.params.billerName, headerBackTitle: "Tagihan" })}
       />
       <Stack.Screen name="BillSuccess" component={BillSuccessScreen} options={{ headerShown: false }} />
       <Stack.Screen name="WalletTopup" component={WalletTopupScreen} options={{ title: "Isi saldo PPOB" }} />

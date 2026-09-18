@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,6 +26,8 @@ import {
 } from '../../state/cart/cartStore';
 import { generateClientId, useCreateSale } from '../../state/api/sales';
 import { useCurrentShift } from '../../state/api/shifts';
+import { useFeature, useMerchant } from '../../state/api/merchant';
+import { apiErrorMessage, uploadUrl } from '../../state/api/apiClient';
 import { enqueue } from '../../state/offline/pendingSalesQueue';
 import { SellStackParamList } from '../../app/stacks/SellStack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,13 +40,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
  * default. */
 const CHECKOUT_TIMEOUT_MS = 6_000;
 
-type TenderLabel = 'Tunai' | 'QRIS' | 'Kartu debit' | 'Split';
-const TENDER_OPTIONS: TenderLabel[] = ['Tunai', 'QRIS', 'Kartu debit', 'Split'];
+type TenderLabel = 'Tunai' | 'QRIS' | 'Kartu debit' | 'Tunai + QRIS';
+const TENDER_OPTIONS: TenderLabel[] = ['Tunai', 'QRIS', 'Kartu debit', 'Tunai + QRIS'];
 const TENDER_TYPE_BY_LABEL: Record<TenderLabel, TenderType> = {
   Tunai: 'cash',
   QRIS: 'qris',
   'Kartu debit': 'debit',
-  Split: 'split',
+  'Tunai + QRIS': 'split',
 };
 
 export function CartScreen() {
@@ -54,6 +56,12 @@ export function CartScreen() {
   const lines = useCartStore(s => s.lines);
   const bump = useCartStore(s => s.bump);
   const [tender, setTender] = useState<TenderLabel | null>(null);
+  const qrisImageUrl = useMerchant().data?.qrisImageUrl ?? null;
+  const has = useFeature();
+  // Without the shift feature the server opens a shift on the first sale by
+  // itself, so the cashier is never blocked on one.
+  const needsShift = has('shift');
+  const tenderOptions = has('advancedTender') ? TENDER_OPTIONS : TENDER_OPTIONS.filter(o => o === 'Tunai' || o === 'QRIS');
   const [splitPct, setSplitPct] = useState(60);
   const [discountText, setDiscountText] = useState('');
   const [discountFocused, setDiscountFocused] = useState(false);
@@ -81,7 +89,7 @@ export function CartScreen() {
   const canPay =
     cartLines.length > 0 &&
     total > 0 &&
-    Boolean(currentShift?.shift) &&
+    (!needsShift || Boolean(currentShift?.shift)) &&
     tender !== null &&
     cashIsEnough &&
     !createSale.isPending;
@@ -157,7 +165,7 @@ export function CartScreen() {
         });
         return;
       }
-      setSubmitError('Pembayaran gagal. Periksa koneksi dan coba lagi.');
+      setSubmitError(apiErrorMessage(err, 'Pembayaran gagal. Coba lagi.'));
     }
   };
 
@@ -182,7 +190,7 @@ export function CartScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
       >
-        {!currentShift?.shift ? (
+        {needsShift && !currentShift?.shift ? (
           <View style={styles.shiftWarning}>
             <Text variant="h3" color={colors.accent700}>Shift belum dibuka</Text>
             <Text variant="caption" color={colors.neutral700} style={styles.shiftWarningText}>
@@ -285,7 +293,7 @@ export function CartScreen() {
           METODE PEMBAYARAN
         </Text>
         <View style={styles.tenderGrid}>
-          {TENDER_OPTIONS.map(option => (
+          {tenderOptions.map(option => (
             <TenderPill
               key={option}
               label={option}
@@ -339,7 +347,23 @@ export function CartScreen() {
           </View>
         ) : null}
 
-        {tender === 'Split' ? (
+        {tender === 'QRIS' || tender === 'Tunai + QRIS' ? (
+          <View style={styles.qrisCard}>
+            {qrisImageUrl ? (
+              <>
+                <Text variant="h3">Minta pembeli scan QRIS ini</Text>
+                <Image source={{ uri: uploadUrl(qrisImageUrl) }} style={styles.qrisImage} resizeMode="contain" />
+                <Text variant="caption">Pastikan uang sudah masuk ke rekening toko sebelum menekan Bayar.</Text>
+              </>
+            ) : (
+              <Text variant="body" color={colors.attention}>
+                Gambar QRIS toko belum diunggah. Pemilik bisa mengunggahnya di Profil → QRIS toko.
+              </Text>
+            )}
+          </View>
+        ) : null}
+
+        {tender === 'Tunai + QRIS' ? (
           <View style={styles.splitCard}>
             <SummaryRow label="Porsi tunai" value={formatRupiah(splitCash)} />
             <SummaryRow
@@ -694,7 +718,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.divider,
   },
-  tenderPillLabel: { fontSize: 14 },
+  tenderPillLabel: { fontSize: 17 },
+  qrisCard: {
+    marginTop: space[3],
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: space[4],
+    alignItems: 'center',
+    gap: space[2],
+  },
+  qrisImage: { width: '100%', aspectRatio: 1, maxWidth: 320 },
   splitCard: {
     marginTop: space[3],
     borderWidth: 1,

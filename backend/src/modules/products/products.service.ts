@@ -164,7 +164,7 @@ async function assertBarcodeAvailable(merchantId: string, barcode: string, exclu
     where: { merchantId, barcode, ...(excludeProductId ? { id: { not: excludeProductId } } : {}) },
   });
   if (existing) {
-    throw badRequest(`Barcode ${barcode} is already used by another product${existing.deletedAt ? " (deleted)" : ""}`);
+    throw badRequest(`Barcode ${barcode} sudah dipakai produk lain${existing.deletedAt ? " (yang sudah dihapus)" : ""}`);
   }
 }
 
@@ -180,13 +180,13 @@ async function assertBarcodeAvailable(merchantId: string, barcode: string, exclu
  */
 export async function createProduct(merchantId: string, body: CreateProductRequest): Promise<Product> {
   if (!body.name.trim()) {
-    throw badRequest("Product name is required");
+    throw badRequest("Nama produk wajib diisi");
   }
   if (body.sellPrice < 0 || body.costPrice < 0) {
-    throw badRequest("Prices cannot be negative");
+    throw badRequest("Harga tidak boleh minus");
   }
   if (body.stockQty < 0) {
-    throw badRequest("Stock cannot be negative");
+    throw badRequest("Stok tidak boleh minus");
   }
   await assertWithinQuota(merchantId, "products");
   if (body.barcode) {
@@ -252,16 +252,16 @@ export async function updateProduct(
   }
 
   if (body.name !== undefined && !body.name.trim()) {
-    throw badRequest("Product name is required");
+    throw badRequest("Nama produk wajib diisi");
   }
   if (body.sellPrice !== undefined && body.sellPrice < 0) {
-    throw badRequest("Sell price cannot be negative");
+    throw badRequest("Harga jual tidak boleh minus");
   }
   if (body.costPrice !== undefined && body.costPrice < 0) {
-    throw badRequest("Cost price cannot be negative");
+    throw badRequest("Harga modal tidak boleh minus");
   }
   if (body.stockQty !== undefined && body.stockQty < 0) {
-    throw badRequest("Stock cannot be negative");
+    throw badRequest("Stok tidak boleh minus");
   }
   if (body.barcode) {
     await assertBarcodeAvailable(merchantId, body.barcode, id);

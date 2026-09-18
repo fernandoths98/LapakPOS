@@ -41,11 +41,11 @@ export function ShiftCloseScreen() {
 
   const handlePrintZReport = () => {
     if (Platform.OS !== "android") {
-      Alert.alert("Print Z-report", IOS_UNAVAILABLE_MESSAGE);
+      Alert.alert("Cetak laporan shift", IOS_UNAVAILABLE_MESSAGE);
       return;
     }
     if (!zReportQuery.data) {
-      Alert.alert("Z-report not ready", "Couldn't load the Z-report numbers yet. Check your connection and try again.");
+      Alert.alert("Laporan shift belum siap", "Angkanya belum termuat. Periksa internet lalu coba lagi.");
       return;
     }
     setPrintSheetVisible(true);
@@ -61,7 +61,7 @@ export function ShiftCloseScreen() {
       const result = await closeShift.mutateAsync({ shiftId: shift.id, body: { countedCash } });
       setCloseResult(result);
     } catch (err) {
-      setErrorMessage(extractErrorMessage(err, "Couldn't close the shift. Check your connection and try again."));
+      setErrorMessage(extractErrorMessage(err, "Shift gagal ditutup. Periksa internet lalu coba lagi."));
     }
   };
 
@@ -84,7 +84,7 @@ export function ShiftCloseScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer} edges={["left", "right"]}>
         <Text variant="body" color={colors.neutral700}>
-          No shift is currently open.
+          Tidak ada shift yang sedang dibuka.
         </Text>
       </SafeAreaView>
     );
@@ -96,17 +96,17 @@ export function ShiftCloseScreen() {
   // running totals rather than guessed at, so they're accurate before the
   // cashier has typed anything.
   const rows = [
-    { label: "Opening float", value: formatRupiah(running.openingFloat) },
-    { label: "Cash sales", value: formatRupiah(running.cashSales) },
-    { label: "PPOB cash in", value: formatRupiah(running.ppobCashIn) },
-    { label: "Paid out (supplier)", value: `− ${formatRupiah(running.paidOut)}` },
+    { label: "Modal awal", value: formatRupiah(running.openingFloat) },
+    { label: "Penjualan tunai", value: formatRupiah(running.cashSales) },
+    { label: "Tunai dari PPOB", value: formatRupiah(running.ppobCashIn) },
+    { label: "Pengeluaran", value: `− ${formatRupiah(running.paidOut)}` },
   ];
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="caption" color={colors.neutral600}>
-        Opened {formatOpenedAt(shift.openedAt)} · {shift.userName}
+        Dibuka {formatOpenedAt(shift.openedAt)} · {shift.userName}
       </Text>
 
       <View style={styles.rows}>
@@ -118,7 +118,7 @@ export function ShiftCloseScreen() {
         ))}
         <View style={[styles.row, styles.expectedRow]}>
           <Text variant="body" style={styles.expectedLabel}>
-            Expected in drawer
+            Seharusnya di laci
           </Text>
           <Text variant="tabular" style={styles.expectedLabel}>
             {formatRupiah(running.expectedCash)}
@@ -136,7 +136,7 @@ export function ShiftCloseScreen() {
       ) : (
         <>
           <TextField
-            label="Counted in drawer"
+            label="Uang di laci (hasil hitung)"
             value={counted}
             onChangeText={setCounted}
             placeholder="0"
@@ -151,9 +151,9 @@ export function ShiftCloseScreen() {
           ) : null}
 
           <View style={styles.buttonRow}>
-            <Button title="Print Z-report" variant="secondary" onPress={handlePrintZReport} style={styles.halfButton} />
+            <Button title="Cetak laporan" variant="secondary" onPress={handlePrintZReport} style={styles.halfButton} />
             <Button
-              title={closeShift.isPending ? "Closing…" : "Close shift"}
+              title={closeShift.isPending ? "Menutup…" : "Tutup shift"}
               onPress={handleClose}
               disabled={closeShift.isPending || counted.trim() === ""}
               loading={closeShift.isPending}
@@ -163,7 +163,7 @@ export function ShiftCloseScreen() {
         </>
       )}
 
-      {closeResult ? <Button title="Back to Home" onPress={handleDone} fullWidth style={styles.doneButton} /> : null}
+      {closeResult ? <Button title="Kembali ke Beranda" onPress={handleDone} fullWidth style={styles.doneButton} /> : null}
 
       <PrintSheetScreen
         visible={printSheetVisible}

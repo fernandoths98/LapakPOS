@@ -276,25 +276,25 @@ export function buildZReportLines(report: ZReportResponse, merchantName: string)
   const { shift, running, discrepancy } = report;
   const lines: ReceiptLine[] = [];
   lines.push({ text: truncate(merchantName.toUpperCase(), RECEIPT_WIDTH), align: "center", bold: true });
-  lines.push({ text: "Z-REPORT", align: "center" });
+  lines.push({ text: "LAPORAN SHIFT", align: "center" });
   lines.push({ text: dashedRule() });
-  lines.push({ text: formatRow("Opened", formatTime(shift.openedAt)) });
+  lines.push({ text: formatRow("Dibuka", formatTime(shift.openedAt)) });
   if (shift.closedAt) {
-    lines.push({ text: formatRow("Closed", formatTime(shift.closedAt)) });
+    lines.push({ text: formatRow("Ditutup", formatTime(shift.closedAt)) });
   }
-  lines.push({ text: formatRow("Cashier", shift.userName) });
+  lines.push({ text: formatRow("Kasir", shift.userName) });
   lines.push({ text: dashedRule() });
-  lines.push({ text: formatRow("Opening float", formatRupiah(running.openingFloat)) });
-  lines.push({ text: formatRow("Cash sales", formatRupiah(running.cashSales)) });
-  lines.push({ text: formatRow("PPOB cash in", formatRupiah(running.ppobCashIn)) });
-  lines.push({ text: formatRow("Paid out", `- ${formatRupiah(running.paidOut)}`) });
+  lines.push({ text: formatRow("Modal awal", formatRupiah(running.openingFloat)) });
+  lines.push({ text: formatRow("Jual tunai", formatRupiah(running.cashSales)) });
+  lines.push({ text: formatRow("Tunai PPOB", formatRupiah(running.ppobCashIn)) });
+  lines.push({ text: formatRow("Pengeluaran", `- ${formatRupiah(running.paidOut)}`) });
   lines.push({ text: dashedRule() });
-  lines.push({ text: formatRow("Expected in drawer", formatRupiah(running.expectedCash)), bold: true });
+  lines.push({ text: formatRow("Seharusnya", formatRupiah(running.expectedCash)), bold: true });
   if (shift.countedCash != null) {
-    lines.push({ text: formatRow("Counted in drawer", formatRupiah(shift.countedCash)) });
+    lines.push({ text: formatRow("Dihitung", formatRupiah(shift.countedCash)) });
   }
   if (discrepancy != null) {
-    const label = discrepancy === 0 ? "Balanced" : discrepancy > 0 ? "Over by" : "Short by";
+    const label = discrepancy === 0 ? "Pas" : discrepancy > 0 ? "Lebih" : "Kurang";
     lines.push({ text: formatRow(label, formatRupiah(Math.abs(discrepancy))) });
   }
   lines.push({ text: dashedRule() });

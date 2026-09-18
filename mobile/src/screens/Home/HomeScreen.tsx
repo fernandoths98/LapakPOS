@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -29,8 +29,9 @@ import { formatRupiah } from '@lapak/shared';
 import { Text } from '../../theme/Text';
 import { OutletSwitcher } from '../../components/OutletSwitcher';
 import { OutletsSummaryCard } from '../../components/OutletsSummaryCard';
+import { useFeature } from '../../state/api/merchant';
 import { TrialBanner } from '../../components/TrialBanner';
-import { colors, radius, space } from '../../theme/tokens';
+import { colors, radius, shadow, space } from '../../theme/tokens';
 import { useTodaySummary, useHomeAlerts } from '../../state/api/home';
 import { useMerchant } from '../../state/api/merchant';
 import { useCurrentShift } from '../../state/api/shifts';
@@ -51,14 +52,6 @@ function formatTodayHeading(): string {
   }).format(new Date());
 }
 
-function formatYesterdayShort(): string {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  return new Intl.DateTimeFormat('id-ID', { weekday: 'short' }).format(
-    yesterday,
-  );
-}
-
 function formatOpenedAt(iso: string): string {
   return new Date(iso).toLocaleTimeString('id-ID', {
     hour: '2-digit',
@@ -75,12 +68,12 @@ export function HomeScreen() {
   const navigation = useNavigation<HomeNavigationProp>();
 
   const merchantQuery = useMerchant();
+  const has = useFeature();
   const summaryQuery = useTodaySummary();
   const alertsQuery = useHomeAlerts();
   const currentShiftQuery = useCurrentShift();
-  const recapQuery = useDailyRecap();
+  const recapQuery = useDailyRecap(has('ai'));
 
-  const yesterdayShort = useMemo(formatYesterdayShort, []);
 
   if (
     merchantQuery.isLoading ||
@@ -103,7 +96,6 @@ export function HomeScreen() {
   const changeIsUp = change >= 0;
   // Green when takings grew, red when they fell — previously red meant "up",
   // which read backwards and spent the action colour on a status.
-  const changeColor = changeIsUp ? colors.moneyUp : colors.accent700;
 
   const recapLine = recapQuery.isLoading
     ? RECAP_LOADING_LINE
@@ -119,12 +111,16 @@ export function HomeScreen() {
     icon: LucideIcon;
     go: () => void;
   }[] = [
-    {
-      title: 'Jual PPOB',
-      sub: 'Pulsa, token, tagihan',
-      icon: ReceiptText,
-      go: () => navigation.navigate('BillsTab', { screen: 'Bills' }),
-    },
+    ...(has('ppob')
+      ? [
+          {
+            title: 'Jual PPOB',
+            sub: 'Pulsa, token, tagihan',
+            icon: ReceiptText,
+            go: () => navigation.navigate('BillsTab', { screen: 'Bills' }),
+          },
+        ]
+      : []),
     {
       title: 'Pengeluaran',
       sub: 'Catat kas keluar',
@@ -164,7 +160,7 @@ export function HomeScreen() {
               <Text variant="caption" color={colors.neutral600}>
                 {formatTodayHeading()}
               </Text>
-              <OutletSwitcher />
+              {has('outlets') ? <OutletSwitcher /> : null}
             </View>
           </View>
           <Pressable
@@ -178,7 +174,8 @@ export function HomeScreen() {
 
         <TrialBanner />
 
-        <Pressable
+        {has('shift') ? (
+<Pressable
           onPress={() =>
             navigation.navigate(shift ? 'ShiftClose' : 'OpenShift')
           }
@@ -204,10 +201,11 @@ export function HomeScreen() {
           </View>
           <ArrowRight size={18} color={colors.neutral500} />
         </Pressable>
+        ) : null}
 
         <View style={styles.takings}>
-          <Text variant="kicker">PENJUALAN HARI INI</Text>
-          <Text variant="money" style={styles.takingsTotal}>
+          <Text variant="kicker" color={HERO_MUTED}>PENJUALAN HARI INI</Text>
+          <Text variant="money" color={colors.surface} style={styles.takingsTotal}>
             {formatRupiah(summary?.total ?? 0)}
           </Text>
 
@@ -219,36 +217,35 @@ export function HomeScreen() {
               style={[
                 styles.deltaPill,
                 {
-                  backgroundColor: changeIsUp
-                    ? colors.moneyUpBg
-                    : colors.accent100,
+                  backgroundColor: 'rgba(255,255,255,0.16)',
                 },
               ]}
             >
               {changeIsUp ? (
-                <TrendingUp size={13} color={changeColor} strokeWidth={2.6} />
+                <TrendingUp size={13} color={colors.surface} strokeWidth={2.6} />
               ) : (
-                <TrendingDown size={13} color={changeColor} strokeWidth={2.6} />
+                <TrendingDown size={13} color={colors.surface} strokeWidth={2.6} />
               )}
               <Text
                 variant="caption"
-                color={changeColor}
+                color={colors.surface}
                 style={styles.deltaValue}
               >
                 {Math.abs(Math.round(change))}%
               </Text>
             </View>
-            <Text variant="caption" color={colors.neutral600}>
-              dibanding {yesterdayShort}
+            <Text variant="caption" color={HERO_MUTED}>
+              dibanding kemarin
             </Text>
           </View>
 
           <View style={styles.takingsMetaRow}>
-            <Metric label="TRANSAKSI" value={`${summary?.count ?? 0}`} />
+            <Metric label="TRANSAKSI" value={`${summary?.count ?? 0}`} onHero />
             <View style={styles.metricDivider} />
             <Metric
               label="RATA-RATA"
               value={formatRupiah(summary?.avgTicket ?? 0)}
+              onHero
             />
           </View>
         </View>
@@ -260,7 +257,12 @@ export function HomeScreen() {
             which is not enough for a seven-digit rupiah amount. Stacking also
             gives the bars one shared baseline, so the split is comparable. */}
         <View style={styles.tenderStrip}>
-          {(summary?.tenderMix ?? []).map(t => (
+          {!summary?.tenderMix?.length ? (
+            <Text variant="body" color={colors.neutral600}>
+              Belum ada pembayaran hari ini.
+            </Text>
+          ) : null}
+          {(summary?.tenderMix ?? []).filter(t => has('ppob') || t.label !== 'PPOB').map(t => (
             <View key={t.label} style={styles.tenderRow}>
               <View style={styles.tenderRowHead}>
                 <Text variant="body" color={colors.neutral800}>
@@ -282,9 +284,10 @@ export function HomeScreen() {
           ))}
         </View>
 
-        <OutletsSummaryCard />
+        {has('outlets') ? <OutletsSummaryCard /> : null}
 
-        <Pressable
+        {has('ai') ? (
+<Pressable
           style={styles.recapCard}
           onPress={() =>
             navigation.navigate('RecapTab', {
@@ -301,6 +304,7 @@ export function HomeScreen() {
           </View>
           <ArrowRight size={20} color={colors.neutral500} />
         </Pressable>
+        ) : null}
 
         <Text variant="kicker" style={styles.sectionTitle}>
           AKSES CEPAT
@@ -366,19 +370,21 @@ function Metric({
   label,
   value,
   valueColor,
+  onHero,
 }: {
   label: string;
   value: string;
   valueColor?: string;
+  onHero?: boolean;
 }) {
   return (
     <View style={styles.metric}>
-      <Text variant="kicker" color={colors.neutral500}>
+      <Text variant="kicker" color={onHero ? HERO_MUTED : colors.neutral500}>
         {label}
       </Text>
       <Text
         variant="tabular"
-        color={valueColor ?? colors.text}
+        color={valueColor ?? (onHero ? colors.surface : colors.text)}
         style={styles.metricValue}
       >
         {value}
@@ -386,6 +392,9 @@ function Metric({
     </View>
   );
 }
+
+/** Secondary text on the dark takings card — 7:1 against accent2700. */
+const HERO_MUTED = '#C9D8F5';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
@@ -412,8 +421,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    ...shadow.sm,
   },
   shiftRow: {
     marginTop: space[4],
@@ -422,20 +430,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: space[3],
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
+    ...shadow.sm,
+    borderRadius: radius.lg,
   },
   shiftCopy: { flex: 1, marginHorizontal: space[2] },
   shiftTitle: { fontWeight: '600' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   takings: {
     marginTop: space[4],
-    padding: space[4],
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
+    padding: space[6],
+    backgroundColor: colors.accent2700,
+    ...shadow.md,
+    borderRadius: radius.lg,
   },
   // No fontSize here: the `money` variant governs the hero figure.
   takingsTotal: { marginTop: space[1] },
@@ -461,15 +467,14 @@ const styles = StyleSheet.create({
     marginTop: space[4],
     paddingTop: space[3],
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: 'rgba(255,255,255,0.18)',
   },
   metric: { flex: 1 },
-  metricDivider: { width: 1, alignSelf: 'stretch', backgroundColor: colors.divider },
+  metricDivider: { width: 1, alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.18)' },
   metricValue: { marginTop: 4, fontSize: 18 },
   tenderStrip: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
+    ...shadow.sm,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     padding: space[4],
     gap: space[3],
@@ -487,14 +492,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral200,
     overflow: 'hidden',
   },
-  tenderBarFill: { height: 6, borderRadius: 3, backgroundColor: colors.text },
+  tenderBarFill: { height: 6, borderRadius: 3, backgroundColor: colors.accent2600 },
   recapCard: {
     marginTop: space[4],
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
+    ...shadow.sm,
+    borderRadius: radius.lg,
     padding: space[4],
     backgroundColor: colors.surface,
   },
@@ -507,9 +511,8 @@ const styles = StyleSheet.create({
     minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
+    ...shadow.sm,
+    borderRadius: radius.lg,
     padding: space[3],
     backgroundColor: colors.surface,
   },

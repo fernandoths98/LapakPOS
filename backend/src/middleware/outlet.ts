@@ -23,7 +23,7 @@ export async function resolveOutlet(req: Request, _res: Response, next: NextFunc
   const canSwitch = role === "owner" || role === "manager";
 
   if (requested && !canSwitch && requested !== tokenOutletId) {
-    return next(forbidden("You cannot act on behalf of another outlet"));
+    return next(forbidden("Anda tidak punya akses ke outlet ini."));
   }
 
   let outletId = (canSwitch ? requested : undefined) ?? tokenOutletId ?? undefined;
@@ -33,14 +33,14 @@ export async function resolveOutlet(req: Request, _res: Response, next: NextFunc
       where: { id: outletId, merchantId, isActive: true },
       select: { id: true },
     });
-    if (!outlet) return next(forbidden("Outlet not found for this merchant"));
+    if (!outlet) return next(forbidden("Outlet tidak ditemukan."));
   } else {
     const primary = await prisma.outlet.findFirst({
       where: { merchantId, isActive: true },
       orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
       select: { id: true },
     });
-    if (!primary) return next(badRequest("No outlet is configured for this business yet"));
+    if (!primary) return next(badRequest("Usaha ini belum punya outlet."));
     outletId = primary.id;
   }
 

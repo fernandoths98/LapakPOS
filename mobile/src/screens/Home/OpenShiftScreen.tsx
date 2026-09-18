@@ -31,21 +31,21 @@ export function OpenShiftScreen() {
       await openShift.mutateAsync({ openingFloat: floatAmount });
       navigation.navigate("Home");
     } catch (err) {
-      setErrorMessage(extractErrorMessage(err, "Couldn't open the shift. Check your connection and try again."));
+      setErrorMessage(extractErrorMessage(err, "Shift gagal dibuka. Periksa internet lalu coba lagi."));
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text variant="h2">Open shift</Text>
+      <Text variant="h2">Buka shift</Text>
       <Text variant="body" color={colors.neutral700} style={styles.intro}>
-        Count the cash in the drawer before your first sale — this becomes the opening float for today's shift.
+        Hitung uang di laci sebelum mulai jualan. Jumlah ini dicatat sebagai modal awal kas hari ini.
       </Text>
 
       <View style={styles.fields}>
         <TextField
-          label="Opening float"
+          label="Modal awal di laci"
           value={openingFloat}
           onChangeText={(v) => {
             setOpeningFloat(v);
@@ -63,7 +63,7 @@ export function OpenShiftScreen() {
       ) : null}
 
       <Button
-        title={openShift.isPending ? "Opening…" : "Open shift"}
+        title={openShift.isPending ? "Membuka…" : "Buka shift"}
         onPress={handleOpen}
         disabled={openShift.isPending}
         loading={openShift.isPending}

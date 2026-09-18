@@ -26,9 +26,9 @@ export function StockStack() {
       <Stack.Screen
         name="Product"
         component={ProductScreen}
-        options={{ title: "Product", headerBackTitle: "Stock" }}
+        options={{ title: "", headerBackTitle: "Stok" }}
       />
-      <Stack.Screen name="Sheet" component={SheetScreen} options={{ title: "Excel", headerBackTitle: "Stock" }} />
+      <Stack.Screen name="Sheet" component={SheetScreen} options={{ title: "", headerBackTitle: "Stok" }} />
       <Stack.Screen name="OutletInventory" component={OutletInventoryScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );

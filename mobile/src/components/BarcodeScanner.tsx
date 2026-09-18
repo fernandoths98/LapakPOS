@@ -87,7 +87,7 @@ export function BarcodeScanner({ visible, onScanned, onClose }: BarcodeScannerPr
         ) : (
           <View style={styles.fallback}>
             <Text variant="h3" style={styles.fallbackTitle}>
-              {permissionDenied ? "Camera permission needed" : "Starting camera…"}
+              {permissionDenied ? "Izin kamera diperlukan" : "Menyalakan kamera…"}
             </Text>
             {permissionDenied ? (
               <Text variant="body" color={colors.neutral300} style={styles.fallbackBody}>
@@ -97,7 +97,7 @@ export function BarcodeScanner({ visible, onScanned, onClose }: BarcodeScannerPr
             ) : null}
             {!device && hasPermission ? (
               <Text variant="body" color={colors.neutral300} style={styles.fallbackBody}>
-                No camera was found on this device.
+                Kamera tidak ditemukan di HP ini.
               </Text>
             ) : null}
           </View>
@@ -107,7 +107,7 @@ export function BarcodeScanner({ visible, onScanned, onClose }: BarcodeScannerPr
           <View style={styles.frameBox} />
         </View>
 
-        <Pressable onPress={onClose} style={styles.closeButton} accessibilityRole="button">
+        <Pressable onPress={onClose} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Tutup kamera">
           <Text variant="h3" color={colors.bg}>
             ✕
           </Text>
@@ -116,7 +116,7 @@ export function BarcodeScanner({ visible, onScanned, onClose }: BarcodeScannerPr
         {permissionDenied ? (
           <View style={styles.retryRow}>
             <Button
-              title="Open settings / try again"
+              title="Coba izinkan lagi"
               onPress={() => {
                 setPermissionDenied(false);
                 requestPermission()

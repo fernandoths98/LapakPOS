@@ -1,8 +1,10 @@
 import bcrypt from "bcryptjs";
+import { FEATURE_KEYS, FeatureKey } from "@lapak/shared";
 import { AccountSetupResponse, CreateOutletRequest, CreateStaffRequest, MerchantResponse, OutletDto, StaffDto } from "@lapak/shared";
 import { prisma } from "../../db/prisma";
 import { assertWithinQuota } from "../subscription/entitlements.service";
 import { notFound } from "../../utils/errors";
+import { saveUploadedImage } from "../products/products.photo";
 
 /**
  * GET /api/merchant/me — the caller's own merchant record. Home needs the
@@ -22,8 +24,23 @@ export async function getMyMerchant(merchantId: string): Promise<MerchantRespons
     address: merchant.address,
     phone: merchant.phone,
     defaultPrinterName: merchant.defaultPrinterName,
+    qrisImageUrl: merchant.qrisImageUrl,
+    features: merchant.features.filter((f): f is FeatureKey => (FEATURE_KEYS as readonly string[]).includes(f)),
     createdAt: merchant.createdAt.toISOString(),
   };
+}
+
+/** PUT /api/merchant/qris — stores the shop's own QRIS image; null clears it. */
+export async function setQrisImage(merchantId: string, image: { imageBase64: string; mimeType: string } | null): Promise<MerchantResponse> {
+  const qrisImageUrl = image ? saveUploadedImage("qris", image.imageBase64, image.mimeType) : null;
+  await prisma.merchant.update({ where: { id: merchantId }, data: { qrisImageUrl } });
+  return getMyMerchant(merchantId);
+}
+
+/** PUT /api/merchant/features — replaces the shop's set of switched-on feature groups. */
+export async function setFeatures(merchantId: string, features: FeatureKey[]): Promise<MerchantResponse> {
+  await prisma.merchant.update({ where: { id: merchantId }, data: { features: [...new Set(features)] } });
+  return getMyMerchant(merchantId);
 }
 
 const outletDto = (outlet: { id: string; name: string; code: string; address: string | null; phone: string | null; isPrimary: boolean; type: "owned" | "franchise"; timezone: string; isActive: boolean; createdAt: Date }): OutletDto => ({ ...outlet, createdAt: outlet.createdAt.toISOString() });

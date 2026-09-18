@@ -32,6 +32,7 @@ import { Button } from "../../components/Button";
 import { PlanUpsell } from "../../components/PlanUpsell";
 import { isPlanLimitError } from "../../state/api/apiClient";
 import { colors, fonts, radius, shadow, space } from "../../theme/tokens";
+import { useFeature } from "../../state/api/merchant";
 import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWeeklyReports } from "../../state/api/recap";
 import { RecapStackParamList } from "../../app/stacks/RecapStack";
 
@@ -407,6 +408,7 @@ function ChatBubble({ role, text, muted }: { role: AiChatMessage["role"]; text: 
 
 function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "Ask") => void }) {
   const reportsQuery = useWeeklyReports();
+  const has = useFeature();
 
   if (reportsQuery.isLoading) {
     return <ActivityIndicator style={styles.loading} color={colors.accent} />;
@@ -439,12 +441,12 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
       <View style={styles.revenueCard}>
         <Text variant="kicker" color={colors.neutral600}>TOTAL OMZET</Text>
         <Text variant="h1" style={styles.revenueValue}>{formatRupiah(weeklyTotal)}</Text>
-        <Text variant="caption" color={colors.neutral600}>Penjualan barang dan transaksi PPOB</Text>
+        <Text variant="caption" color={colors.neutral600}>{has("ppob") ? "Penjualan barang dan transaksi PPOB" : "Total penjualan barang"}</Text>
       </View>
 
       <View style={styles.metricGrid}>
         <MetricCard label="RATA-RATA / HARI AKTIF" value={formatRupiah(averagePerActiveDay)} />
-        <MetricCard label="KONTRIBUSI PPOB" value={formatRupiah(ppobTotal)} note={`${ppobPercentage}% dari omzet`} />
+        {has("ppob") ? <MetricCard label="KONTRIBUSI PPOB" value={formatRupiah(ppobTotal)} note={`${ppobPercentage}% dari omzet`} /> : null}
       </View>
 
       <View style={styles.reportBlock}>
@@ -453,7 +455,7 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
         <WeeklyBarChart bars={bars} />
         <View style={styles.legendRow}>
           <LegendSwatch label="Omzet total" color={colors.neutral300} />
-          <LegendSwatch label="Bagian PPOB" color={colors.accent2} />
+          {has("ppob") ? <LegendSwatch label="Bagian PPOB" color={colors.accent2} /> : null}
         </View>
       </View>
 
@@ -462,9 +464,9 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
         <View style={styles.reportTableHeader}>
           <Text variant="kicker" color={colors.neutral600} style={styles.dayColumn}>HARI</Text>
           <Text variant="kicker" color={colors.neutral600} style={styles.amountColumn}>OMZET</Text>
-          <Text variant="kicker" color={colors.neutral600} style={styles.amountColumn}>PPOB</Text>
+          {has("ppob") ? <Text variant="kicker" color={colors.neutral600} style={styles.amountColumn}>PPOB</Text> : null}
         </View>
-        {bars.map((bar, index) => <DailyReportRow key={`${bar.label}-${index}-detail`} bar={bar} />)}
+        {bars.map((bar, index) => <DailyReportRow key={`${bar.label}-${index}-detail`} bar={bar} showPpob={has("ppob")} />)}
       </View>
 
       <View style={styles.reportBlock}>
@@ -488,6 +490,7 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
         <Text variant="caption" color={colors.neutral500} style={styles.marginNote}>Estimasi laba dihitung dari harga jual dikurangi harga modal yang tersimpan.</Text>
       </View>
 
+      {has("ai") ? (
       <View style={styles.assistantSection}>
         <Text variant="h3">Butuh bantuan membaca laporan?</Text>
         <Text variant="caption" color={colors.neutral600} style={styles.blockCaption}>AI hanya membaca data toko dan tidak dapat mengubah transaksi.</Text>
@@ -500,6 +503,7 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
           </Pressable>
         </View>
       </View>
+      ) : null}
     </View>
   );
 }
@@ -508,12 +512,12 @@ function MetricCard({ label, value, note }: { label: string; value: string; note
   return <View style={styles.metricCard}><Text variant="kicker" color={colors.neutral600}>{label}</Text><Text variant="h3" style={styles.metricValue}>{value}</Text>{note ? <Text variant="caption" color={colors.neutral600}>{note}</Text> : null}</View>;
 }
 
-function DailyReportRow({ bar }: { bar: WeeklyBar }) {
+function DailyReportRow({ bar, showPpob }: { bar: WeeklyBar; showPpob: boolean }) {
   return (
     <View style={styles.dailyRow}>
       <Text variant="body" style={styles.dayColumn}>{bar.label}</Text>
       <Text variant="tabular" style={styles.amountColumn}>{formatRupiah(bar.total)}</Text>
-      <Text variant="tabular" color={colors.neutral700} style={styles.amountColumn}>{formatRupiah(bar.ppobShare)}</Text>
+      {showPpob ? <Text variant="tabular" color={colors.neutral700} style={styles.amountColumn}>{formatRupiah(bar.ppobShare)}</Text> : null}
     </View>
   );
 }

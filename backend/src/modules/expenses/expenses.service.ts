@@ -33,7 +33,7 @@ export async function createExpense(
   body: CreateExpenseRequest,
 ): Promise<ExpenseDto> {
   if (body.amount <= 0) {
-    throw badRequest("Expense amount must be greater than 0");
+    throw badRequest("Nominal pengeluaran harus lebih dari 0");
   }
 
   const shift = await getOrOpenCurrentShift(merchantId, userId, outletId);

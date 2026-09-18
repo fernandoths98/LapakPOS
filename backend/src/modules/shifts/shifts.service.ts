@@ -114,15 +114,15 @@ async function computeRunningTotals(
 function buildDiscrepancyMessage(diff: number): { title: string; body: string } {
   if (diff === 0) {
     return {
-      title: "Drawer balances",
-      body: "Counted cash matches what today's sales, PPOB and expenses add up to. Nothing to review.",
+      title: "Uang di laci pas",
+      body: "Uang yang dihitung sama dengan catatan penjualan, PPOB, dan pengeluaran hari ini.",
     };
   }
   const isShort = diff > 0;
-  const title = isShort ? `Short by ${formatRupiah(diff)}` : `Over by ${formatRupiah(-diff)}`;
+  const title = isShort ? `Kurang ${formatRupiah(diff)}` : `Lebih ${formatRupiah(-diff)}`;
   const body =
-    `Counted cash is ${formatRupiah(Math.abs(diff))} ${isShort ? "short of" : "over"} what today's sales, ` +
-    "PPOB and expenses add up to. Recount the drawer or review today's transactions before closing.";
+    `Uang di laci ${isShort ? "kurang" : "lebih"} ${formatRupiah(Math.abs(diff))} dari catatan penjualan, ` +
+    "PPOB, dan pengeluaran hari ini. Hitung ulang uangnya atau cek transaksi hari ini sebelum menutup shift.";
   return { title, body };
 }
 
@@ -159,12 +159,12 @@ export async function openShift(
   body: OpenShiftRequest,
 ): Promise<ShiftDto> {
   if (body.openingFloat < 0) {
-    throw badRequest("Opening float cannot be negative");
+    throw badRequest("Modal awal tidak boleh minus");
   }
 
   const existing = await prisma.shift.findFirst({ where: { merchantId, outletId, status: "open" } });
   if (existing) {
-    throw badRequest("A shift is already open for this outlet. Close it before opening a new one.");
+    throw badRequest("Masih ada shift yang terbuka di outlet ini. Tutup dulu sebelum membuka yang baru.");
   }
 
   const shift = await prisma.shift.create({
@@ -228,7 +228,7 @@ export async function closeShift(
   body: CloseShiftRequest,
 ): Promise<CloseShiftResponse> {
   if (body.countedCash < 0) {
-    throw badRequest("Counted cash cannot be negative");
+    throw badRequest("Jumlah uang tidak boleh minus");
   }
 
   const { updated, running, discrepancy } = await prisma.$transaction(async (tx) => {
@@ -237,7 +237,7 @@ export async function closeShift(
       throw notFound("Shift");
     }
     if (shift.status !== "open") {
-      throw badRequest("This shift is already closed");
+      throw badRequest("Shift ini sudah ditutup");
     }
 
     const running = await computeRunningTotals(merchantId, shift.id, shift.openingFloat, tx);

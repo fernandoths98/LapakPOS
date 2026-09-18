@@ -34,7 +34,7 @@ type PrintState = "idle" | "printing" | "done" | "error";
 
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
-  return "Couldn't reach the printer. Check it's on and in range, and try again.";
+  return "Printer tidak terhubung. Pastikan printer menyala dan dekat, lalu coba lagi.";
 }
 
 /**
@@ -126,7 +126,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose} statusBarTranslucent navigationBarTranslucent>
       <SafeAreaView style={styles.wrapper} edges={["left", "right", "bottom"]}>
-        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityRole="button" accessibilityLabel="Tutup" />
         <View style={styles.sheet}>
           <View style={styles.grabber} />
           <View style={styles.titleRow}>
@@ -199,7 +199,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
                     onPress={() => setCopies((c) => Math.max(1, c - 1))}
                     style={styles.stepperButton}
                     accessibilityRole="button"
-                    accessibilityLabel="Decrease copies"
+                    accessibilityLabel="Kurangi jumlah salinan"
                   >
                     <Text variant="h3">−</Text>
                   </Pressable>
@@ -210,7 +210,7 @@ export function PrintSheetScreen({ visible, onClose, jobType, lines }: PrintShee
                     onPress={() => setCopies((c) => Math.min(3, c + 1))}
                     style={styles.stepperButton}
                     accessibilityRole="button"
-                    accessibilityLabel="Increase copies"
+                    accessibilityLabel="Tambah jumlah salinan"
                   >
                     <Text variant="h3">+</Text>
                   </Pressable>

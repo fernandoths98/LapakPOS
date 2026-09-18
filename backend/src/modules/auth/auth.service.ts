@@ -23,15 +23,15 @@ function issueToken(user: { id: string; merchantId: string; role: UserRole; outl
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    throw unauthorized("Invalid email or password");
+    throw unauthorized("Email atau password salah");
   }
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash);
   if (!passwordMatches) {
-    throw unauthorized("Invalid email or password");
+    throw unauthorized("Email atau password salah");
   }
 
-  if (!user.isActive) throw unauthorized("Account is inactive");
+  if (!user.isActive) throw unauthorized("Akun ini sudah dinonaktifkan. Hubungi pemilik toko.");
   const token = issueToken({ id: user.id, merchantId: user.merchantId, role: user.role as UserRole, outletId: user.outletId });
 
   return {
@@ -128,7 +128,7 @@ export async function register(input: RegisterRequest): Promise<RegisterResponse
 export async function getUserById(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
-    throw unauthorized("User no longer exists");
+    throw unauthorized("Akun tidak ditemukan. Silakan masuk lagi.");
   }
   return {
     id: user.id,

@@ -8,6 +8,7 @@ import { ProfileScreen } from "../../screens/Profile/ProfileScreen";
 import { AccountManagementScreen } from "../../screens/Profile/AccountManagementScreen";
 import { SubscriptionScreen } from "../../screens/Profile/SubscriptionScreen";
 import { FranchiseScreen } from "../../screens/Profile/FranchiseScreen";
+import { FeaturesScreen } from "../../screens/Profile/FeaturesScreen";
 import { stackScreenOptions } from "./stackScreenOptions";
 
 export type HomeStackParamList = {
@@ -23,6 +24,7 @@ export type HomeStackParamList = {
   AccountManagement: undefined;
   Subscription: undefined;
   Franchise: undefined;
+  Features: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -35,22 +37,23 @@ export function HomeStack() {
       <Stack.Screen
         name="OpenShift"
         component={OpenShiftScreen}
-        options={{ title: "Open shift", headerBackTitle: "Home" }}
+        options={{ title: "", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen
         name="ShiftClose"
         component={ShiftCloseScreen}
-        options={{ title: "Close shift", headerBackTitle: "Home" }}
+        options={{ title: "Tutup shift", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen
         name="AddExpense"
         component={AddExpenseScreen}
-        options={{ title: "Add expense", headerBackTitle: "Home" }}
+        options={{ title: "", headerBackTitle: "Beranda" }}
       />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AccountManagement" component={AccountManagementScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Subscription" component={SubscriptionScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Franchise" component={FranchiseScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Features" component={FeaturesScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
