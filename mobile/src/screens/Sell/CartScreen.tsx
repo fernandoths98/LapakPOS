@@ -26,7 +26,7 @@ import {
 } from '../../state/cart/cartStore';
 import { generateClientId, useCreateSale } from '../../state/api/sales';
 import { useCurrentShift } from '../../state/api/shifts';
-import { useMerchant } from '../../state/api/merchant';
+import { useFeature, useMerchant } from '../../state/api/merchant';
 import { uploadUrl } from '../../state/api/apiClient';
 import { enqueue } from '../../state/offline/pendingSalesQueue';
 import { SellStackParamList } from '../../app/stacks/SellStack';
@@ -57,6 +57,11 @@ export function CartScreen() {
   const bump = useCartStore(s => s.bump);
   const [tender, setTender] = useState<TenderLabel | null>(null);
   const qrisImageUrl = useMerchant().data?.qrisImageUrl ?? null;
+  const has = useFeature();
+  // Without the shift feature the server opens a shift on the first sale by
+  // itself, so the cashier is never blocked on one.
+  const needsShift = has('shift');
+  const tenderOptions = has('advancedTender') ? TENDER_OPTIONS : TENDER_OPTIONS.filter(o => o === 'Tunai' || o === 'QRIS');
   const [splitPct, setSplitPct] = useState(60);
   const [discountText, setDiscountText] = useState('');
   const [discountFocused, setDiscountFocused] = useState(false);
@@ -84,7 +89,7 @@ export function CartScreen() {
   const canPay =
     cartLines.length > 0 &&
     total > 0 &&
-    Boolean(currentShift?.shift) &&
+    (!needsShift || Boolean(currentShift?.shift)) &&
     tender !== null &&
     cashIsEnough &&
     !createSale.isPending;
@@ -185,7 +190,7 @@ export function CartScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
       >
-        {!currentShift?.shift ? (
+        {needsShift && !currentShift?.shift ? (
           <View style={styles.shiftWarning}>
             <Text variant="h3" color={colors.accent700}>Shift belum dibuka</Text>
             <Text variant="caption" color={colors.neutral700} style={styles.shiftWarningText}>
@@ -288,7 +293,7 @@ export function CartScreen() {
           METODE PEMBAYARAN
         </Text>
         <View style={styles.tenderGrid}>
-          {TENDER_OPTIONS.map(option => (
+          {tenderOptions.map(option => (
             <TenderPill
               key={option}
               label={option}

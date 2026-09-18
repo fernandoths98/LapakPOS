@@ -47,3 +47,11 @@ export type RecapKind = (typeof RECAP_KINDS)[number];
 
 export const EXPENSE_SOURCES = ["manual", "ai_photo"] as const;
 export type ExpenseSource = (typeof EXPENSE_SOURCES)[number];
+
+/**
+ * Optional feature groups a shop switches on from Profil → Fitur tambahan.
+ * A new shop starts with none of them (the simple mode: sell, stock, report);
+ * shops that existed before this setting keep everything they already had.
+ */
+export const FEATURE_KEYS = ["ppob", "shift", "outlets", "staff", "ai", "advancedTender"] as const;
+export type FeatureKey = (typeof FEATURE_KEYS)[number];

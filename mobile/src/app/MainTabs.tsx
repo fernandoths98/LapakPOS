@@ -18,6 +18,7 @@ import { Text } from '../theme/Text';
 import { colors, shadow } from '../theme/tokens';
 import { useAuthStore } from '../state/auth/authStore';
 import { Walkthrough } from '../components/Walkthrough';
+import { useFeature } from '../state/api/merchant';
 import { HomeStack, HomeStackParamList } from './stacks/HomeStack';
 import { SellStack } from './stacks/SellStack';
 import { BillsStack, BillsStackParamList } from './stacks/BillsStack';
@@ -135,7 +136,10 @@ const TAB_COMPONENTS: Record<keyof MainTabsParamList, React.ComponentType> = {
 
 export function MainTabs() {
   const role = useAuthStore((s) => s.user?.role) ?? 'owner';
-  const visibleTabs = TABS_BY_ROLE[role] ?? TABS_BY_ROLE.owner;
+  const has = useFeature();
+  const visibleTabs = (TABS_BY_ROLE[role] ?? TABS_BY_ROLE.owner).filter(
+    (tab) => tab !== 'BillsTab' || has('ppob'),
+  );
   return (
     <>
       <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={renderTabBar}>

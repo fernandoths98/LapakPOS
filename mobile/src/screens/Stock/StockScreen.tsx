@@ -9,11 +9,13 @@ import { Text } from "../../theme/Text";
 import { TextField } from "../../components/TextField";
 import { colors, radius, space } from "../../theme/tokens";
 import { useProducts } from "../../state/api/products";
+import { useFeature } from "../../state/api/merchant";
 import { StockStackParamList } from "../../app/stacks/StockStack";
 
 export function StockScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<StockStackParamList>>();
   const [query, setQuery] = useState("");
+  const has = useFeature();
 
   // Stats are from the full unfiltered catalog; the visible rows use the
   // same live query, filtered by `query`.
@@ -40,7 +42,7 @@ export function StockScreen() {
             <Text variant="h2" style={styles.title}>Stok</Text>
 
             <View style={styles.actionRow}>
-              <ActionButton icon={Boxes} label="Stok outlet" onPress={() => navigation.navigate("OutletInventory")} />
+              {has("outlets") ? <ActionButton icon={Boxes} label="Stok outlet" onPress={() => navigation.navigate("OutletInventory")} /> : null}
               <ActionButton icon={FileSpreadsheet} label="Excel" onPress={() => navigation.navigate("Sheet")} />
               <ActionButton icon={Plus} label="Produk baru" primary onPress={() => navigation.navigate("Product", undefined)} />
             </View>

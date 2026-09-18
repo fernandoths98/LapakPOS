@@ -8,6 +8,7 @@ import { ProfileScreen } from "../../screens/Profile/ProfileScreen";
 import { AccountManagementScreen } from "../../screens/Profile/AccountManagementScreen";
 import { SubscriptionScreen } from "../../screens/Profile/SubscriptionScreen";
 import { FranchiseScreen } from "../../screens/Profile/FranchiseScreen";
+import { FeaturesScreen } from "../../screens/Profile/FeaturesScreen";
 import { stackScreenOptions } from "./stackScreenOptions";
 
 export type HomeStackParamList = {
@@ -23,6 +24,7 @@ export type HomeStackParamList = {
   AccountManagement: undefined;
   Subscription: undefined;
   Franchise: undefined;
+  Features: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -51,6 +53,7 @@ export function HomeStack() {
       <Stack.Screen name="AccountManagement" component={AccountManagementScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Subscription" component={SubscriptionScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Franchise" component={FranchiseScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Features" component={FeaturesScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

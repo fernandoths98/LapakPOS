@@ -29,6 +29,7 @@ import { formatRupiah } from '@lapak/shared';
 import { Text } from '../../theme/Text';
 import { OutletSwitcher } from '../../components/OutletSwitcher';
 import { OutletsSummaryCard } from '../../components/OutletsSummaryCard';
+import { useFeature } from '../../state/api/merchant';
 import { TrialBanner } from '../../components/TrialBanner';
 import { colors, radius, shadow, space } from '../../theme/tokens';
 import { useTodaySummary, useHomeAlerts } from '../../state/api/home';
@@ -67,6 +68,7 @@ export function HomeScreen() {
   const navigation = useNavigation<HomeNavigationProp>();
 
   const merchantQuery = useMerchant();
+  const has = useFeature();
   const summaryQuery = useTodaySummary();
   const alertsQuery = useHomeAlerts();
   const currentShiftQuery = useCurrentShift();
@@ -109,12 +111,16 @@ export function HomeScreen() {
     icon: LucideIcon;
     go: () => void;
   }[] = [
-    {
-      title: 'Jual PPOB',
-      sub: 'Pulsa, token, tagihan',
-      icon: ReceiptText,
-      go: () => navigation.navigate('BillsTab', { screen: 'Bills' }),
-    },
+    ...(has('ppob')
+      ? [
+          {
+            title: 'Jual PPOB',
+            sub: 'Pulsa, token, tagihan',
+            icon: ReceiptText,
+            go: () => navigation.navigate('BillsTab', { screen: 'Bills' }),
+          },
+        ]
+      : []),
     {
       title: 'Pengeluaran',
       sub: 'Catat kas keluar',
@@ -154,7 +160,7 @@ export function HomeScreen() {
               <Text variant="caption" color={colors.neutral600}>
                 {formatTodayHeading()}
               </Text>
-              <OutletSwitcher />
+              {has('outlets') ? <OutletSwitcher /> : null}
             </View>
           </View>
           <Pressable
@@ -168,7 +174,8 @@ export function HomeScreen() {
 
         <TrialBanner />
 
-        <Pressable
+        {has('shift') ? (
+<Pressable
           onPress={() =>
             navigation.navigate(shift ? 'ShiftClose' : 'OpenShift')
           }
@@ -194,6 +201,7 @@ export function HomeScreen() {
           </View>
           <ArrowRight size={18} color={colors.neutral500} />
         </Pressable>
+        ) : null}
 
         <View style={styles.takings}>
           <Text variant="kicker" color={HERO_MUTED}>PENJUALAN HARI INI</Text>
@@ -254,7 +262,7 @@ export function HomeScreen() {
               Belum ada pembayaran hari ini.
             </Text>
           ) : null}
-          {(summary?.tenderMix ?? []).map(t => (
+          {(summary?.tenderMix ?? []).filter(t => has('ppob') || t.label !== 'PPOB').map(t => (
             <View key={t.label} style={styles.tenderRow}>
               <View style={styles.tenderRowHead}>
                 <Text variant="body" color={colors.neutral800}>
@@ -276,9 +284,10 @@ export function HomeScreen() {
           ))}
         </View>
 
-        <OutletsSummaryCard />
+        {has('outlets') ? <OutletsSummaryCard /> : null}
 
-        <Pressable
+        {has('ai') ? (
+<Pressable
           style={styles.recapCard}
           onPress={() =>
             navigation.navigate('RecapTab', {
@@ -295,6 +304,7 @@ export function HomeScreen() {
           </View>
           <ArrowRight size={20} color={colors.neutral500} />
         </Pressable>
+        ) : null}
 
         <Text variant="kicker" style={styles.sectionTitle}>
           AKSES CEPAT

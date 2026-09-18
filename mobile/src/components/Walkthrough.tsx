@@ -9,7 +9,8 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react-native";
-import type { UserRole } from "@lapak/shared";
+import type { FeatureKey, UserRole } from "@lapak/shared";
+import { useFeature } from "../state/api/merchant";
 import { Text } from "../theme/Text";
 import { Button } from "./Button";
 import { colors, radius, space } from "../theme/tokens";
@@ -22,6 +23,8 @@ interface Step {
   body: string[];
   /** Roles that see this step; omitted means everyone. */
   roles?: UserRole[];
+  /** Only shown when this optional feature is switched on. */
+  feature?: FeatureKey;
 }
 
 /**
@@ -71,6 +74,7 @@ const STEPS: Step[] = [
     icon: ReceiptText,
     title: "Tagihan & pulsa",
     roles: ["owner", "manager", "cashier"],
+    feature: "ppob",
     body: [
       "Menu Tagihan untuk menjual pulsa, token listrik, dan bayar tagihan pelanggan.",
       "Pilih jenisnya, ketik nomor pelanggan, lalu ikuti petunjuk di layar.",
@@ -101,10 +105,13 @@ export function Walkthrough() {
   const forcedOpen = useWalkthroughStore((s) => s.forcedOpen);
   const markSeen = useWalkthroughStore((s) => s.markSeen);
   const [index, setIndex] = useState(0);
+  const has = useFeature();
 
   if (!user) return null;
   const visible = forcedOpen || !seen;
-  const steps = STEPS.filter((step) => !step.roles || step.roles.includes(user.role));
+  const steps = STEPS.filter(
+    (step) => (!step.roles || step.roles.includes(user.role)) && (!step.feature || has(step.feature)),
+  );
   const step = steps[Math.min(index, steps.length - 1)];
   const isLast = index >= steps.length - 1;
   const Icon = step.icon;

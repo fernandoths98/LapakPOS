@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { BookOpen, ChevronLeft, QrCode, ChevronRight, ShieldCheck, Store, UserRound, UsersRound } from "lucide-react-native";
+import { BookOpen, ChevronLeft, QrCode, SlidersHorizontal, ChevronRight, ShieldCheck, Store, UserRound, UsersRound } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../theme/Text";
@@ -102,6 +102,17 @@ export function ProfileScreen({ navigation }: Props) {
             <Pressable onPress={() => navigation.navigate("AccountManagement")} style={styles.managementRow}>
               <View style={styles.managementIcon}><UsersRound size={21} color={colors.accent2} /></View>
               <View style={styles.infoText}><Text variant="body" style={styles.managementTitle}>Outlet, staf, dan paket</Text><Text variant="caption" color={colors.neutral600}>Atur akses kasir dan lihat status langganan</Text></View>
+              <ChevronRight size={19} color={colors.neutral500} />
+            </Pressable>
+          </>
+        ) : null}
+
+        {user?.role === "owner" ? (
+          <>
+            <Text variant="kicker" style={styles.sectionTitle}>PENGATURAN TOKO</Text>
+            <Pressable onPress={() => navigation.navigate("Features")} style={styles.managementRow} accessibilityRole="button">
+              <View style={styles.managementIcon}><SlidersHorizontal size={21} color={colors.accent2} /></View>
+              <View style={styles.infoText}><Text variant="body" style={styles.managementTitle}>Fitur tambahan</Text><Text variant="caption" color={colors.neutral600}>Nyalakan pulsa & tagihan, shift, karyawan, cabang, dan lainnya</Text></View>
               <ChevronRight size={19} color={colors.neutral500} />
             </Pressable>
           </>

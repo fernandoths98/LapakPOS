@@ -17,6 +17,8 @@ export interface Merchant {
   defaultPrinterName: string | null;
   /** The shop's own QRIS image (a path under the API host), or null if not uploaded yet. */
   qrisImageUrl: string | null;
+  /** Optional feature groups this shop has switched on (see FEATURE_KEYS). */
+  features: import("../constants").FeatureKey[];
   createdAt: string;
 }
 

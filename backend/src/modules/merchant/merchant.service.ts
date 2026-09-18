@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { FEATURE_KEYS, FeatureKey } from "@lapak/shared";
 import { AccountSetupResponse, CreateOutletRequest, CreateStaffRequest, MerchantResponse, OutletDto, StaffDto } from "@lapak/shared";
 import { prisma } from "../../db/prisma";
 import { assertWithinQuota } from "../subscription/entitlements.service";
@@ -24,6 +25,7 @@ export async function getMyMerchant(merchantId: string): Promise<MerchantRespons
     phone: merchant.phone,
     defaultPrinterName: merchant.defaultPrinterName,
     qrisImageUrl: merchant.qrisImageUrl,
+    features: merchant.features.filter((f): f is FeatureKey => (FEATURE_KEYS as readonly string[]).includes(f)),
     createdAt: merchant.createdAt.toISOString(),
   };
 }
@@ -32,6 +34,12 @@ export async function getMyMerchant(merchantId: string): Promise<MerchantRespons
 export async function setQrisImage(merchantId: string, image: { imageBase64: string; mimeType: string } | null): Promise<MerchantResponse> {
   const qrisImageUrl = image ? saveUploadedImage("qris", image.imageBase64, image.mimeType) : null;
   await prisma.merchant.update({ where: { id: merchantId }, data: { qrisImageUrl } });
+  return getMyMerchant(merchantId);
+}
+
+/** PUT /api/merchant/features — replaces the shop's set of switched-on feature groups. */
+export async function setFeatures(merchantId: string, features: FeatureKey[]): Promise<MerchantResponse> {
+  await prisma.merchant.update({ where: { id: merchantId }, data: { features: [...new Set(features)] } });
   return getMyMerchant(merchantId);
 }
 

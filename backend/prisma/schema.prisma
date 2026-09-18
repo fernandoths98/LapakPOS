@@ -139,6 +139,8 @@ model Merchant {
   trialEndsAt        DateTime? @map("trial_ends_at")
   /// The shop's own static QRIS image, shown to the customer when they pay by QRIS.
   qrisImageUrl       String?  @map("qris_image_url")
+  /// Optional feature groups switched on (FEATURE_KEYS in @lapak/shared). Empty = simple mode.
+  features           String[] @default([])
 
   users             User[]
   categories        Category[]

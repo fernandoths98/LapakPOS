@@ -32,6 +32,7 @@ import { Button } from "../../components/Button";
 import { PlanUpsell } from "../../components/PlanUpsell";
 import { isPlanLimitError } from "../../state/api/apiClient";
 import { colors, fonts, radius, shadow, space } from "../../theme/tokens";
+import { useFeature } from "../../state/api/merchant";
 import { useAskChat, useAskChatHistory, useDailyRecap, useRegenerateRecap, useWeeklyReports } from "../../state/api/recap";
 import { RecapStackParamList } from "../../app/stacks/RecapStack";
 
@@ -407,6 +408,7 @@ function ChatBubble({ role, text, muted }: { role: AiChatMessage["role"]; text: 
 
 function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "Ask") => void }) {
   const reportsQuery = useWeeklyReports();
+  const has = useFeature();
 
   if (reportsQuery.isLoading) {
     return <ActivityIndicator style={styles.loading} color={colors.accent} />;
@@ -488,6 +490,7 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
         <Text variant="caption" color={colors.neutral500} style={styles.marginNote}>Estimasi laba dihitung dari harga jual dikurangi harga modal yang tersimpan.</Text>
       </View>
 
+      {has("ai") ? (
       <View style={styles.assistantSection}>
         <Text variant="h3">Butuh bantuan membaca laporan?</Text>
         <Text variant="caption" color={colors.neutral600} style={styles.blockCaption}>AI hanya membaca data toko dan tidak dapat mengubah transaksi.</Text>
@@ -500,6 +503,7 @@ function ReportsTab({ onOpenAssistant }: { onOpenAssistant: (view: "Story" | "As
           </Pressable>
         </View>
       </View>
+      ) : null}
     </View>
   );
 }
