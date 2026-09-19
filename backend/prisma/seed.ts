@@ -43,8 +43,11 @@ async function main() {
 
   await prisma.subscription.upsert({
     where: { merchantId: merchant.id },
-    update: {},
-    create: { merchantId: merchant.id, planCode: "free", status: "active" },
+    // The seeded owner is a showcase account, so keep the demo features
+    // available after every re-seed. Real newly-registered merchants still
+    // follow the normal trial/free subscription flow.
+    update: { planCode: "starter", status: "active" },
+    create: { merchantId: merchant.id, planCode: "starter", status: "active" },
   });
 
   const ownerEmail = process.env.SEED_OWNER_EMAIL ?? "owner@lapak.test";

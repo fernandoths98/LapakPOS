@@ -132,10 +132,16 @@ export async function downloadImportTemplate(): Promise<void> {
  * file out to WhatsApp/email/Drive/their accountant, matching the
  * prototype's implied "take the ledger out for your accountant" use case.
  */
-export async function downloadAndShareExport(kind: CatalogExportKind, opts?: { month?: string }): Promise<void> {
-  const query = kind === "sales-ledger" && opts?.month ? `?month=${encodeURIComponent(opts.month)}` : "";
-  const fileName = kind === "sales-ledger" ? `sales-ledger-${opts?.month ?? "current-month"}.xlsx` : "stock-valuation.xlsx";
-  const what = kind === "sales-ledger" ? "Buku penjualan" : "Nilai stok";
+export async function downloadAndShareExport(
+  kind: CatalogExportKind,
+  opts?: { month?: string; outletId?: string },
+): Promise<void> {
+  const params: string[] = [];
+  if (kind === "sales-ledger" && opts?.month) params.push(`month=${encodeURIComponent(opts.month)}`);
+  if (opts?.outletId) params.push(`outletId=${encodeURIComponent(opts.outletId)}`);
+  const query = params.length > 0 ? `?${params.join("&")}` : "";
+  const fileName = kind === "sales-ledger" ? `sales-ledger-${opts?.month ?? "current-month"}.xlsx` : "katalog-produk.xlsx";
+  const what = kind === "sales-ledger" ? "Buku penjualan" : "Katalog produk";
   const path = await downloadXlsxToCache(`${API_BASE_URL}${EXPORT_PATHS[kind]}${query}`, fileName, what);
   await shareXlsx(path, fileName);
 }

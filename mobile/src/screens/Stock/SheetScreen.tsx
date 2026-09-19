@@ -13,6 +13,7 @@ import { Divider } from "../../components/Divider";
 import { colors, radius, space } from "../../theme/tokens";
 import { downloadAndShareExport, downloadImportTemplate, useImportCommit, useImportPreview } from "../../state/api/catalogIo";
 import { StockStackParamList } from "../../app/stacks/StockStack";
+import { getActiveOutletId } from "../../state/outlet/outletStore";
 
 const FIELD_LABELS: Record<ImportPreviewResponse["mapping"][number]["field"], string> = {
   name: "Nama barang",
@@ -34,7 +35,7 @@ const IMPORT_STEPS = [
 
 const EXPORTS: { key: "sales-ledger" | "stock-valuation"; name: string; sub: string }[] = [
   { key: "sales-ledger", name: "Buku penjualan", sub: "Per transaksi, bulan ini" },
-  { key: "stock-valuation", name: "Stok & nilai barang", sub: "Semua produk dengan modal & margin" },
+  { key: "stock-valuation", name: "Katalog produk & stok", sub: "Edit di spreadsheet, lalu impor kembali" },
 ];
 
 /** Reads a picked spreadsheet file into {headers, rows} for the preview API — client-side parsing via SheetJS. */
@@ -60,16 +61,25 @@ async function parsePickedFile(uri: string, name: string): Promise<{ headers: st
   // literal header text, matching what the backend's alias matcher expects.
   const aoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false, defval: "" });
   const headerRow = (aoa[0] ?? []) as unknown[];
-  const headers = headerRow.map((h) => String(h ?? "").trim()).filter((h) => h.length > 0);
+  const headersByColumn = headerRow.map((h) => String(h ?? "").trim());
+  const headers = headersByColumn.filter((h) => h.length > 0);
   if (headers.length === 0) {
     throw new Error("Baris judul kolom tidak ditemukan.");
+  }
+  const normalizedHeaders = headers.map((header) => header.toUpperCase().replace(/\s+/g, " "));
+  if (new Set(normalizedHeaders).size !== normalizedHeaders.length) {
+    throw new Error("Ada judul kolom yang sama. Ubah atau hapus salah satunya lalu coba lagi.");
   }
 
   const rows = (aoa.slice(1) as unknown[][])
     .filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""))
     .map((row) => {
       const record: Record<string, string> = {};
-      headers.forEach((header, idx) => {
+      // Keep each header tied to its original column index. Filtering empty
+      // headings before this step would shift every value after a blank
+      // column into the wrong field.
+      headersByColumn.forEach((header, idx) => {
+        if (!header) return;
         record[header] = String(row[idx] ?? "").trim();
       });
       return record;
@@ -153,7 +163,7 @@ export function SheetScreen() {
     setExportError(null);
     setExportingKey(key);
     try {
-      await downloadAndShareExport(key);
+      await downloadAndShareExport(key, { outletId: getActiveOutletId() ?? undefined });
     } catch (err) {
       setExportError(
         err instanceof Error && err.message
