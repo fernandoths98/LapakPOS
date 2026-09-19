@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler";
 import { requireAuth } from "../../middleware/auth";
+import { resolveOutlet } from "../../middleware/outlet";
 import {
   commitImportHandler,
   exportImportTemplateHandler,
@@ -11,7 +12,7 @@ import {
 
 export const catalogIoRouter = Router();
 catalogIoRouter.get("/import/template", requireAuth, asyncHandler(exportImportTemplateHandler));
-catalogIoRouter.post("/import/preview", requireAuth, asyncHandler(previewImportHandler));
-catalogIoRouter.post("/import/commit", requireAuth, asyncHandler(commitImportHandler));
-catalogIoRouter.get("/export/sales-ledger", requireAuth, asyncHandler(exportSalesLedgerHandler));
-catalogIoRouter.get("/export/stock-valuation", requireAuth, asyncHandler(exportStockValuationHandler));
+catalogIoRouter.post("/import/preview", requireAuth, resolveOutlet, asyncHandler(previewImportHandler));
+catalogIoRouter.post("/import/commit", requireAuth, resolveOutlet, asyncHandler(commitImportHandler));
+catalogIoRouter.get("/export/sales-ledger", requireAuth, resolveOutlet, asyncHandler(exportSalesLedgerHandler));
+catalogIoRouter.get("/export/stock-valuation", requireAuth, resolveOutlet, asyncHandler(exportStockValuationHandler));

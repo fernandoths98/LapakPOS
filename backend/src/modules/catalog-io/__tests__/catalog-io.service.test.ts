@@ -90,10 +90,9 @@ describe("catalog-io.service", () => {
       // 1 zero-price row + 2 duplicate-barcode rows = 3 flagged, 2 importable
       expect(result.flaggedRowCount).toBe(3);
       expect(result.importableRowCount).toBe(2);
-      expect(result.flaggedReasons).toHaveLength(1);
-      expect(result.flaggedReasons[0]).toMatch(/1 baris harganya kosong, nol, atau bukan angka/);
-      expect(result.flaggedReasons[0]).toMatch(/2 baris punya KODE yang sama/);
-      expect(result.flaggedReasons[0]).toMatch(/ditahan dulu untuk dicek/);
+      expect(result.flaggedReasons.join(" ")).toMatch(/1 baris harga jualnya kosong, nol, negatif, atau bukan angka/);
+      expect(result.flaggedReasons.join(" ")).toMatch(/2 baris punya KODE yang sama/);
+      expect(result.flaggedReasons.every((reason) => reason.includes("ditahan dulu untuk dicek"))).toBe(true);
     });
 
     it("maps an unrecognized column to 'ignored'", async () => {
@@ -141,6 +140,24 @@ describe("catalog-io.service", () => {
       await expect(
         catalogIoService.previewImport(TEST_MERCHANT_ID, { fileName: "empty.xlsx", headers: ["NAMA BARANG"], rows: [] }),
       ).rejects.toThrow(AppError);
+    });
+
+    it("holds back missing names and invalid or negative optional numbers", async () => {
+      const result = await catalogIoService.previewImport(TEST_MERCHANT_ID, {
+        fileName: "invalid-values.xlsx",
+        headers: ["NAMA BARANG", "HRG JUAL", "HRG BELI", "QTY", "KODE"],
+        rows: [
+          { "NAMA BARANG": "", "HRG JUAL": "5.000", "HRG BELI": "3.000", QTY: "10", KODE: "A-1" },
+          { "NAMA BARANG": "Harga rusak", "HRG JUAL": "5.000", "HRG BELI": "abc", QTY: "10", KODE: "A-2" },
+          { "NAMA BARANG": "Stok minus", "HRG JUAL": "5.000", "HRG BELI": "3.000", QTY: "-2", KODE: "A-3" },
+        ],
+      });
+
+      expect(result.flaggedRowCount).toBe(3);
+      expect(result.importableRowCount).toBe(0);
+      expect(result.mapping.find((m) => m.field === "name")?.needsReview).toBe(true);
+      expect(result.mapping.find((m) => m.field === "costPrice")?.needsReview).toBe(true);
+      expect(result.mapping.find((m) => m.field === "stockQty")?.needsReview).toBe(true);
     });
   });
 
@@ -268,14 +285,18 @@ describe("catalog-io.service", () => {
       }
 
       const { workbook } = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID);
-      const sheet = workbook.getWorksheet("Stock & valuation");
+      const sheet = workbook.getWorksheet("Produk");
       expect(sheet).toBeDefined();
       // header row + 2 data rows
       expect(sheet!.rowCount).toBe(3);
+      expect(sheet!.getRow(1).values).toEqual(
+        expect.arrayContaining(["NAMA BARANG", "HRG JUAL", "HRG BELI", "QTY", "KODE", "KATEGORI"]),
+      );
 
       const beras = sheet!.getRow(2);
       expect(beras.getCell(1).value).toBe("Beras 5kg");
-      expect(beras.getCell(7).value).toBe(58000 * 10); // stock value
+      expect(beras.getCell(7).value).toEqual({ formula: "C2*D2", result: 58000 * 10 });
+      expect(workbook.getWorksheet("Petunjuk")).toBeDefined();
     });
 
     it("scopes a stock valuation workbook to one outlet's own stock and effective price", async () => {
@@ -297,14 +318,14 @@ describe("catalog-io.service", () => {
       });
 
       const scoped = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID, OTHER_OUTLET_ID);
-      const scopedSheet = scoped.workbook.getWorksheet("Stock & valuation")!;
+      const scopedSheet = scoped.workbook.getWorksheet("Produk")!;
       expect(scoped.outlet?.code).toBe("UTAMA");
       expect(scopedSheet.rowCount).toBe(2); // header + Beras only
       expect(scopedSheet.getRow(2).getCell(4).value).toBe(10); // that outlet's stock
-      expect(scopedSheet.getRow(2).getCell(6).value).toBe(70000); // priceOverride wins
+      expect(scopedSheet.getRow(2).getCell(2).value).toBe(70000); // priceOverride wins
 
       const emptyOutlet = await catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID, second.id);
-      expect(emptyOutlet.workbook.getWorksheet("Stock & valuation")!.rowCount).toBe(1); // header only
+      expect(emptyOutlet.workbook.getWorksheet("Produk")!.rowCount).toBe(1); // header only
 
       await expect(
         catalogIoService.buildStockValuationWorkbook(OTHER_MERCHANT_ID, "00000000-0000-0000-0000-0000000009ff"),
